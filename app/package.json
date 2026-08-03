@@ -10,6 +10,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "check:r2": "tsx --env-file=.env scripts/check-r2.ts",
+    "check:site": "tsx scripts/check-site.ts",
     "setup": "prisma db push && npm run db:seed"
   },
   "prisma": {

@@ -22,3 +22,6 @@ app/node_modules/.prisma/
 Thumbs.db
 .DS_Store
 *.swp
+
+# Static review snapshots — generated, not source
+snarebyt-review/
