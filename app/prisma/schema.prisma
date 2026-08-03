@@ -1,0 +1,956 @@
+// ============================================================
+//  SnareByt — database schema
+//  PostgreSQL + Prisma
+//
+//  MONEY RULE: every amount is an Int of BDT poisha? No —
+//  every amount is an Int of whole BDT. USD is display-only,
+//  calculated from Setting.usdRate at render time. Never store
+//  a second currency column: the two will drift and customers
+//  will be charged the wrong figure.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+//  PEOPLE
+// ------------------------------------------------------------
+
+enum Role {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String?
+  artistName    String?
+  phone         String?
+  country       String?
+  role          Role      @default(CUSTOMER)
+
+  // account protection
+  twoFactorEnabled Boolean @default(false)
+  totpSecret       String?   // base32, encrypted at rest in production
+  failedLogins  Int       @default(0)
+  lockedUntil   DateTime?
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+
+  orders        Order[]
+  projects      Project[]
+  favourites    Favourite[]
+  downloads     DownloadLog[]
+  messages      ProjectMessage[]
+  reviews       Testimonial[]
+  sessions      Session[]
+  tokens        Token[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum TokenKind {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+  DOWNLOAD_GRANT
+}
+
+model Token {
+  id        String    @id @default(cuid())
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      TokenKind
+  hash      String    @unique // store the hash, never the raw token
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([kind, expiresAt])
+}
+
+// ------------------------------------------------------------
+//  BEATS + LICENSING
+// ------------------------------------------------------------
+
+enum BeatStatus {
+  DRAFT
+  PUBLISHED
+  SOLD_EXCLUSIVE // exclusive sold: hidden from purchase, kept for the buyer's records
+  ARCHIVED
+}
+
+model Beat {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String
+  producer    String     @default("SnareByt")
+  genre       String
+  mood        String
+  bpm         Int
+  musicalKey  String
+  tags        String[]
+  description String?
+
+  basePriceBdt Int       // licence prices are derived from this via LicenceTier.multiplier
+  status       BeatStatus @default(DRAFT)
+  exclusiveAvailable Boolean @default(true)
+
+  coverKey     String?   // R2 object key — public bucket
+  previewKey   String?   // TAGGED mp3 — public bucket, safe to stream
+  waveformJson Json?     // pre-computed peaks so the store never decodes audio client-side
+
+  assets       BeatAsset[]   // private deliverables
+  orderItems   OrderItem[]
+  favourites   Favourite[]
+
+  playCount    Int       @default(0)
+  purchaseCount Int      @default(0)
+
+  publishedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([genre, mood])
+  @@index([bpm])
+}
+
+enum AssetKind {
+  MP3_UNTAGGED
+  WAV
+  STEMS_ZIP
+  SESSION_NOTES
+}
+
+/// Private files. These NEVER live in a public bucket and are
+/// never served by a static URL — only through a signed, expiring,
+/// attempt-limited download route.
+model BeatAsset {
+  id        String    @id @default(cuid())
+  beatId    String
+  beat      Beat      @relation(fields: [beatId], references: [id], onDelete: Cascade)
+  kind      AssetKind
+  objectKey String              // key in the PRIVATE bucket
+  bytes     BigInt
+  checksum  String?
+  createdAt DateTime  @default(now())
+
+  @@unique([beatId, kind])
+}
+
+/// The five tiers. Editable in admin so terms can be revised
+/// without a deploy — but revisions must never alter licences
+/// already issued, which is why LicenceDocument snapshots terms.
+model LicenceTier {
+  id          String  @id @default(cuid())
+  code        String  @unique // mp3 | wav | stems | unlim | excl
+  name        String
+  multiplier  Float               // basePriceBdt × multiplier, rounded
+  sortOrder   Int
+  filesLabel  String
+  includedAssets AssetKind[]
+
+  streamLimit     Int?    // null = unlimited
+  saleLimit       Int?
+  videoLimit      Int?
+  performanceRights String
+  radioStations   Int?    // null = unlimited
+  monetisation    Boolean @default(true)
+  creditRequired  Boolean @default(true)
+  transfersOwnership Boolean @default(false)
+  isExclusive     Boolean @default(false)
+
+  /// Bilingual by requirement: buyers in Bangladesh read the Bangla,
+  /// international buyers read the English, and BOTH are printed into
+  /// the licence PDF so there is no ambiguity about what was agreed.
+  termsMarkdown   String  // English
+  termsMarkdownBn String  // Bangla — বাংলা
+  nameBn          String
+  filesLabelBn    String
+  active          Boolean @default(true)
+
+  orderItems      OrderItem[]
+
+  @@index([sortOrder])
+}
+
+model Favourite {
+  userId   String
+  beatId   String
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  beat     Beat @relation(fields: [beatId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, beatId])
+}
+
+// ------------------------------------------------------------
+//  SERVICES
+// ------------------------------------------------------------
+
+model Service {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  tagline      String
+  icon         String?
+  audience     String   // "who this is for"
+  included     String[]
+  required     String[]
+  deliveryDays String
+  revisions    String
+  faqJson      Json?
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0)
+
+  tiers        ServiceTier[]
+  addons       ServiceAddon[]
+  projects     Project[]
+  portfolio    PortfolioItem[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ServiceTier {
+  id          String  @id @default(cuid())
+  serviceId   String
+  service     Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  name        String  // Basic | Professional | Premium
+  priceBdt    Int
+  description   String  // English
+  descriptionBn String  // Bangla — shown under the English on the package card
+  recommended Boolean @default(false)
+  sortOrder   Int     @default(0)
+
+  orderItems  OrderItem[]
+  projects    Project[]
+}
+
+model ServiceAddon {
+  id        String  @id @default(cuid())
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  name      String  // e.g. "Rush delivery (48h)"
+  priceBdt  Int
+  active    Boolean @default(true)
+}
+
+// ------------------------------------------------------------
+//  ORDERS + PAYMENT
+// ------------------------------------------------------------
+
+enum OrderStatus {
+  CART
+  PENDING_PAYMENT
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  number        String      @unique // human-facing, e.g. SB-2026-000481
+  userId        String?
+  user          User?       @relation(fields: [userId], references: [id])
+  guestEmail    String?     // guest checkout
+  guestName     String?
+
+  status        OrderStatus @default(CART)
+
+  subtotalBdt   Int
+  discountBdt   Int         @default(0)
+  totalBdt      Int
+  displayCurrency String    @default("BDT") // what the buyer SAW; charge is always BDT
+  usdRateAtSale Float?      // frozen for the receipt
+
+  discountCodeId String?
+  discountCode   DiscountCode? @relation(fields: [discountCodeId], references: [id])
+
+  billingName   String?
+  billingEmail  String
+  billingPhone  String?
+  billingAddress String?
+  billingCountry String?
+
+  termsAcceptedAt   DateTime?
+  privacyAcceptedAt DateTime?
+
+  items         OrderItem[]
+  payments      Payment[]
+  licences      LicenceDocument[]
+  projects      Project[]
+  downloads     DownloadLog[]
+  refunds       Refund[]
+
+  ip            String?
+  userAgent     String?
+  paidAt        DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([status, createdAt])
+  @@index([billingEmail])
+}
+
+enum ItemKind {
+  BEAT_LICENCE
+  SERVICE_PACKAGE
+  ADDON
+}
+
+model OrderItem {
+  id            String   @id @default(cuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind          ItemKind
+
+  beatId        String?
+  beat          Beat?    @relation(fields: [beatId], references: [id])
+  licenceTierId String?
+  licenceTier   LicenceTier? @relation(fields: [licenceTierId], references: [id])
+
+  serviceTierId String?
+  serviceTier   ServiceTier? @relation(fields: [serviceTierId], references: [id])
+
+  titleSnapshot String   // what the buyer saw, frozen
+  priceBdt      Int      // frozen at add-to-cart
+  quantity      Int      @default(1)
+
+  licence       LicenceDocument?
+
+  @@index([orderId])
+  // one beat can only be bought once per tier per order
+  @@unique([orderId, beatId, licenceTierId])
+}
+
+enum PaymentStatus {
+  INITIATED
+  VALIDATED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+/// One row per SSLCOMMERZ attempt. Immutable audit trail —
+/// never overwrite, always append a new attempt.
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id])
+  gateway       String        @default("SSLCOMMERZ")
+  environment   String        // sandbox | live
+
+  tranId        String        @unique // our generated ID, sent to the gateway
+  valId         String?       @unique // returned by the gateway; the duplicate guard
+  bankTranId    String?
+  cardType      String?       // VISA | bKash | Nagad | Rocket | ...
+
+  amountBdt     Int           // what WE expect
+  gatewayAmount String?       // what the gateway reported — compared before trusting
+  gatewayCurrency String?
+  status        PaymentStatus @default(INITIATED)
+
+  validatedAt   DateTime?
+  ipnRawJson    Json?         // full callback body, kept for disputes
+  validationRawJson Json?     // full Transaction Validation API response
+  failureReason String?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([orderId, status])
+}
+
+model Refund {
+  id           String   @id @default(cuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id])
+  amountBdt    Int
+  reason       String
+  gatewayRefId String?
+  issuedBy     String   // admin user id
+  createdAt    DateTime @default(now())
+}
+
+model DiscountCode {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  percentOff   Int?
+  amountOffBdt Int?
+  minSpendBdt  Int?
+  maxUses      Int?
+  usedCount    Int       @default(0)
+  perUserLimit Int?      @default(1)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  active       Boolean   @default(true)
+  orders       Order[]
+  createdAt    DateTime  @default(now())
+}
+
+// ------------------------------------------------------------
+//  LICENCE DOCUMENTS + SECURE DELIVERY
+// ------------------------------------------------------------
+
+/// The generated PDF. Terms are SNAPSHOT here, not referenced —
+/// if you later revise a tier's wording, every licence already
+/// issued keeps the wording the customer actually agreed to.
+model LicenceDocument {
+  id             String   @id @default(cuid())
+  number         String   @unique // SB-LIC-2026-000912
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id])
+  orderItemId    String   @unique
+  orderItem      OrderItem @relation(fields: [orderItemId], references: [id])
+
+  licenseeName   String
+  licenseeEmail  String
+  beatTitle      String
+  tierName       String
+  purchasedAt    DateTime
+  termsSnapshot  String   // full terms text as issued
+  pdfObjectKey   String   // PRIVATE bucket
+  signatureHash  String   // tamper check
+
+  createdAt      DateTime @default(now())
+}
+
+/// Signed download grants. A grant is issued per order item and
+/// consumed by the download route, which checks: valid grant,
+/// not expired, attempts remaining, and order is PAID.
+model DownloadGrant {
+  id           String   @id @default(cuid())
+  orderItemId  String
+  tokenHash    String   @unique
+  maxAttempts  Int      @default(5)
+  attempts     Int      @default(0)
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([orderItemId])
+}
+
+model DownloadLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id])
+  objectKey   String
+  ip          String?
+  userAgent   String?
+  success     Boolean  @default(true)
+  reason      String?  // why it was refused, if it was
+  createdAt   DateTime @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+// ------------------------------------------------------------
+//  SERVICE PROJECTS (custom order workflow)
+// ------------------------------------------------------------
+
+enum ProjectStatus {
+  ORDER_RECEIVED
+  PAYMENT_CONFIRMED
+  FILES_RECEIVED
+  IN_PROGRESS
+  FIRST_PREVIEW_READY
+  REVISION_REQUESTED
+  FINALISING
+  COMPLETED
+  DELIVERED
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  number        String        @unique // PRJ-2026-000137
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id])
+  orderId       String?
+  order         Order?        @relation(fields: [orderId], references: [id])
+
+  serviceId     String
+  service       Service       @relation(fields: [serviceId], references: [id])
+  serviceTierId String?
+  serviceTier   ServiceTier?  @relation(fields: [serviceTierId], references: [id])
+
+  status        ProjectStatus @default(ORDER_RECEIVED)
+
+  // brief
+  contactName   String
+  artistName    String?
+  email         String
+  phone         String?
+  country       String?
+  projectTitle  String?
+  genre         String?
+  referenceLinks String[]
+  description   String
+  desiredStyle  String?
+  deadline      DateTime?
+  budgetBdt     Int?
+  formatsWanted String?
+  socialLinks   String[]
+  notes         String?
+
+  revisionsUsed Int           @default(0)
+  revisionsAllowed Int        @default(3)
+
+  files         ProjectFile[]
+  messages      ProjectMessage[]
+  events        ProjectEvent[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+enum FileOwner {
+  CUSTOMER
+  STUDIO
+}
+
+model ProjectFile {
+  id         String    @id @default(cuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy FileOwner
+  label      String?   // "Preview v1", "Final master"
+  filename   String
+  objectKey  String    // PRIVATE bucket, foldered by project number
+  mime       String
+  bytes      BigInt
+  scanned    Boolean   @default(false)
+  scanResult String?   // clean | infected | error
+  isDeliverable Boolean @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@index([projectId])
+}
+
+model ProjectMessage {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id])
+  fromStudio Boolean @default(false)
+  body      String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model ProjectEvent {
+  id        String        @id @default(cuid())
+  projectId String
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status    ProjectStatus
+  note      String?
+  actorId   String?
+  createdAt DateTime      @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+// ------------------------------------------------------------
+//  CONTENT
+// ------------------------------------------------------------
+
+enum ReleaseType {
+  SINGLE
+  EP
+  ALBUM
+  BEAT_TAPE
+  COLLABORATION
+}
+
+model Release {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  title       String
+  type        ReleaseType
+  trackCount  Int?        // e.g. WRONG TAPE = 22
+  releasedAt  DateTime
+  about       String?
+  credits     String?
+  coverKey    String?
+
+  /// Paste a Spotify URL in admin; the server extracts the ID and type
+  /// and the page renders a live Spotify player. Real audio and real
+  /// cover art come from Spotify, so no artwork file needs uploading.
+  spotifyUrl    String?
+  spotifyEmbedType String?  // album | track
+  spotifyEmbedId   String?
+  appleMusicUrl String?
+  youtubeUrl    String?
+  soundcloudUrl String?
+  videoUrl      String?
+
+  tracks      Track[]
+
+  /// live = shown on the public site. Default OFF so nothing appears
+  /// until Samir switches it on. Covers the "only currently live
+  /// releases" rule — taken-down or unreleased projects stay hidden.
+  live        Boolean     @default(false)
+  /// featured = pinned into the homepage "Featured tracks" strip
+  /// (Chondo Giti, Street e Tor, Flex Maar, Kobiraz).
+  featured    Boolean     @default(false)
+  assetsPending Boolean   @default(false) // shows "Artwork pending" instead of a fake cover
+
+  published   Boolean     @default(false)
+  sortOrder   Int         @default(0)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Track {
+  id           String  @id @default(cuid())
+  releaseId    String
+  release      Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  trackNo      Int
+  title        String
+  durationSec  Int
+  lyrics       String?
+  credits      String?
+  previewKey   String? // public bucket
+  spotifyEmbedId String?  // per-track embed for singles
+  isrc         String?
+
+  @@unique([releaseId, trackNo])
+}
+
+enum PortfolioCategory {
+  PRODUCED_BY_SNAREBYT
+  MIXED_AND_MASTERED_BY_SNAREBYT
+  SNAREBYT_RELEASES
+  SELECTED_VISUAL_WORK
+}
+
+/// Role is a required field on purpose. A card can never render
+/// without stating exactly what SnareByt did on the record.
+model PortfolioItem {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  category    PortfolioCategory
+  role        String   // "Producer" | "Mix & master" | "Mix" | "Producer · Mix · Master"
+  externalUrl String?  // YouTube / Spotify / official link
+  ctaLabel    String?  // "Listen" | "Watch" | "Read"
+  majorCredit Boolean  @default(false)
+  clientName  String?
+  serviceId   String?
+  service     Service? @relation(fields: [serviceId], references: [id])
+  summary     String
+  credits     String?
+  thumbKey    String?
+  videoUrl    String?
+  audioBeforeKey String?
+  audioAfterKey  String?
+  published   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([category, published, sortOrder])
+}
+
+model Testimonial {
+  id         String   @id @default(cuid())
+  authorId   String?
+  author     User?    @relation(fields: [authorId], references: [id])
+  name       String
+  role       String?
+  quote      String
+  rating     Int      @default(5)
+  approved   Boolean  @default(false) // admin moderates before it appears
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  excerpt     String
+  bodyMarkdown String
+  category    String
+  tags        String[]
+  heroKey     String?
+  metaTitle   String?
+  metaDescription String?
+  ogImageKey  String?
+  published   Boolean  @default(false)
+  publishedAt DateTime?
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([published, publishedAt])
+  @@index([category])
+}
+
+model LegalPage {
+  id            String   @id @default(cuid())
+  slug          String   @unique // terms | privacy | refunds | beat-licensing | ...
+  title         String
+  bodyMarkdown  String
+  lawyerReviewNeeded Boolean @default(true)
+  version       String   @default("1.0")
+  effectiveFrom DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ------------------------------------------------------------
+//  SITE CONTENT (CMS)
+//
+//  Everything visible on the public site is a row here, so Samir
+//  can change any headline, paragraph, button, link, image or
+//  section order from the dashboard without touching code.
+//
+//  Field VALUES are stored as JSON against a section, and the
+//  field SPEC (label, type, hint) lives in code. That combination
+//  gives a typed editing UI without a migration every time a
+//  paragraph is added.
+// ------------------------------------------------------------
+
+model Page {
+  id        String   @id @default(cuid())
+  slug      String   @unique   // home | music | beats | services | portfolio | about | contact
+  label     String
+  sortOrder Int      @default(0)
+
+  // SEO, editable per page
+  seoTitle       String?
+  seoDescription String?
+  ogImageId      String?
+  ogImage        MediaAsset? @relation(fields: [ogImageId], references: [id])
+
+  sections  PageSection[]
+  updatedAt DateTime @updatedAt
+}
+
+model PageSection {
+  id        String  @id @default(cuid())
+  pageId    String
+  page      Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  key       String  // hero | intro | credits — matches the field spec in code
+  name      String  // human label shown in the editor
+  about     String? // one-line explanation shown under the name
+
+  /// Field values keyed by the spec in src/lib/content-spec.ts.
+  /// Media fields store a MediaAsset id, never a URL, so replacing a
+  /// file updates every place it is used.
+  values    Json    @default("{}")
+
+  /// Off = the section is not rendered at all. This is how a whole
+  /// block is removed from the site without deleting its content.
+  visible   Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([pageId, key])
+  @@index([pageId, sortOrder])
+}
+
+enum MediaKind {
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+}
+
+/// One library for every image and audio file used on the site.
+/// Upload once, reuse anywhere; replacing the file updates every
+/// page that references it.
+model MediaAsset {
+  id        String    @id @default(cuid())
+  kind      MediaKind
+  filename  String
+  objectKey String    @unique   // key in the PUBLIC bucket
+  mime      String
+  bytes     BigInt
+  width     Int?
+  height    Int?
+  durationSec Int?
+
+  /// Required for accessibility and image search. The admin flags
+  /// anything without it rather than silently shipping empty alt.
+  alt       String    @default("")
+  credit    String?
+
+  pages     Page[]
+  createdAt DateTime  @default(now())
+
+  @@index([kind, createdAt])
+}
+
+/// Brand tokens. Colour, radius, motion and typeface are data, not
+/// CSS constants, so the look can be tuned from the dashboard.
+model ThemeToken {
+  key       String   @id  // red | ink | text | radius | motion | grain | displayFont
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+enum NavGroup {
+  MENU
+  SOCIAL
+  FOOTER
+}
+
+model NavItem {
+  id        String   @id @default(cuid())
+  group     NavGroup
+  label     String
+  href      String
+  sortOrder Int      @default(0)
+  /// A link with an empty href is force-hidden, so an unfinished
+  /// profile can never render as a dead icon.
+  visible   Boolean  @default(true)
+
+  @@index([group, sortOrder])
+}
+
+/// Snapshot of all site content before a risky edit. Restoring
+/// touches content only — never beats, orders, projects or customers.
+model ContentRevision {
+  id        String   @id @default(cuid())
+  actorId   String?
+  summary   String
+  snapshot  Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ------------------------------------------------------------
+//  MARKETING + OPS
+// ------------------------------------------------------------
+
+model Subscriber {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  confirmedAt  DateTime? // double opt-in — do not send campaigns before this is set
+  source       String?   // home_hero | checkout | blog
+  unsubscribedAt DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  key       String   @unique // welcome | order_confirmation | beat_delivery | ...
+  subject   String
+  bodyHtml  String
+  bodyText  String
+  active    Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+model EmailLog {
+  id         String   @id @default(cuid())
+  to         String
+  templateKey String
+  subject    String
+  providerId String?
+  status     String   // queued | sent | delivered | bounced | failed
+  error      String?
+  orderId    String?
+  projectId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([to, createdAt])
+  @@index([status])
+}
+
+model AbandonedCart {
+  id         String    @id @default(cuid())
+  email      String
+  itemsJson  Json
+  totalBdt   Int
+  remindedAt DateTime?
+  recoveredAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email])
+}
+
+/// Single-row-per-key settings, editable in admin. Includes
+/// usdRate so the display currency can be updated without a deploy.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String   // beat.update | order.refund | licence.reissue
+  entity    String
+  entityId  String
+  diffJson  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorId, createdAt])
+}
+
+model RateLimit {
+  id        String   @id @default(cuid())
+  bucket    String   // "login:ip:1.2.3.4" | "contact:email:x@y.com"
+  count     Int      @default(1)
+  expiresAt DateTime
+
+  @@unique([bucket])
+  @@index([expiresAt])
+}
+
+model ErrorLog {
+  id        String   @id @default(cuid())
+  level     String   // warn | error | fatal
+  message   String
+  stack     String?
+  contextJson Json?
+  createdAt DateTime @default(now())
+
+  @@index([level, createdAt])
+}

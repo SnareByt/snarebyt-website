@@ -1,0 +1,24 @@
+# Secrets — never commit. This is the keys to the business.
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Prisma generated client
+app/node_modules/.prisma/
+
+# Vercel
+.vercel
+
+# OS / editor
+Thumbs.db
+.DS_Store
+*.swp
