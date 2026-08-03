@@ -74,6 +74,9 @@ export default async function BeatsPage() {
     seed: seedFrom(b.slug),
     purchaseCount: b.purchaseCount,
     publishedAt: b.publishedAt ? b.publishedAt.toISOString() : null,
+    // previewKey is the TAGGED mp3 in the PUBLIC bucket. The untagged master,
+    // WAV and stems live in the private bucket and never get a URL here.
+    previewUrl: b.previewKey ? `${process.env.R2_PUBLIC_BASE_URL}/${b.previewKey}` : null,
   }));
 
   // Sample prices in the licensing section are quoted against a reference

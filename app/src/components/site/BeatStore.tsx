@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { coverCss } from '@/lib/cover-art';
 import { Price } from './Currency';
+import { PlayButton, usePlayer, type Track } from './Player';
 
 export type LicenceView = {
   id: string;
@@ -33,6 +34,8 @@ export type BeatView = {
   seed: number;
   purchaseCount: number;
   publishedAt: string | null;
+  /** Public URL of the TAGGED preview. Null until the file is uploaded. */
+  previewUrl: string | null;
 };
 
 /** Licence price = base × multiplier, rounded to ৳50. Mirrors licencePrice(). */
@@ -73,6 +76,22 @@ export function BeatStore({ beats, licences }: { beats: BeatView[]; licences: Li
 
   const activeCount =
     (f.q ? 1 : 0) + (f.genre ? 1 : 0) + (f.mood ? 1 : 0) + (f.key ? 1 : 0) + (f.bpm ? 1 : 0);
+
+  // The queue follows the visible, filtered list, so "next" plays the next
+  // beat the visitor can actually see rather than something they filtered out.
+  const tracks: Track[] = useMemo(
+    () => shown.map((b) => ({
+      id: b.id,
+      title: b.title,
+      subtitle: `Prod. SnareByt · ${b.bpm} BPM${b.musicalKey ? ` · ${b.musicalKey}` : ''}`,
+      src: b.previewUrl,
+      coverUrl: b.coverUrl,
+      seed: b.seed,
+    })),
+    [shown],
+  );
+
+  const { isCurrent } = usePlayer();
 
   useEffect(() => {
     if (!open) return;
@@ -143,12 +162,12 @@ export function BeatStore({ beats, licences }: { beats: BeatView[]; licences: Li
       </div>
 
       <div className="beats-grid">
-        {shown.map((b) => {
+        {shown.map((b, i) => {
           const cheapest = licences.length
             ? licences.reduce((a, c) => (c.multiplier < a.multiplier ? c : a))
             : null;
           return (
-            <article className="card beat" key={b.id}>
+            <article className={isCurrent(b.id) ? 'card beat playing' : 'card beat'} key={b.id}>
               <div className="beat-art" style={b.coverUrl ? undefined : { background: coverCss(b.seed) }}>
                 {b.coverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -160,6 +179,9 @@ export function BeatStore({ beats, licences }: { beats: BeatView[]; licences: Li
                 ) : b.exclusiveAvailable ? (
                   <span className="badge excl">Exclusive available</span>
                 ) : null}
+                {/* A sold exclusive gets no preview. It is off the market, and
+                    streaming it would advertise something nobody can buy. */}
+                {b.soldExclusive ? null : <PlayButton queue={tracks} index={i} label={b.title} />}
               </div>
               <div>
                 <div className="beat-title"><span>{b.title}</span></div>

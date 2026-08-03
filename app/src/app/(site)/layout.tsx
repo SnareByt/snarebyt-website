@@ -1,6 +1,7 @@
 import { SiteHeader, type NavLink } from '@/components/site/SiteHeader';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { CurrencyProvider } from '@/components/site/Currency';
+import { PlayerProvider } from '@/components/site/Player';
 import { getNav, getTheme, themeStyle } from '@/lib/content';
 import { getUsdRate } from '@/lib/money';
 
@@ -27,9 +28,11 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             Design screen can switch it off entirely. */}
         {theme.grain ? <div className="grain" aria-hidden="true" /> : null}
 
-        <SiteHeader links={links} />
-        <main>{children}</main>
-        <SiteFooter />
+        <PlayerProvider>
+          <SiteHeader links={links} />
+          <main>{children}</main>
+          <SiteFooter />
+        </PlayerProvider>
       </div>
     </CurrencyProvider>
   );

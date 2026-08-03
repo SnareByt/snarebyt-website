@@ -122,6 +122,141 @@ export function Marquee({ items }: { items: string[] }) {
   );
 }
 
+/* ----------------------------------------------------- Release-driven blocks */
+
+export type ReleaseLite = {
+  id: string;
+  title: string;
+  type: string;
+  year: string;
+  about: string | null;
+  spotifyUrl: string | null;
+  spotifyEmbedType: string | null;
+  spotifyEmbedId: string | null;
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  ALBUM: 'Album', EP: 'EP', BEAT_TAPE: 'Beat tape',
+  SINGLE: 'Single', COLLABORATION: 'Collaboration',
+};
+
+/** Newest live release. Falls back to a cover-pending card, never fake art. */
+export function Latest({ v, release }: { v: Values; release: ReleaseLite | null }) {
+  if (!release) return null;
+  return (
+    <section className="blk">
+      <div className="wrap">
+        <div className="sec-head rv-l"><div className="eyebrow">{str(v, 'eyebrow')}</div></div>
+        <div className="card latest rv">
+          <div className="latest-art">
+            {release.spotifyEmbedId && release.spotifyEmbedType ? (
+              <iframe
+                title={`${release.title} on Spotify`}
+                src={`https://open.spotify.com/embed/${release.spotifyEmbedType}/${release.spotifyEmbedId}?utm_source=oembed`}
+                width="100%"
+                height={release.spotifyEmbedType === 'track' ? 152 : 352}
+                style={{ borderRadius: 14, border: 0, display: 'block' }}
+                allow="clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+              />
+            ) : (
+              <div className="rel-art"><span className="badge">Cover art pending</span></div>
+            )}
+          </div>
+          <div className="latest-body">
+            <h2 className="display">{release.title}</h2>
+            <div style={{ fontSize: '.68rem', letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--dim)', fontFamily: 'Archivo', fontWeight: 600 }}>
+              SnareByt · {TYPE_LABEL[release.type] ?? release.type} · {release.year}
+            </div>
+            <p className="lead" style={{ fontSize: '.92rem' }}>{str(v, 'body')}</p>
+            {release.spotifyUrl ? (
+              <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap' }}>
+                <a className="btn btn-red btn-sm" href={release.spotifyUrl} target="_blank" rel="noopener noreferrer">
+                  Open on Spotify ↗
+                </a>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Live singles as a numbered list. Rows link out where a verified URL exists. */
+export function Recent({ v, releases }: { v: Values; releases: ReleaseLite[] }) {
+  if (!releases.length) return null;
+  return (
+    <section className="blk" style={{ paddingTop: 0 }}>
+      <div className="wrap">
+        <div className="sec-head">
+          <div className="row">
+            <div className="rv-l">
+              <div className="eyebrow">{str(v, 'eyebrow')}</div>
+              <h2 className="display" style={{ marginTop: '1rem' }}>{str(v, 'h1')}</h2>
+            </div>
+            {str(v, 'link') ? <Link href="/music" className="link-arrow rv">{str(v, 'link')}</Link> : null}
+          </div>
+        </div>
+        <div className="track-list">
+          {releases.map((r, i) => {
+            const row = (
+              <>
+                <span className="no">{String(i + 1).padStart(2, '0')}</span>
+                <span className="nm2">
+                  {r.title}
+                  {r.about ? (
+                    <em style={{ fontStyle: 'normal', color: 'var(--dim)', fontSize: '.78rem' }}> · {r.about}</em>
+                  ) : null}
+                </span>
+                <span className="dur">{r.year}</span>
+              </>
+            );
+            return r.spotifyUrl ? (
+              <a className="trk" key={r.id} href={r.spotifyUrl} target="_blank" rel="noopener noreferrer">
+                {row}<span className="dur redtext" style={{ width: 20, textAlign: 'right' }}>↗</span>
+              </a>
+            ) : (
+              <div className="trk" key={r.id}>{row}<span className="dur" style={{ width: 20 }} /></div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Releases pinned as Featured, as live Spotify players. */
+export function Featured({ v, releases }: { v: Values; releases: ReleaseLite[] }) {
+  const playable = releases.filter((r) => r.spotifyEmbedId && r.spotifyEmbedType);
+  if (!playable.length) return null;
+  return (
+    <section className="blk" style={{ paddingTop: 0 }}>
+      <div className="wrap">
+        <div className="sec-head rv-l">
+          <div className="eyebrow">{str(v, 'eyebrow')}</div>
+          <h2 className="display" style={{ marginTop: '1rem' }}>{str(v, 'h1')}</h2>
+        </div>
+        <div className="sp-grid">
+          {playable.map((r) => (
+            <div className="rv" key={r.id}>
+              <iframe
+                title={`${r.title} on Spotify`}
+                src={`https://open.spotify.com/embed/${r.spotifyEmbedType}/${r.spotifyEmbedId}?utm_source=oembed`}
+                width="100%"
+                height={r.spotifyEmbedType === 'track' ? 152 : 352}
+                style={{ borderRadius: 14, border: 0, display: 'block' }}
+                allow="clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ------------------------------------------------------------------ Intro */
 
 export function Intro({ v }: { v: Values }) {
