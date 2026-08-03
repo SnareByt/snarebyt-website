@@ -109,6 +109,50 @@ no default admin password anywhere in this project.
 
 ---
 
+## 4b. Going up privately first (recommended)
+
+You do not need the domain to have a fully working live site. Deploy now, keep
+it private, attach `snarebyt.com` whenever you are ready. Nothing has to be
+rebuilt at that point.
+
+**Make it private.** Settings → Deployment Protection → **Vercel Authentication**,
+scope it to **all deployments**. Only someone logged into your Vercel account can
+open it. Free on every plan. (*Password Protection* — a shared password with no
+Vercel account needed — is the paid tier; you do not need it. To show one person,
+generate a temporary shareable link instead.)
+
+**Set these two while private:**
+
+| Variable | Value now |
+|---|---|
+| `APP_URL` | `https://your-project.vercel.app` |
+| `SITE_LIVE` | leave unset, or `false` |
+
+`SITE_LIVE` is the launch switch. While it is anything other than `true`,
+`robots.txt` disallows everything and the sitemap is empty, so the preview URL
+cannot reach a search index. `APP_URL` matters more than it looks: download
+grants are built as `${APP_URL}/download/…`, and it is the base for every
+canonical and share-card URL.
+
+### Switching the domain on
+
+1. Vercel → Settings → Domains → add `snarebyt.com`, follow the DNS instructions.
+2. Change `APP_URL` to `https://snarebyt.com`.
+3. Set `SITE_LIVE` to `true`.
+4. **Redeploy.** Environment variables are read at build and run time; changing
+   them without redeploying leaves the old values live.
+5. Turn Deployment Protection off.
+
+Do those in that order. Turning protection off before the domain is attached
+leaves the .vercel.app URL publicly crawlable for however long the gap is.
+
+**The .vercel.app URL keeps working forever.** That is why `robots.txt` disallows
+`/admin`, `/api/` and `/download/` even when live, and why every page carries a
+canonical URL built from `APP_URL` — so the real domain gets the credit and the
+two addresses never compete for the same content.
+
+---
+
 ## 5. Before you announce it
 
 1. Sign into `/admin` and **change the admin password**.
