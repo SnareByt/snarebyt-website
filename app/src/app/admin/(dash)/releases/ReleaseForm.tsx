@@ -99,8 +99,9 @@ export default function ReleaseForm({ mode, release }: { mode: 'create' | 'edit'
                       defaultValue={release?.trackCount ?? 1} />
                   </div>
                   <div className={`fg ${errors.releasedAt ? 'bad' : ''}`}>
-                    <label className="fl">Release date <span className="req">*</span></label>
-                    <input className="in" name="releasedAt" type="date" defaultValue={release?.releasedAt ?? ''} required />
+                    <label className="fl">Release date</label>
+                    <input className="in" name="releasedAt" type="date" defaultValue={release?.releasedAt ?? ''} />
+                    <div className="hint">Leave blank if you are not certain — the site shows a dash rather than a guess.</div>
                     {errors.releasedAt && <div className="err">{errors.releasedAt}</div>}
                   </div>
                 </div>

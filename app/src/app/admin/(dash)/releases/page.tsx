@@ -39,7 +39,13 @@ export default async function ReleasesPage() {
                   </div>
                 </td>
                 <td><span className="chip">{r.type.replace('_', ' ')}</span></td>
-                <td>{r.releasedAt.toISOString().slice(0, 10)}</td>
+                {/* A dash means the date is genuinely unknown, which is the
+                    prompt to go and confirm it — not a rendering bug. */}
+                <td>
+                  {r.releasedAt
+                    ? r.releasedAt.toISOString().slice(0, 10)
+                    : <span className="chip warn">Date unknown</span>}
+                </td>
                 <td>
                   {r.spotifyEmbedId
                     ? <><span className="chip ok">{r.spotifyEmbedType}</span>
@@ -59,7 +65,7 @@ export default async function ReleasesPage() {
                 <td className="acts">
                   <ReleaseForm mode="edit" release={{
                     id: r.id, title: r.title, type: r.type, trackCount: r.trackCount ?? 1,
-                    releasedAt: r.releasedAt.toISOString().slice(0, 10),
+                    releasedAt: r.releasedAt?.toISOString().slice(0, 10) ?? '',
                     about: r.about ?? '', credits: r.credits ?? '',
                     spotifyUrl: r.spotifyUrl ?? '', live: r.live, featured: r.featured,
                   }} />

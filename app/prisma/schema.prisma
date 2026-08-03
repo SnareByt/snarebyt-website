@@ -605,7 +605,11 @@ model Release {
   title       String
   type        ReleaseType
   trackCount  Int?        // e.g. WRONG TAPE = 22
-  releasedAt  DateTime
+  /// Nullable so "we do not know the release date" is representable.
+  /// It previously was not, and the seed encoded unknown years as a
+  /// placeholder date — which the public page would print as a real year
+  /// once that date passed. A dash is the rule; null is how it is enforced.
+  releasedAt  DateTime?
   about       String?
   credits     String?
   coverKey    String?

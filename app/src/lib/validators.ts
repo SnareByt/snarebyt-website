@@ -36,7 +36,13 @@ export const releaseSchema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(160),
   type: z.enum(['SINGLE', 'EP', 'ALBUM', 'BEAT_TAPE', 'COLLABORATION']),
   trackCount: z.coerce.number().int().min(1).max(100).default(1),
-  releasedAt: z.coerce.date({ message: 'Release date is required' }),
+  // Blank is allowed and means "not confirmed". The public page then prints a
+  // dash instead of a year. Forcing a date here is what produced three records
+  // sharing one invented release day.
+  releasedAt: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : v),
+    z.coerce.date().nullable(),
+  ),
   about: z.string().trim().max(2000).default(''),
   credits: z.string().trim().max(500).default(''),
   spotifyUrl: z
@@ -95,6 +101,37 @@ export const discountSchema = z.object({
   percentOff: z.coerce.number().int().min(1).max(90),
   maxUses: z.coerce.number().int().min(1).max(100000).default(100),
 });
+
+/**
+ * The public project brief. This is the only schema on this page fed by
+ * strangers, so it is the strictest: everything is length-capped, the email
+ * is validated, and accepting the terms is required rather than assumed.
+ */
+export const briefSchema = z.object({
+  name: z.string().trim().min(1, 'Required').max(120),
+  artistName: z.string().trim().max(120).default(''),
+  email: z.string().trim().email('Enter a valid email').max(160),
+  phone: z.string().trim().max(40).default(''),
+  country: z.string().trim().max(80).default(''),
+  enquiryType: z.string().trim().min(1, 'Required').max(60),
+  serviceId: z.string().trim().min(1, 'Required'),
+  projectTitle: z.string().trim().max(160).default(''),
+  genre: z.string().trim().max(80).default(''),
+  deadline: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : v),
+    z.coerce.date().nullable(),
+  ),
+  budgetBdt: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : v),
+    z.coerce.number().int().min(0).max(100_000_000).nullable(),
+  ),
+  formatsWanted: z.string().trim().max(200).default(''),
+  referenceLinks: z.string().trim().max(1000).default(''),
+  description: z.string().trim().min(10, 'Please describe the project').max(4000),
+  terms: z.literal('on', { message: 'You must accept the terms' }),
+});
+
+export type BriefInput = z.infer<typeof briefSchema>;
 
 export type BeatInput = z.infer<typeof beatSchema>;
 export type ReleaseInput = z.infer<typeof releaseSchema>;

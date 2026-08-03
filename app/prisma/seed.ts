@@ -1,5 +1,5 @@
-/**
- * SnareByt seed — the real catalogue.
+﻿/**
+ * SnareByt seed â€” the real catalogue.
  *
  *  Rules applied here:
  *  - Every price is whole BDT. USD is derived from the usdRate setting.
@@ -16,106 +16,106 @@ import argon2 from 'argon2';
 
 const db = new PrismaClient();
 
-const CREDIT = '“Prod. SnareByt”';
+const CREDIT = 'â€œProd. SnareBytâ€';
 
 /* ---------------- Licence tiers (bilingual) ---------------- */
 const LICENCES = [
   {
-    code: 'mp3', name: 'MP3 Licence', nameBn: 'এমপিথ্রি লাইসেন্স', multiplier: 1, sortOrder: 1,
-    filesLabel: 'Tagless MP3 320kbps', filesLabelBn: 'ট্যাগমুক্ত MP3 ৩২০kbps',
+    code: 'mp3', name: 'MP3 Licence', nameBn: 'à¦à¦®à¦ªà¦¿à¦¥à§à¦°à¦¿ à¦²à¦¾à¦‡à¦¸à§‡à¦¨à§à¦¸', multiplier: 1, sortOrder: 1,
+    filesLabel: 'Tagless MP3 320kbps', filesLabelBn: 'à¦Ÿà§à¦¯à¦¾à¦—à¦®à§à¦•à§à¦¤ MP3 à§©à§¨à§¦kbps',
     includedAssets: [AssetKind.MP3_UNTAGGED],
     streamLimit: 50_000, saleLimit: 2_500, videoLimit: 1, radioStations: 0,
     performanceRights: 'Non-profit performances only', isExclusive: false, transfersOwnership: false,
     termsMarkdown: [
-      'Non-exclusive — the beat stays on sale for others',
+      'Non-exclusive â€” the beat stays on sale for others',
       'Up to 50,000 streams total', 'Up to 2,500 paid sales', '1 music video',
       'Non-profit performances only', 'No radio broadcast',
       'Monetisation on YouTube allowed', `Credit required: ${CREDIT}`,
       'SnareByt keeps full ownership',
     ].join('\n'),
     termsMarkdownBn: [
-      'নন-এক্সক্লুসিভ — বিটটি অন্যদের জন্যও বিক্রিতে থাকবে',
-      'সর্বমোট ৫০,০০০ স্ট্রিম পর্যন্ত', 'সর্বোচ্চ ২,৫০০টি পেইড সেল', '১টি মিউজিক ভিডিও',
-      'শুধুমাত্র অলাভজনক পারফরম্যান্স', 'রেডিও ব্রডকাস্ট করা যাবে না',
-      'ইউটিউব মনিটাইজেশন করা যাবে', `ক্রেডিট দিতে হবে: ${CREDIT}`,
-      'বিটের সম্পূর্ণ মালিকানা SnareByt-এর কাছেই থাকবে',
+      'à¦¨à¦¨-à¦à¦•à§à¦¸à¦•à§à¦²à§à¦¸à¦¿à¦­ â€” à¦¬à¦¿à¦Ÿà¦Ÿà¦¿ à¦…à¦¨à§à¦¯à¦¦à§‡à¦° à¦œà¦¨à§à¦¯à¦“ à¦¬à¦¿à¦•à§à¦°à¦¿à¦¤à§‡ à¦¥à¦¾à¦•à¦¬à§‡',
+      'à¦¸à¦°à§à¦¬à¦®à§‹à¦Ÿ à§«à§¦,à§¦à§¦à§¦ à¦¸à§à¦Ÿà§à¦°à¦¿à¦® à¦ªà¦°à§à¦¯à¦¨à§à¦¤', 'à¦¸à¦°à§à¦¬à§‹à¦šà§à¦š à§¨,à§«à§¦à§¦à¦Ÿà¦¿ à¦ªà§‡à¦‡à¦¡ à¦¸à§‡à¦²', 'à§§à¦Ÿà¦¿ à¦®à¦¿à¦‰à¦œà¦¿à¦• à¦­à¦¿à¦¡à¦¿à¦“',
+      'à¦¶à§à¦§à§à¦®à¦¾à¦¤à§à¦° à¦…à¦²à¦¾à¦­à¦œà¦¨à¦• à¦ªà¦¾à¦°à¦«à¦°à¦®à§à¦¯à¦¾à¦¨à§à¦¸', 'à¦°à§‡à¦¡à¦¿à¦“ à¦¬à§à¦°à¦¡à¦•à¦¾à¦¸à§à¦Ÿ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡ à¦¨à¦¾',
+      'à¦‡à¦‰à¦Ÿà¦¿à¦‰à¦¬ à¦®à¦¨à¦¿à¦Ÿà¦¾à¦‡à¦œà§‡à¦¶à¦¨ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡', `à¦•à§à¦°à§‡à¦¡à¦¿à¦Ÿ à¦¦à¦¿à¦¤à§‡ à¦¹à¦¬à§‡: ${CREDIT}`,
+      'à¦¬à¦¿à¦Ÿà§‡à¦° à¦¸à¦®à§à¦ªà§‚à¦°à§à¦£ à¦®à¦¾à¦²à¦¿à¦•à¦¾à¦¨à¦¾ SnareByt-à¦à¦° à¦•à¦¾à¦›à§‡à¦‡ à¦¥à¦¾à¦•à¦¬à§‡',
     ].join('\n'),
   },
   {
-    code: 'wav', name: 'WAV Licence', nameBn: 'ওয়েভ লাইসেন্স', multiplier: 2.4, sortOrder: 2,
-    filesLabel: 'WAV 24-bit + MP3 320kbps', filesLabelBn: 'WAV ২৪-বিট + MP3 ৩২০kbps',
+    code: 'wav', name: 'WAV Licence', nameBn: 'à¦“à¦¯à¦¼à§‡à¦­ à¦²à¦¾à¦‡à¦¸à§‡à¦¨à§à¦¸', multiplier: 2.4, sortOrder: 2,
+    filesLabel: 'WAV 24-bit + MP3 320kbps', filesLabelBn: 'WAV à§¨à§ª-à¦¬à¦¿à¦Ÿ + MP3 à§©à§¨à§¦kbps',
     includedAssets: [AssetKind.WAV, AssetKind.MP3_UNTAGGED],
     streamLimit: 150_000, saleLimit: 5_000, videoLimit: 1, radioStations: 2,
     performanceRights: 'Live performances allowed', isExclusive: false, transfersOwnership: false,
     termsMarkdown: [
-      'Non-exclusive — the beat stays on sale for others',
+      'Non-exclusive â€” the beat stays on sale for others',
       'Up to 150,000 streams total', 'Up to 5,000 paid sales', '1 music video',
       'Live performances allowed', '2 radio stations', 'Full monetisation allowed',
       `Credit required: ${CREDIT}`, 'SnareByt keeps full ownership',
     ].join('\n'),
     termsMarkdownBn: [
-      'নন-এক্সক্লুসিভ — বিটটি অন্যদের জন্যও বিক্রিতে থাকবে',
-      'সর্বমোট ১,৫০,০০০ স্ট্রিম পর্যন্ত', 'সর্বোচ্চ ৫,০০০টি পেইড সেল', '১টি মিউজিক ভিডিও',
-      'লাইভ পারফরম্যান্স করা যাবে', '২টি রেডিও স্টেশন', 'সম্পূর্ণ মনিটাইজেশন করা যাবে',
-      `ক্রেডিট দিতে হবে: ${CREDIT}`, 'মালিকানা SnareByt-এর কাছেই থাকবে',
+      'à¦¨à¦¨-à¦à¦•à§à¦¸à¦•à§à¦²à§à¦¸à¦¿à¦­ â€” à¦¬à¦¿à¦Ÿà¦Ÿà¦¿ à¦…à¦¨à§à¦¯à¦¦à§‡à¦° à¦œà¦¨à§à¦¯à¦“ à¦¬à¦¿à¦•à§à¦°à¦¿à¦¤à§‡ à¦¥à¦¾à¦•à¦¬à§‡',
+      'à¦¸à¦°à§à¦¬à¦®à§‹à¦Ÿ à§§,à§«à§¦,à§¦à§¦à§¦ à¦¸à§à¦Ÿà§à¦°à¦¿à¦® à¦ªà¦°à§à¦¯à¦¨à§à¦¤', 'à¦¸à¦°à§à¦¬à§‹à¦šà§à¦š à§«,à§¦à§¦à§¦à¦Ÿà¦¿ à¦ªà§‡à¦‡à¦¡ à¦¸à§‡à¦²', 'à§§à¦Ÿà¦¿ à¦®à¦¿à¦‰à¦œà¦¿à¦• à¦­à¦¿à¦¡à¦¿à¦“',
+      'à¦²à¦¾à¦‡à¦­ à¦ªà¦¾à¦°à¦«à¦°à¦®à§à¦¯à¦¾à¦¨à§à¦¸ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡', 'à§¨à¦Ÿà¦¿ à¦°à§‡à¦¡à¦¿à¦“ à¦¸à§à¦Ÿà§‡à¦¶à¦¨', 'à¦¸à¦®à§à¦ªà§‚à¦°à§à¦£ à¦®à¦¨à¦¿à¦Ÿà¦¾à¦‡à¦œà§‡à¦¶à¦¨ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡',
+      `à¦•à§à¦°à§‡à¦¡à¦¿à¦Ÿ à¦¦à¦¿à¦¤à§‡ à¦¹à¦¬à§‡: ${CREDIT}`, 'à¦®à¦¾à¦²à¦¿à¦•à¦¾à¦¨à¦¾ SnareByt-à¦à¦° à¦•à¦¾à¦›à§‡à¦‡ à¦¥à¦¾à¦•à¦¬à§‡',
     ].join('\n'),
   },
   {
-    code: 'stems', name: 'Trackout / Stems', nameBn: 'ট্র্যাকআউট / স্টেমস লাইসেন্স', multiplier: 5, sortOrder: 3,
-    filesLabel: 'WAV + MP3 + all stems (zip)', filesLabelBn: 'WAV + MP3 + সব স্টেম (zip)',
+    code: 'stems', name: 'Trackout / Stems', nameBn: 'à¦Ÿà§à¦°à§à¦¯à¦¾à¦•à¦†à¦‰à¦Ÿ / à¦¸à§à¦Ÿà§‡à¦®à¦¸ à¦²à¦¾à¦‡à¦¸à§‡à¦¨à§à¦¸', multiplier: 5, sortOrder: 3,
+    filesLabel: 'WAV + MP3 + all stems (zip)', filesLabelBn: 'WAV + MP3 + à¦¸à¦¬ à¦¸à§à¦Ÿà§‡à¦® (zip)',
     includedAssets: [AssetKind.WAV, AssetKind.MP3_UNTAGGED, AssetKind.STEMS_ZIP],
     streamLimit: 500_000, saleLimit: 10_000, videoLimit: 2, radioStations: null,
     performanceRights: 'Unlimited live performances', isExclusive: false, transfersOwnership: false,
     termsMarkdown: [
-      'Non-exclusive — the beat stays on sale for others',
+      'Non-exclusive â€” the beat stays on sale for others',
       'Up to 500,000 streams total', 'Up to 10,000 paid sales', '2 music videos',
       'Unlimited live performances', 'Unlimited radio', 'Full monetisation allowed',
       `Credit required: ${CREDIT}`, 'SnareByt keeps full ownership',
     ].join('\n'),
     termsMarkdownBn: [
-      'নন-এক্সক্লুসিভ — বিটটি অন্যদের জন্যও বিক্রিতে থাকবে',
-      'সর্বমোট ৫,০০,০০০ স্ট্রিম পর্যন্ত', 'সর্বোচ্চ ১০,০০০টি পেইড সেল', '২টি মিউজিক ভিডিও',
-      'আনলিমিটেড লাইভ পারফরম্যান্স', 'আনলিমিটেড রেডিও', 'সম্পূর্ণ মনিটাইজেশন করা যাবে',
-      `ক্রেডিট দিতে হবে: ${CREDIT}`, 'মালিকানা SnareByt-এর কাছেই থাকবে',
+      'à¦¨à¦¨-à¦à¦•à§à¦¸à¦•à§à¦²à§à¦¸à¦¿à¦­ â€” à¦¬à¦¿à¦Ÿà¦Ÿà¦¿ à¦…à¦¨à§à¦¯à¦¦à§‡à¦° à¦œà¦¨à§à¦¯à¦“ à¦¬à¦¿à¦•à§à¦°à¦¿à¦¤à§‡ à¦¥à¦¾à¦•à¦¬à§‡',
+      'à¦¸à¦°à§à¦¬à¦®à§‹à¦Ÿ à§«,à§¦à§¦,à§¦à§¦à§¦ à¦¸à§à¦Ÿà§à¦°à¦¿à¦® à¦ªà¦°à§à¦¯à¦¨à§à¦¤', 'à¦¸à¦°à§à¦¬à§‹à¦šà§à¦š à§§à§¦,à§¦à§¦à§¦à¦Ÿà¦¿ à¦ªà§‡à¦‡à¦¡ à¦¸à§‡à¦²', 'à§¨à¦Ÿà¦¿ à¦®à¦¿à¦‰à¦œà¦¿à¦• à¦­à¦¿à¦¡à¦¿à¦“',
+      'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦²à¦¾à¦‡à¦­ à¦ªà¦¾à¦°à¦«à¦°à¦®à§à¦¯à¦¾à¦¨à§à¦¸', 'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦°à§‡à¦¡à¦¿à¦“', 'à¦¸à¦®à§à¦ªà§‚à¦°à§à¦£ à¦®à¦¨à¦¿à¦Ÿà¦¾à¦‡à¦œà§‡à¦¶à¦¨ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡',
+      `à¦•à§à¦°à§‡à¦¡à¦¿à¦Ÿ à¦¦à¦¿à¦¤à§‡ à¦¹à¦¬à§‡: ${CREDIT}`, 'à¦®à¦¾à¦²à¦¿à¦•à¦¾à¦¨à¦¾ SnareByt-à¦à¦° à¦•à¦¾à¦›à§‡à¦‡ à¦¥à¦¾à¦•à¦¬à§‡',
     ].join('\n'),
   },
   {
-    code: 'unlim', name: 'Unlimited Licence', nameBn: 'আনলিমিটেড লাইসেন্স', multiplier: 9, sortOrder: 4,
-    filesLabel: 'WAV + MP3 + stems + session notes', filesLabelBn: 'WAV + MP3 + স্টেমস + সেশন নোট',
+    code: 'unlim', name: 'Unlimited Licence', nameBn: 'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦²à¦¾à¦‡à¦¸à§‡à¦¨à§à¦¸', multiplier: 9, sortOrder: 4,
+    filesLabel: 'WAV + MP3 + stems + session notes', filesLabelBn: 'WAV + MP3 + à¦¸à§à¦Ÿà§‡à¦®à¦¸ + à¦¸à§‡à¦¶à¦¨ à¦¨à§‹à¦Ÿ',
     includedAssets: [AssetKind.WAV, AssetKind.MP3_UNTAGGED, AssetKind.STEMS_ZIP, AssetKind.SESSION_NOTES],
     streamLimit: null, saleLimit: null, videoLimit: null, radioStations: null,
     performanceRights: 'Unlimited live performances', isExclusive: false, transfersOwnership: false,
     termsMarkdown: [
-      'Non-exclusive — the beat stays on sale for others',
+      'Non-exclusive â€” the beat stays on sale for others',
       'Unlimited streams', 'Unlimited paid sales', 'Unlimited music videos',
       'Unlimited live performances', 'Unlimited radio', 'Full monetisation allowed',
       `Credit required: ${CREDIT}`, 'Beat stays in the store; SnareByt keeps ownership',
     ].join('\n'),
     termsMarkdownBn: [
-      'নন-এক্সক্লুসিভ — বিটটি অন্যদের জন্যও বিক্রিতে থাকবে',
-      'আনলিমিটেড স্ট্রিম', 'আনলিমিটেড পেইড সেল', 'আনলিমিটেড মিউজিক ভিডিও',
-      'আনলিমিটেড লাইভ পারফরম্যান্স', 'আনলিমিটেড রেডিও', 'সম্পূর্ণ মনিটাইজেশন করা যাবে',
-      `ক্রেডিট দিতে হবে: ${CREDIT}`, 'বিটটি স্টোরে থাকবে; মালিকানা SnareByt-এর',
+      'à¦¨à¦¨-à¦à¦•à§à¦¸à¦•à§à¦²à§à¦¸à¦¿à¦­ â€” à¦¬à¦¿à¦Ÿà¦Ÿà¦¿ à¦…à¦¨à§à¦¯à¦¦à§‡à¦° à¦œà¦¨à§à¦¯à¦“ à¦¬à¦¿à¦•à§à¦°à¦¿à¦¤à§‡ à¦¥à¦¾à¦•à¦¬à§‡',
+      'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦¸à§à¦Ÿà§à¦°à¦¿à¦®', 'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦ªà§‡à¦‡à¦¡ à¦¸à§‡à¦²', 'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦®à¦¿à¦‰à¦œà¦¿à¦• à¦­à¦¿à¦¡à¦¿à¦“',
+      'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦²à¦¾à¦‡à¦­ à¦ªà¦¾à¦°à¦«à¦°à¦®à§à¦¯à¦¾à¦¨à§à¦¸', 'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦°à§‡à¦¡à¦¿à¦“', 'à¦¸à¦®à§à¦ªà§‚à¦°à§à¦£ à¦®à¦¨à¦¿à¦Ÿà¦¾à¦‡à¦œà§‡à¦¶à¦¨ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡',
+      `à¦•à§à¦°à§‡à¦¡à¦¿à¦Ÿ à¦¦à¦¿à¦¤à§‡ à¦¹à¦¬à§‡: ${CREDIT}`, 'à¦¬à¦¿à¦Ÿà¦Ÿà¦¿ à¦¸à§à¦Ÿà§‹à¦°à§‡ à¦¥à¦¾à¦•à¦¬à§‡; à¦®à¦¾à¦²à¦¿à¦•à¦¾à¦¨à¦¾ SnareByt-à¦à¦°',
     ].join('\n'),
   },
   {
-    code: 'excl', name: 'Exclusive Rights', nameBn: 'এক্সক্লুসিভ রাইটস', multiplier: 26, sortOrder: 5,
+    code: 'excl', name: 'Exclusive Rights', nameBn: 'à¦à¦•à§à¦¸à¦•à§à¦²à§à¦¸à¦¿à¦­ à¦°à¦¾à¦‡à¦Ÿà¦¸', multiplier: 26, sortOrder: 5,
     filesLabel: 'WAV + MP3 + stems + signed exclusive contract',
-    filesLabelBn: 'WAV + MP3 + স্টেমস + সাইনকৃত এক্সক্লুসিভ চুক্তি',
+    filesLabelBn: 'WAV + MP3 + à¦¸à§à¦Ÿà§‡à¦®à¦¸ + à¦¸à¦¾à¦‡à¦¨à¦•à§ƒà¦¤ à¦à¦•à§à¦¸à¦•à§à¦²à§à¦¸à¦¿à¦­ à¦šà§à¦•à§à¦¤à¦¿',
     includedAssets: [AssetKind.WAV, AssetKind.MP3_UNTAGGED, AssetKind.STEMS_ZIP, AssetKind.SESSION_NOTES],
     streamLimit: null, saleLimit: null, videoLimit: null, radioStations: null,
     performanceRights: 'Unlimited live performances', isExclusive: true, transfersOwnership: true,
     termsMarkdown: [
-      'EXCLUSIVE — the beat is removed from the store and nobody else can ever licence it',
+      'EXCLUSIVE â€” the beat is removed from the store and nobody else can ever licence it',
       'Unlimited streams', 'Unlimited paid sales', 'Unlimited music videos',
       'Unlimited live performances', 'Unlimited radio', 'Full monetisation allowed',
       `Credit required: ${CREDIT}`, 'Master ownership transferred per contract',
     ].join('\n'),
     termsMarkdownBn: [
-      'এক্সক্লুসিভ — বিটটি স্টোর থেকে সরিয়ে ফেলা হবে, অন্য কেউ আর কখনও এটি লাইসেন্স নিতে পারবে না',
-      'আনলিমিটেড স্ট্রিম', 'আনলিমিটেড পেইড সেল', 'আনলিমিটেড মিউজিক ভিডিও',
-      'আনলিমিটেড লাইভ পারফরম্যান্স', 'আনলিমিটেড রেডিও', 'সম্পূর্ণ মনিটাইজেশন করা যাবে',
-      `ক্রেডিট দিতে হবে: ${CREDIT}`, 'চুক্তি অনুযায়ী মাস্টার মালিকানা হস্তান্তর করা হবে',
+      'à¦à¦•à§à¦¸à¦•à§à¦²à§à¦¸à¦¿à¦­ â€” à¦¬à¦¿à¦Ÿà¦Ÿà¦¿ à¦¸à§à¦Ÿà§‹à¦° à¦¥à§‡à¦•à§‡ à¦¸à¦°à¦¿à¦¯à¦¼à§‡ à¦«à§‡à¦²à¦¾ à¦¹à¦¬à§‡, à¦…à¦¨à§à¦¯ à¦•à§‡à¦‰ à¦†à¦° à¦•à¦–à¦¨à¦“ à¦à¦Ÿà¦¿ à¦²à¦¾à¦‡à¦¸à§‡à¦¨à§à¦¸ à¦¨à¦¿à¦¤à§‡ à¦ªà¦¾à¦°à¦¬à§‡ à¦¨à¦¾',
+      'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦¸à§à¦Ÿà§à¦°à¦¿à¦®', 'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦ªà§‡à¦‡à¦¡ à¦¸à§‡à¦²', 'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦®à¦¿à¦‰à¦œà¦¿à¦• à¦­à¦¿à¦¡à¦¿à¦“',
+      'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦²à¦¾à¦‡à¦­ à¦ªà¦¾à¦°à¦«à¦°à¦®à§à¦¯à¦¾à¦¨à§à¦¸', 'à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦°à§‡à¦¡à¦¿à¦“', 'à¦¸à¦®à§à¦ªà§‚à¦°à§à¦£ à¦®à¦¨à¦¿à¦Ÿà¦¾à¦‡à¦œà§‡à¦¶à¦¨ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡',
+      `à¦•à§à¦°à§‡à¦¡à¦¿à¦Ÿ à¦¦à¦¿à¦¤à§‡ à¦¹à¦¬à§‡: ${CREDIT}`, 'à¦šà§à¦•à§à¦¤à¦¿ à¦…à¦¨à§à¦¯à¦¾à¦¯à¦¼à§€ à¦®à¦¾à¦¸à§à¦Ÿà¦¾à¦° à¦®à¦¾à¦²à¦¿à¦•à¦¾à¦¨à¦¾ à¦¹à¦¸à§à¦¤à¦¾à¦¨à§à¦¤à¦° à¦•à¦°à¦¾ à¦¹à¦¬à§‡',
     ].join('\n'),
   },
 ];
@@ -128,55 +128,55 @@ const SERVICES = [
     audience: 'Artists who want a beat nobody else can lease, written to their reference, register and song structure.',
     included: ['Original production from scratch', 'Arranged to your song structure', 'Sound selection and transitions', 'All stems delivered', 'Exclusive rights included', 'Producer credit agreement'],
     required: ['Reference tracks', 'Vocal sample or scratch take', 'Preferred key and tempo'],
-    deliveryDays: '7–14 days', revisions: 'Revisions per package',
+    deliveryDays: '7â€“14 days', revisions: 'Revisions per package',
     tiers: [
       { name: 'Basic', priceBdt: 10000, recommended: false,
         description: 'A professionally produced original beat with a simpler arrangement and standard delivery.',
-        descriptionBn: 'সহজ অ্যারেঞ্জমেন্ট ও স্ট্যান্ডার্ড ডেলিভারিতে পেশাদারভাবে তৈরি একটি অরিজিনাল বিট।' },
+        descriptionBn: 'à¦¸à¦¹à¦œ à¦…à§à¦¯à¦¾à¦°à§‡à¦žà§à¦œà¦®à§‡à¦¨à§à¦Ÿ à¦“ à¦¸à§à¦Ÿà§à¦¯à¦¾à¦¨à§à¦¡à¦¾à¦°à§à¦¡ à¦¡à§‡à¦²à¦¿à¦­à¦¾à¦°à¦¿à¦¤à§‡ à¦ªà§‡à¦¶à¦¾à¦¦à¦¾à¦°à¦­à¦¾à¦¬à§‡ à¦¤à§ˆà¦°à¦¿ à¦à¦•à¦Ÿà¦¿ à¦…à¦°à¦¿à¦œà¦¿à¦¨à¦¾à¦² à¦¬à¦¿à¦Ÿà¥¤' },
       { name: 'Professional', priceBdt: 16000, recommended: true,
         description: 'A more detailed custom production with stronger arrangement, sound selection, transitions and artist-focused direction.',
-        descriptionBn: 'আরও বিস্তারিত কাস্টম প্রোডাকশন — শক্তিশালী অ্যারেঞ্জমেন্ট, সাউন্ড সিলেকশন, ট্রানজিশন এবং শিল্পী-কেন্দ্রিক দিকনির্দেশনা।' },
+        descriptionBn: 'à¦†à¦°à¦“ à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ à¦•à¦¾à¦¸à§à¦Ÿà¦® à¦ªà§à¦°à§‹à¦¡à¦¾à¦•à¦¶à¦¨ â€” à¦¶à¦•à§à¦¤à¦¿à¦¶à¦¾à¦²à§€ à¦…à§à¦¯à¦¾à¦°à§‡à¦žà§à¦œà¦®à§‡à¦¨à§à¦Ÿ, à¦¸à¦¾à¦‰à¦¨à§à¦¡ à¦¸à¦¿à¦²à§‡à¦•à¦¶à¦¨, à¦Ÿà§à¦°à¦¾à¦¨à¦œà¦¿à¦¶à¦¨ à¦à¦¬à¦‚ à¦¶à¦¿à¦²à§à¦ªà§€-à¦•à§‡à¦¨à§à¦¦à§à¦°à¦¿à¦• à¦¦à¦¿à¦•à¦¨à¦¿à¦°à§à¦¦à§‡à¦¶à¦¨à¦¾à¥¤' },
       { name: 'Premium', priceBdt: 30000, recommended: false,
         description: 'High-level custom production with the most detailed creative direction, advanced arrangement and premium sound design.',
-        descriptionBn: 'সর্বোচ্চ মানের কাস্টম প্রোডাকশন — বিস্তারিত ক্রিয়েটিভ ডিরেকশন, অ্যাডভান্সড অ্যারেঞ্জমেন্ট ও প্রিমিয়াম সাউন্ড ডিজাইন।' },
+        descriptionBn: 'à¦¸à¦°à§à¦¬à§‹à¦šà§à¦š à¦®à¦¾à¦¨à§‡à¦° à¦•à¦¾à¦¸à§à¦Ÿà¦® à¦ªà§à¦°à§‹à¦¡à¦¾à¦•à¦¶à¦¨ â€” à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ à¦•à§à¦°à¦¿à¦¯à¦¼à§‡à¦Ÿà¦¿à¦­ à¦¡à¦¿à¦°à§‡à¦•à¦¶à¦¨, à¦…à§à¦¯à¦¾à¦¡à¦­à¦¾à¦¨à§à¦¸à¦¡ à¦…à§à¦¯à¦¾à¦°à§‡à¦žà§à¦œà¦®à§‡à¦¨à§à¦Ÿ à¦“ à¦ªà§à¦°à¦¿à¦®à¦¿à¦¯à¦¼à¦¾à¦® à¦¸à¦¾à¦‰à¦¨à§à¦¡ à¦¡à¦¿à¦œà¦¾à¦‡à¦¨à¥¤' },
     ],
   },
   {
     slug: 'mixing-and-mastering', title: 'Mixing and Mastering', sortOrder: 2,
-    tagline: 'Vocal processing included — one service, not two',
+    tagline: 'Vocal processing included â€” one service, not two',
     audience: 'Independent artists and labels with recorded sessions that need to compete with major-label releases.',
     included: ['Full stem mixing', 'Vocal processing, tuning and timing', 'Balance, clarity, depth and loudness', 'Streaming-ready master', 'Instrumental and clean versions', 'Stem masters on Premium'],
     required: ['Session at 24-bit WAV', 'All stems from bar 1', 'Reference track', 'Rough mix'],
-    deliveryDays: '3–5 days', revisions: 'Revisions per package',
+    deliveryDays: '3â€“5 days', revisions: 'Revisions per package',
     tiers: [
       { name: 'Basic', priceBdt: 3000, recommended: false,
         description: 'A simple song: one instrumental or beat, lead vocal, and basic vocal layers where applicable.',
-        descriptionBn: 'সাধারণ একটি গান — একটি ইনস্ট্রুমেন্টাল বা বিট, লিড ভোকাল এবং প্রয়োজনে সাধারণ ভোকাল লেয়ার।' },
+        descriptionBn: 'à¦¸à¦¾à¦§à¦¾à¦°à¦£ à¦à¦•à¦Ÿà¦¿ à¦—à¦¾à¦¨ â€” à¦à¦•à¦Ÿà¦¿ à¦‡à¦¨à¦¸à§à¦Ÿà§à¦°à§à¦®à§‡à¦¨à§à¦Ÿà¦¾à¦² à¦¬à¦¾ à¦¬à¦¿à¦Ÿ, à¦²à¦¿à¦¡ à¦­à§‹à¦•à¦¾à¦² à¦à¦¬à¦‚ à¦ªà§à¦°à¦¯à¦¼à§‹à¦œà¦¨à§‡ à¦¸à¦¾à¦§à¦¾à¦°à¦£ à¦­à§‹à¦•à¦¾à¦² à¦²à§‡à¦¯à¦¼à¦¾à¦°à¥¤' },
       { name: 'Professional', priceBdt: 6000, recommended: true,
         description: 'Up to 12 stems. Full vocal processing, mixing and mastering with professional balance, clarity, depth and loudness.',
-        descriptionBn: 'সর্বোচ্চ ১২টি স্টেম। সম্পূর্ণ ভোকাল প্রসেসিং, মিক্সিং ও মাস্টারিং — পেশাদার ব্যালান্স, ক্লারিটি, ডেপথ ও লাউডনেস।' },
+        descriptionBn: 'à¦¸à¦°à§à¦¬à§‹à¦šà§à¦š à§§à§¨à¦Ÿà¦¿ à¦¸à§à¦Ÿà§‡à¦®à¥¤ à¦¸à¦®à§à¦ªà§‚à¦°à§à¦£ à¦­à§‹à¦•à¦¾à¦² à¦ªà§à¦°à¦¸à§‡à¦¸à¦¿à¦‚, à¦®à¦¿à¦•à§à¦¸à¦¿à¦‚ à¦“ à¦®à¦¾à¦¸à§à¦Ÿà¦¾à¦°à¦¿à¦‚ â€” à¦ªà§‡à¦¶à¦¾à¦¦à¦¾à¦° à¦¬à§à¦¯à¦¾à¦²à¦¾à¦¨à§à¦¸, à¦•à§à¦²à¦¾à¦°à¦¿à¦Ÿà¦¿, à¦¡à§‡à¦ªà¦¥ à¦“ à¦²à¦¾à¦‰à¦¡à¦¨à§‡à¦¸à¥¤' },
       { name: 'Premium', priceBdt: 15000, recommended: false,
         description: 'Complex sessions. Unlimited stems subject to reasonable project requirements, detailed vocal processing, advanced automation, creative effects, detailed revisions and final polish.',
-        descriptionBn: 'জটিল সেশনের জন্য। যুক্তিসঙ্গত প্রয়োজন অনুযায়ী আনলিমিটেড স্টেম, বিস্তারিত ভোকাল প্রসেসিং, অ্যাডভান্সড অটোমেশন, ক্রিয়েটিভ ইফেক্ট, বিস্তারিত রিভিশন ও ফাইনাল পলিশ।' },
+        descriptionBn: 'à¦œà¦Ÿà¦¿à¦² à¦¸à§‡à¦¶à¦¨à§‡à¦° à¦œà¦¨à§à¦¯à¥¤ à¦¯à§à¦•à§à¦¤à¦¿à¦¸à¦™à§à¦—à¦¤ à¦ªà§à¦°à¦¯à¦¼à§‹à¦œà¦¨ à¦…à¦¨à§à¦¯à¦¾à¦¯à¦¼à§€ à¦†à¦¨à¦²à¦¿à¦®à¦¿à¦Ÿà§‡à¦¡ à¦¸à§à¦Ÿà§‡à¦®, à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ à¦­à§‹à¦•à¦¾à¦² à¦ªà§à¦°à¦¸à§‡à¦¸à¦¿à¦‚, à¦…à§à¦¯à¦¾à¦¡à¦­à¦¾à¦¨à§à¦¸à¦¡ à¦…à¦Ÿà§‹à¦®à§‡à¦¶à¦¨, à¦•à§à¦°à¦¿à¦¯à¦¼à§‡à¦Ÿà¦¿à¦­ à¦‡à¦«à§‡à¦•à§à¦Ÿ, à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ à¦°à¦¿à¦­à¦¿à¦¶à¦¨ à¦“ à¦«à¦¾à¦‡à¦¨à¦¾à¦² à¦ªà¦²à¦¿à¦¶à¥¤' },
     ],
   },
   {
     slug: 'cover-art-design', title: 'Cover Art Design', sortOrder: 3,
     tagline: 'Artwork that survives being 40px wide',
     audience: 'Singles, EPs and albums that need a visual identity as strong as the audio.',
-    included: ['3000×3000 print and DSP master', 'Concept directions per package', 'Story and Reel crops on higher tiers', 'Spotify Canvas loop on Premium', 'Source files on request'],
+    included: ['3000Ã—3000 print and DSP master', 'Concept directions per package', 'Story and Reel crops on higher tiers', 'Spotify Canvas loop on Premium', 'Source files on request'],
     required: ['Song or rough mix', 'Mood references', 'Title and artist text'],
-    deliveryDays: '4–6 days', revisions: 'Revisions per package',
+    deliveryDays: '4â€“6 days', revisions: 'Revisions per package',
     tiers: [
       { name: 'Basic', priceBdt: 1500, recommended: false,
-        description: 'One concept direction, one cover, 3000×3000 master, two revisions.',
-        descriptionBn: 'একটি কনসেপ্ট, একটি কভার, ৩০০০×৩০০০ মাস্টার ফাইল, দুইটি রিভিশন।' },
+        description: 'One concept direction, one cover, 3000Ã—3000 master, two revisions.',
+        descriptionBn: 'à¦à¦•à¦Ÿà¦¿ à¦•à¦¨à¦¸à§‡à¦ªà§à¦Ÿ, à¦à¦•à¦Ÿà¦¿ à¦•à¦­à¦¾à¦°, à§©à§¦à§¦à§¦Ã—à§©à§¦à§¦à§¦ à¦®à¦¾à¦¸à§à¦Ÿà¦¾à¦° à¦«à¦¾à¦‡à¦², à¦¦à§à¦‡à¦Ÿà¦¿ à¦°à¦¿à¦­à¦¿à¦¶à¦¨à¥¤' },
       { name: 'Professional', priceBdt: 3000, recommended: true,
         description: 'Two concept directions, social crops for Story and Reel, three revisions, print-ready formats.',
-        descriptionBn: 'দুইটি কনসেপ্ট, স্টোরি ও রিলের জন্য সোশ্যাল ক্রপ, তিনটি রিভিশন, প্রিন্ট-রেডি ফরম্যাট।' },
+        descriptionBn: 'à¦¦à§à¦‡à¦Ÿà¦¿ à¦•à¦¨à¦¸à§‡à¦ªà§à¦Ÿ, à¦¸à§à¦Ÿà§‹à¦°à¦¿ à¦“ à¦°à¦¿à¦²à§‡à¦° à¦œà¦¨à§à¦¯ à¦¸à§‹à¦¶à§à¦¯à¦¾à¦² à¦•à§à¦°à¦ª, à¦¤à¦¿à¦¨à¦Ÿà¦¿ à¦°à¦¿à¦­à¦¿à¦¶à¦¨, à¦ªà§à¦°à¦¿à¦¨à§à¦Ÿ-à¦°à§‡à¦¡à¦¿ à¦«à¦°à¦®à§à¦¯à¦¾à¦Ÿà¥¤' },
       { name: 'Premium', priceBdt: 5000, recommended: false,
         description: 'Three concept directions, full promotional set, Spotify Canvas loop, extended revisions and all deliverable formats.',
-        descriptionBn: 'তিনটি কনসেপ্ট, সম্পূর্ণ প্রোমোশনাল সেট, Spotify Canvas লুপ, বাড়তি রিভিশন এবং সব ডেলিভারেবল ফরম্যাট।' },
+        descriptionBn: 'à¦¤à¦¿à¦¨à¦Ÿà¦¿ à¦•à¦¨à¦¸à§‡à¦ªà§à¦Ÿ, à¦¸à¦®à§à¦ªà§‚à¦°à§à¦£ à¦ªà§à¦°à§‹à¦®à§‹à¦¶à¦¨à¦¾à¦² à¦¸à§‡à¦Ÿ, Spotify Canvas à¦²à§à¦ª, à¦¬à¦¾à¦¡à¦¼à¦¤à¦¿ à¦°à¦¿à¦­à¦¿à¦¶à¦¨ à¦à¦¬à¦‚ à¦¸à¦¬ à¦¡à§‡à¦²à¦¿à¦­à¦¾à¦°à§‡à¦¬à¦² à¦«à¦°à¦®à§à¦¯à¦¾à¦Ÿà¥¤' },
     ],
   },
   {
@@ -185,17 +185,17 @@ const SERVICES = [
     audience: 'Artists with footage that needs to feel like a label-funded video.',
     included: ['Assembly and rhythmic edit', 'Colour work and grading', 'Transitions and pacing', 'Text and motion graphics on higher tiers', 'Final delivery master'],
     required: ['All raw footage', 'Final mastered audio', 'Reference videos'],
-    deliveryDays: '4–12 days', revisions: 'Revisions per package',
+    deliveryDays: '4â€“12 days', revisions: 'Revisions per package',
     tiers: [
       { name: 'Basic', priceBdt: 3000, recommended: false,
         description: 'A video up to roughly one minute, a reel, or a simple single-location performance edit.',
-        descriptionBn: 'প্রায় এক মিনিট পর্যন্ত ভিডিও, একটি রিল, অথবা এক লোকেশনের সাধারণ পারফরম্যান্স এডিট।' },
+        descriptionBn: 'à¦ªà§à¦°à¦¾à¦¯à¦¼ à¦à¦• à¦®à¦¿à¦¨à¦¿à¦Ÿ à¦ªà¦°à§à¦¯à¦¨à§à¦¤ à¦­à¦¿à¦¡à¦¿à¦“, à¦à¦•à¦Ÿà¦¿ à¦°à¦¿à¦², à¦…à¦¥à¦¬à¦¾ à¦à¦• à¦²à§‹à¦•à§‡à¦¶à¦¨à§‡à¦° à¦¸à¦¾à¦§à¦¾à¦°à¦£ à¦ªà¦¾à¦°à¦«à¦°à¦®à§à¦¯à¦¾à¦¨à§à¦¸ à¦à¦¡à¦¿à¦Ÿà¥¤' },
       { name: 'Professional', priceBdt: 8000, recommended: true,
         description: 'Up to roughly two minutes with more detailed editing, transitions, pacing, colour work and visual treatment.',
-        descriptionBn: 'প্রায় দুই মিনিট পর্যন্ত ভিডিও — আরও বিস্তারিত এডিটিং, ট্রানজিশন, পেসিং, কালার ওয়ার্ক ও ভিজ্যুয়াল ট্রিটমেন্ট।' },
+        descriptionBn: 'à¦ªà§à¦°à¦¾à¦¯à¦¼ à¦¦à§à¦‡ à¦®à¦¿à¦¨à¦¿à¦Ÿ à¦ªà¦°à§à¦¯à¦¨à§à¦¤ à¦­à¦¿à¦¡à¦¿à¦“ â€” à¦†à¦°à¦“ à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ à¦à¦¡à¦¿à¦Ÿà¦¿à¦‚, à¦Ÿà§à¦°à¦¾à¦¨à¦œà¦¿à¦¶à¦¨, à¦ªà§‡à¦¸à¦¿à¦‚, à¦•à¦¾à¦²à¦¾à¦° à¦“à¦¯à¦¼à¦¾à¦°à§à¦• à¦“ à¦­à¦¿à¦œà§à¦¯à§à¦¯à¦¼à¦¾à¦² à¦Ÿà§à¦°à¦¿à¦Ÿà¦®à§‡à¦¨à§à¦Ÿà¥¤' },
       { name: 'Premium', priceBdt: 20000, recommended: false,
         description: 'A full premium music-video edit: advanced pacing, multiple scenes where applicable, detailed effects, colour grading, creative treatment and professional final delivery.',
-        descriptionBn: 'সম্পূর্ণ প্রিমিয়াম মিউজিক ভিডিও এডিট — অ্যাডভান্সড পেসিং, প্রয়োজনে একাধিক সিন, বিস্তারিত ইফেক্ট, কালার গ্রেডিং, ক্রিয়েটিভ ট্রিটমেন্ট ও পেশাদার ফাইনাল ডেলিভারি।' },
+        descriptionBn: 'à¦¸à¦®à§à¦ªà§‚à¦°à§à¦£ à¦ªà§à¦°à¦¿à¦®à¦¿à¦¯à¦¼à¦¾à¦® à¦®à¦¿à¦‰à¦œà¦¿à¦• à¦­à¦¿à¦¡à¦¿à¦“ à¦à¦¡à¦¿à¦Ÿ â€” à¦…à§à¦¯à¦¾à¦¡à¦­à¦¾à¦¨à§à¦¸à¦¡ à¦ªà§‡à¦¸à¦¿à¦‚, à¦ªà§à¦°à¦¯à¦¼à§‹à¦œà¦¨à§‡ à¦à¦•à¦¾à¦§à¦¿à¦• à¦¸à¦¿à¦¨, à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ à¦‡à¦«à§‡à¦•à§à¦Ÿ, à¦•à¦¾à¦²à¦¾à¦° à¦—à§à¦°à§‡à¦¡à¦¿à¦‚, à¦•à§à¦°à¦¿à¦¯à¦¼à§‡à¦Ÿà¦¿à¦­ à¦Ÿà§à¦°à¦¿à¦Ÿà¦®à§‡à¦¨à§à¦Ÿ à¦“ à¦ªà§‡à¦¶à¦¾à¦¦à¦¾à¦° à¦«à¦¾à¦‡à¦¨à¦¾à¦² à¦¡à§‡à¦²à¦¿à¦­à¦¾à¦°à¦¿à¥¤' },
     ],
   },
   {
@@ -204,17 +204,17 @@ const SERVICES = [
     audience: 'Releases without a shoot budget that still need a moving asset.',
     included: ['Animated typography or audio-reactive visuals', 'Lyric synchronisation', 'Looping background system', '1080p and 4K export', 'Vertical version on higher tiers'],
     required: ['Final audio', 'Lyrics as text', 'Cover art'],
-    deliveryDays: '3–6 days', revisions: 'Revisions per package',
+    deliveryDays: '3â€“6 days', revisions: 'Revisions per package',
     tiers: [
       { name: 'Basic', priceBdt: 4000, recommended: false,
         description: 'Single visualiser or simple lyric video, one visual direction, standard synchronisation.',
-        descriptionBn: 'একটি ভিজ্যুয়ালাইজার বা সাধারণ লিরিক ভিডিও, একটি ভিজ্যুয়াল ডিরেকশন, স্ট্যান্ডার্ড সিনক্রোনাইজেশন।' },
+        descriptionBn: 'à¦à¦•à¦Ÿà¦¿ à¦­à¦¿à¦œà§à¦¯à§à¦¯à¦¼à¦¾à¦²à¦¾à¦‡à¦œà¦¾à¦° à¦¬à¦¾ à¦¸à¦¾à¦§à¦¾à¦°à¦£ à¦²à¦¿à¦°à¦¿à¦• à¦­à¦¿à¦¡à¦¿à¦“, à¦à¦•à¦Ÿà¦¿ à¦­à¦¿à¦œà§à¦¯à§à¦¯à¦¼à¦¾à¦² à¦¡à¦¿à¦°à§‡à¦•à¦¶à¦¨, à¦¸à§à¦Ÿà§à¦¯à¦¾à¦¨à§à¦¡à¦¾à¦°à§à¦¡ à¦¸à¦¿à¦¨à¦•à§à¦°à§‹à¦¨à¦¾à¦‡à¦œà§‡à¦¶à¦¨à¥¤' },
       { name: 'Professional', priceBdt: 6000, recommended: true,
         description: 'Custom visual direction, tighter lyric synchronisation, added effects and a vertical cutdown.',
-        descriptionBn: 'কাস্টম ভিজ্যুয়াল ডিরেকশন, নিখুঁত লিরিক সিনক্রোনাইজেশন, বাড়তি ইফেক্ট এবং একটি ভার্টিক্যাল কাটডাউন।' },
+        descriptionBn: 'à¦•à¦¾à¦¸à§à¦Ÿà¦® à¦­à¦¿à¦œà§à¦¯à§à¦¯à¦¼à¦¾à¦² à¦¡à¦¿à¦°à§‡à¦•à¦¶à¦¨, à¦¨à¦¿à¦–à§à¦à¦¤ à¦²à¦¿à¦°à¦¿à¦• à¦¸à¦¿à¦¨à¦•à§à¦°à§‹à¦¨à¦¾à¦‡à¦œà§‡à¦¶à¦¨, à¦¬à¦¾à¦¡à¦¼à¦¤à¦¿ à¦‡à¦«à§‡à¦•à§à¦Ÿ à¦à¦¬à¦‚ à¦à¦•à¦Ÿà¦¿ à¦­à¦¾à¦°à§à¦Ÿà¦¿à¦•à§à¦¯à¦¾à¦² à¦•à¦¾à¦Ÿà¦¡à¦¾à¦‰à¦¨à¥¤' },
       { name: 'Premium', priceBdt: 15000, recommended: false,
         description: 'Full animation complexity: scene variety, bespoke visual direction, advanced effects and highest production quality.',
-        descriptionBn: 'সম্পূর্ণ অ্যানিমেশন — একাধিক সিন, নিজস্ব ভিজ্যুয়াল ডিরেকশন, অ্যাডভান্সড ইফেক্ট এবং সর্বোচ্চ প্রোডাকশন কোয়ালিটি।' },
+        descriptionBn: 'à¦¸à¦®à§à¦ªà§‚à¦°à§à¦£ à¦…à§à¦¯à¦¾à¦¨à¦¿à¦®à§‡à¦¶à¦¨ â€” à¦à¦•à¦¾à¦§à¦¿à¦• à¦¸à¦¿à¦¨, à¦¨à¦¿à¦œà¦¸à§à¦¬ à¦­à¦¿à¦œà§à¦¯à§à¦¯à¦¼à¦¾à¦² à¦¡à¦¿à¦°à§‡à¦•à¦¶à¦¨, à¦…à§à¦¯à¦¾à¦¡à¦­à¦¾à¦¨à§à¦¸à¦¡ à¦‡à¦«à§‡à¦•à§à¦Ÿ à¦à¦¬à¦‚ à¦¸à¦°à§à¦¬à§‹à¦šà§à¦š à¦ªà§à¦°à§‹à¦¡à¦¾à¦•à¦¶à¦¨ à¦•à§‹à¦¯à¦¼à¦¾à¦²à¦¿à¦Ÿà¦¿à¥¤' },
     ],
   },
 ];
@@ -237,16 +237,16 @@ const RELEASES = [
     about: 'With NIHON.', credits: 'Produced by SnareByt',
     spotifyUrl: 'https://open.spotify.com/track/4Mjg3LKI2a9CmMTZ4bbKUn', live: true, featured: true, sortOrder: 4 },
   { slug: 'katsuki', title: 'KATSUKI', type: 'SINGLE' as const, trackCount: 1, releasedAt: '2023-07-14',
-    about: 'From WRONG TAPE — the Spotify artwork is identical to the tape cover.',
+    about: 'From WRONG TAPE â€” the Spotify artwork is identical to the tape cover.',
     credits: 'Produced by SnareByt',
     spotifyUrl: 'https://open.spotify.com/track/5IOUivWbpp6yP35bX4n9FN', live: true, featured: false, sortOrder: 5 },
   // Confirmed live records still awaiting a Spotify URL from Samir.
-  { slug: 'flex-maar', title: 'Flex Maar', type: 'SINGLE' as const, trackCount: 1, releasedAt: '2026-03-04',
+  { slug: 'flex-maar', title: 'Flex Maar', type: 'SINGLE' as const, trackCount: 1, releasedAt: null,
     about: '', credits: 'Produced by SnareByt', spotifyUrl: null, live: true, featured: true, sortOrder: 6 },
-  { slug: 'kobiraz', title: 'KOBIRAZ', type: 'SINGLE' as const, trackCount: 1, releasedAt: '2026-03-04',
+  { slug: 'kobiraz', title: 'KOBIRAZ', type: 'SINGLE' as const, trackCount: 1, releasedAt: null,
     about: '', credits: 'Produced, mixed and mastered by SnareByt', spotifyUrl: null, live: true, featured: true, sortOrder: 7 },
-  { slug: 'street-e-tor', title: 'STREET E TOR', type: 'SINGLE' as const, trackCount: 1, releasedAt: '2026-03-04',
-    about: 'With BIHAN · Wrong Side.', credits: 'Produced by SnareByt', spotifyUrl: null, live: true, featured: true, sortOrder: 8 },
+  { slug: 'street-e-tor', title: 'STREET E TOR', type: 'SINGLE' as const, trackCount: 1, releasedAt: null,
+    about: 'With BIHAN Â· Wrong Side.', credits: 'Produced by SnareByt', spotifyUrl: null, live: true, featured: true, sortOrder: 8 },
   { slug: 'jare-pakhi', title: 'JARE PAKHI', type: 'SINGLE' as const, trackCount: 1, releasedAt: '2022-06-28',
     about: '', credits: 'Produced by SnareByt', spotifyUrl: null, live: true, featured: false, sortOrder: 9 },
   { slug: 'noksha', title: 'NOKSHA', type: 'SINGLE' as const, trackCount: 1, releasedAt: '2021-07-14',
@@ -295,7 +295,7 @@ const BEATS = [
 ];
 
 async function main() {
-  console.log('→ settings');
+  console.log('â†’ settings');
   const settings: Record<string, string> = {
     usdRate: '122',
     whatsapp: '',                       // Samir to supply; contact button stays hidden until then
@@ -308,10 +308,10 @@ async function main() {
     await db.setting.upsert({ where: { key }, create: { key, value }, update: {} });
   }
 
-  console.log('→ admin user');
+  console.log('â†’ admin user');
   const email = (process.env.ADMIN_EMAIL ?? 'snarebyt@gmail.com').toLowerCase();
   const pw = process.env.ADMIN_PASSWORD;
-  if (!pw) throw new Error('Set ADMIN_PASSWORD in .env before seeding — no default password is created.');
+  if (!pw) throw new Error('Set ADMIN_PASSWORD in .env before seeding â€” no default password is created.');
   await db.user.upsert({
     where: { email },
     create: { email, name: 'Samir Islam', artistName: 'SnareByt', role: 'ADMIN',
@@ -319,12 +319,12 @@ async function main() {
     update: { role: 'ADMIN' },
   });
 
-  console.log('→ licence tiers (bilingual)');
+  console.log('â†’ licence tiers (bilingual)');
   for (const l of LICENCES) {
     await db.licenceTier.upsert({ where: { code: l.code }, create: l, update: l });
   }
 
-  console.log('→ services and packages');
+  console.log('â†’ services and packages');
   for (const s of SERVICES) {
     const { tiers, ...rest } = s;
     const service = await db.service.upsert({
@@ -336,20 +336,22 @@ async function main() {
     });
   }
 
-  console.log('→ releases');
+  console.log('â†’ releases');
   const { parseSpotifyUrl } = await import('../src/lib/spotify');
   for (const r of RELEASES) {
     const ref = parseSpotifyUrl(r.spotifyUrl ?? '');
     const data = {
       title: r.title, type: r.type, trackCount: r.trackCount,
-      releasedAt: new Date(r.releasedAt), about: r.about, credits: r.credits,
+      // null stays null — an unknown date must never become a guessed one.
+      releasedAt: r.releasedAt ? new Date(r.releasedAt) : null,
+      about: r.about, credits: r.credits,
       spotifyUrl: r.spotifyUrl, spotifyEmbedType: ref?.type ?? null, spotifyEmbedId: ref?.id ?? null,
       live: r.live, featured: r.featured, published: r.live, sortOrder: r.sortOrder,
     };
     await db.release.upsert({ where: { slug: r.slug }, create: { slug: r.slug, ...data }, update: data });
   }
 
-  console.log('→ portfolio credits');
+  console.log('â†’ portfolio credits');
   for (const p of PORTFOLIO) {
     await db.portfolioItem.upsert({
       where: { slug: p.slug },
@@ -358,7 +360,7 @@ async function main() {
     });
   }
 
-  console.log('→ beats (drafts — files must be uploaded before publishing)');
+  console.log('â†’ beats (drafts â€” files must be uploaded before publishing)');
   for (const b of BEATS) {
     await db.beat.upsert({
       where: { slug: b.slug },
@@ -367,7 +369,7 @@ async function main() {
     });
   }
 
-  console.log('→ discount codes');
+  console.log('â†’ discount codes');
   for (const c of [
     { code: 'SNARE10', percentOff: 10, maxUses: 100 },
     { code: 'FIRSTBEAT', percentOff: 15, maxUses: 50 },
@@ -375,7 +377,7 @@ async function main() {
     await db.discountCode.upsert({ where: { code: c.code }, create: c, update: {} });
   }
 
-  console.log('→ site content (pages, sections, nav, theme)');
+  console.log('â†’ site content (pages, sections, nav, theme)');
   const { PAGE_CONTENT, NAV_MENU, NAV_SOCIAL, THEME_TOKENS } = await import('./seed-content');
 
   for (const [i, pg] of PAGE_CONTENT.entries()) {
@@ -418,8 +420,8 @@ async function main() {
     await db.themeToken.upsert({ where: { key }, create: { key, value }, update: {} });
   }
 
-  console.log('\n✓ Seed complete.');
-  console.log('  Beats are DRAFT on purpose — a beat cannot be published until its');
+  console.log('\nâœ“ Seed complete.');
+  console.log('  Beats are DRAFT on purpose â€” a beat cannot be published until its');
   console.log('  tagged preview and untagged MP3 are uploaded, or buyers get nothing.');
   console.log('  Releases without a Spotify URL show "cover art pending" rather than a fake cover.');
 }
@@ -427,3 +429,4 @@ async function main() {
 main()
   .catch((e) => { console.error(e); process.exit(1); })
   .finally(() => db.$disconnect());
+
