@@ -32,7 +32,14 @@ async function main() {
   const missing = need.filter((k) => !process.env[k]);
   if (missing.length) {
     console.log(`  ✗ missing in .env: ${missing.join(', ')}`);
-    console.log('\nFill these in app/.env, then run again.\n');
+    console.log(`
+This checks your LOCAL .env only, at:
+  ${process.cwd()}\\.env
+
+If you set these in Vercel instead, the live site is fine and this failure
+only means local development cannot upload. The live Media screen states
+whether the deployed site can reach R2.
+`);
     process.exit(1);
   }
 
