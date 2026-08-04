@@ -14,22 +14,8 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // suppressHydrationWarning: the inline script below adds a class to <html>
-  // before React loads, so the server markup and the client DOM differ by
-  // design. Without it React reports a mismatch and discards the class.
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Runs during head parsing, before the body exists, so the reveal
-            animation is armed with no flash either way. If JavaScript is off
-            or fails, this class never lands and every `.rv` element simply
-            renders visible — see the Reveal section of globals.css. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: "document.documentElement.classList.add('js-rv')",
-          }}
-        />
-      </head>
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

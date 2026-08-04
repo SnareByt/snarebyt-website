@@ -219,25 +219,24 @@ nav.links a.on{color:var(--text)}
 .card:hover::before{opacity:1}
 
 /* ---------- Reveal ----------
-   The hiding is scoped to .js-rv, a class an inline script puts on <html>
-   before the body is parsed. Unscoped, these rules ship the page at opacity 0
-   and it stays blank until React hydrates and an observer runs — a blank hero
-   on a slow connection, and a permanently blank one if either step fails.
-   Scoped, the words are visible by default and the animation is something JS
-   opts into. Identical once running; safe when not. */
-.js-rv .rv{opacity:0;transform:translateY(30px)}
-.rv{transition:opacity .9s var(--e-out),transform .9s var(--e-out)}
-/* Scoped the same way as the rule it has to override. Left as plain `.rv.in`
-   it ties with `.js-rv .rv` on specificity and the winner comes down to source
-   order, which is not stable once the stylesheet is split into chunks. */
-.js-rv .rv.in,.rv.in{opacity:1;transform:none}
-.js-rv .rv-l{opacity:0;transform:translateX(-28px)}
-.rv-l{transition:.9s var(--e-out)}
-.js-rv .rv-l.in,.rv-l.in{opacity:1;transform:none}
+   REMOVED, deliberately.
+
+   These classes used to start at opacity 0 and slide in once JavaScript added
+   `.in`. That made the text on this site conditional on a script running
+   correctly, and every time it did not — hydration not finished, an observer
+   that never fired, a layout measured before the fonts loaded — the visitor
+   got a black page with a nav bar on it. That happened repeatedly, in
+   production, while automated checks reported the page as fine.
+
+   An entrance animation is not worth a site that can render blank. The classes
+   are kept so the markup and the rest of the design are untouched; they simply
+   no longer hide anything. Nothing here depends on JavaScript to be readable.
+
+   If the animation comes back, it must be additive: content visible first,
+   motion layered on top, never the other way round. */
+.rv, .rv-l{opacity:1;transform:none}
 .mask-line{overflow:hidden;display:block}
-.js-rv .mask-line>span{transform:translateY(110%)}
-.mask-line>span{display:block;transition:transform 1.05s var(--e-out)}
-.js-rv .mask-line.in>span,.mask-line.in>span{transform:none}
+.mask-line>span{display:block;transform:none}
 
 /* ---------- Pages ---------- */
 .page{display:none;animation:pgIn .7s var(--e-out)}
