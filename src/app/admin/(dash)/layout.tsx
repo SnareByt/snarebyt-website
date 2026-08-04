@@ -14,6 +14,10 @@ const NAV = [
     { href: '/admin/portfolio', label: 'Portfolio', icon: '▣' },
     { href: '/admin/services', label: 'Services', icon: '✦' },
   ]},
+  { group: 'Content', items: [
+    { href: '/admin/site', label: 'Site editor', icon: '✎' },
+    { href: '/admin/media', label: 'Media', icon: '🖼' },
+  ]},
   { group: 'Business', items: [
     { href: '/admin/orders', label: 'Orders', icon: '₿' },
     { href: '/admin/projects', label: 'Projects', icon: '◈' },
