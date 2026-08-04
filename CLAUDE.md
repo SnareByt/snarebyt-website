@@ -45,13 +45,18 @@ and already written.
 ## What already exists in this folder
 
 ```
-app/                     Next.js project — partially built, this is where you work
-  prisma/schema.prisma   42 models, complete. Extend; do not rewrite.
-  prisma/seed.ts         Real catalogue, bilingual. Extend; do not replace.
-  src/lib/               auth, totp, money, spotify, storage, content, validators, audit
-  src/app/admin/         layout, login, dashboard, beats, releases, site, media (actions done)
-  src/app/api/payments/sslcommerz/ipn/route.ts   the security-critical file
-  src/app/globals.css    full design system, ported verbatim from the prototype
+prisma/schema.prisma     42 models, complete. Extend; do not rewrite.
+prisma/seed.ts           Real catalogue, bilingual. Extend; do not replace.
+prisma/seed-content.ts   Approved copy for all 7 pages, as Page/PageSection rows
+src/lib/                 auth, totp, money, spotify, storage, content, validators, audit
+src/components/site/     public site components (player, store, forms, wordmark)
+src/app/(site)/          public pages — section-driven from PageSection rows
+src/app/admin/(dash)/    layout, dashboard, beats, releases, site, media
+src/app/admin/login/     outside (dash) on purpose — that layout redirects
+src/app/api/payments/sslcommerz/ipn/route.ts   the security-critical file
+src/app/globals.css      public design system, ported verbatim from the prototype
+src/app/admin/admin.css  admin styles — kept separate; they use bare `main`/`header`
+scripts/                 check-r2, check-site
 reference/
   SnareByt.html          the approved public site — working, interactive
   SnareByt-Admin.html    the approved admin dashboard — working, interactive

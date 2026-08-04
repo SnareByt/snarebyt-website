@@ -13,19 +13,19 @@ export type BriefState = {
   /**
    * What was submitted, echoed back so a rejected form can be re-rendered
    * with the answers still in it. Without this, missing one required field
-   * throws away everything the person typed â€” and a project brief is long.
+   * throws away everything the person typed — and a project brief is long.
    */
   values?: Record<string, string>;
   /**
    * Increments on every submission. The form uses it as a React key so the
-   * inputs remount and pick up the echoed values â€” `defaultValue` is only
+   * inputs remount and pick up the echoed values — `defaultValue` is only
    * read on mount, so without this the re-render would show a blank form.
    */
   attempt: number;
 };
 
 /**
- * Public project brief â†’ a Project row in the admin pipeline.
+ * Public project brief → a Project row in the admin pipeline.
  *
  * A server action is a public HTTP endpoint, so nothing here trusts the
  * browser: the payload is re-validated with zod regardless of what the form
@@ -67,7 +67,7 @@ export async function submitBrief(prev: BriefState, formData: FormData): Promise
   }
   const d = parsed.data;
 
-  // The service must exist and be active â€” a crafted request cannot attach a
+  // The service must exist and be active — a crafted request cannot attach a
   // brief to an arbitrary id.
   const service = await prisma.service.findFirst({
     where: { id: d.serviceId, active: true },

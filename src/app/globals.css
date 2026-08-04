@@ -1,5 +1,5 @@
 ﻿/* ============================================================
-   SnareByt â€” public site
+   SnareByt — public site
    Ported verbatim from the approved prototype so the live site is
    pixel-identical to what was signed off. Brand tokens are
    overridden at runtime by ThemeToken rows on the <html> element.
@@ -548,7 +548,7 @@ select.sel option{background:#111114}
   border:1px solid rgba(224,27,54,.32);display:grid;place-items:center;font-size:1.3rem}
 .svc ul{margin-top:.2rem}
 .svc li{list-style:none;font-size:.82rem;color:var(--muted);display:flex;gap:.5rem;align-items:flex-start;padding:.16rem 0}
-.svc li::before{content:"â†’";color:var(--red);font-size:.8rem;flex:none}
+.svc li::before{content:"→";color:var(--red);font-size:.8rem;flex:none}
 .svc .from{font-family:Archivo;font-weight:900;font-size:1.4rem;letter-spacing:-.03em}
 .svc .from small{font-size:.6rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);display:block}
 

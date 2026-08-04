@@ -29,16 +29,16 @@ machine — including Killaz Beatz — would then push as whichever account gh h
 Sign up at **vercel.com** with the SnareByt email, then **Add New → Project →
 Import** the `snarebyt` repo.
 
-One setting is not the default and the build fails without it:
+**Accept every default.** The Next.js project sits at the repo root, so Vercel
+detects the framework, build command and output directory on its own. There is
+no Root Directory to set.
 
-| Setting | Value | Why |
-|---|---|---|
-| **Root Directory** | `app` | The Next.js project lives in `app/`, not at the repo root |
+It used to live in an `app/` subfolder, which meant Root Directory had to be
+changed by hand — and a build that silently produces nothing and serves a 404 is
+a miserable thing to debug. Moving it to the root removed that step permanently.
 
-Framework preset (Next.js), build command and output directory are detected
-correctly on their own. `package.json` already runs `prisma generate` before
-`next build`, which Vercel requires — without it the cached build would ship a
-stale Prisma client.
+`package.json` already runs `prisma generate` before `next build`, which Vercel
+requires — without it a cached build would ship a stale Prisma client.
 
 ---
 
@@ -91,7 +91,7 @@ before recovering. On the direct endpoint under real traffic that is not a one-o
 
 ## 4. Create the tables on the production database
 
-Once the variables are set, from `app/` on your machine:
+Once the variables are set, from the project folder on your machine:
 
 ```bash
 npm run db:push
