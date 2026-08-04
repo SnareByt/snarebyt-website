@@ -218,14 +218,26 @@ nav.links a.on{color:var(--text)}
 .card:hover{transform:translateY(-6px);border-color:transparent;box-shadow:0 26px 60px -26px rgba(0,0,0,.9)}
 .card:hover::before{opacity:1}
 
-/* ---------- Reveal ---------- */
-.rv{opacity:0;transform:translateY(30px);transition:opacity .9s var(--e-out),transform .9s var(--e-out)}
-.rv.in{opacity:1;transform:none}
-.rv-l{opacity:0;transform:translateX(-28px);transition:.9s var(--e-out)}
-.rv-l.in{opacity:1;transform:none}
+/* ---------- Reveal ----------
+   The hiding is scoped to .js-rv, a class an inline script puts on <html>
+   before the body is parsed. Unscoped, these rules ship the page at opacity 0
+   and it stays blank until React hydrates and an observer runs — a blank hero
+   on a slow connection, and a permanently blank one if either step fails.
+   Scoped, the words are visible by default and the animation is something JS
+   opts into. Identical once running; safe when not. */
+.js-rv .rv{opacity:0;transform:translateY(30px)}
+.rv{transition:opacity .9s var(--e-out),transform .9s var(--e-out)}
+/* Scoped the same way as the rule it has to override. Left as plain `.rv.in`
+   it ties with `.js-rv .rv` on specificity and the winner comes down to source
+   order, which is not stable once the stylesheet is split into chunks. */
+.js-rv .rv.in,.rv.in{opacity:1;transform:none}
+.js-rv .rv-l{opacity:0;transform:translateX(-28px)}
+.rv-l{transition:.9s var(--e-out)}
+.js-rv .rv-l.in,.rv-l.in{opacity:1;transform:none}
 .mask-line{overflow:hidden;display:block}
-.mask-line>span{display:block;transform:translateY(110%);transition:transform 1.05s var(--e-out)}
-.mask-line.in>span{transform:none}
+.js-rv .mask-line>span{transform:translateY(110%)}
+.mask-line>span{display:block;transition:transform 1.05s var(--e-out)}
+.js-rv .mask-line.in>span,.mask-line.in>span{transform:none}
 
 /* ---------- Pages ---------- */
 .page{display:none;animation:pgIn .7s var(--e-out)}
