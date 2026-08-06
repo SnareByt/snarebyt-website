@@ -4,6 +4,8 @@ import { useMemo, useState, useEffect } from 'react';
 import { coverCss } from '@/lib/cover-art';
 import { Price } from './Currency';
 import { PlayButton, usePlayer, type Track } from './Player';
+import { useCart } from './Cart';
+import Link from 'next/link';
 
 export type LicenceView = {
   id: string;
@@ -92,6 +94,7 @@ export function BeatStore({ beats, licences }: { beats: BeatView[]; licences: Li
   );
 
   const { isCurrent } = usePlayer();
+  const { add, has } = useCart();
 
   useEffect(() => {
     if (!open) return;
@@ -288,18 +291,33 @@ export function BeatStore({ beats, licences }: { beats: BeatView[]; licences: Li
                   ))}
               </div>
 
-              {/* Checkout is the payments phase. Rather than a button that
-                  silently does nothing, the enquiry route is offered. */}
+              {/* Orders are requests, not payments. Saying so here stops anyone
+                  expecting a card form on the next screen. */}
               <div className="notice" style={{ marginTop: '1.4rem' }}>
                 <span>ℹ</span>
                 <span>
-                  <b>Checkout is not live yet.</b> Card, bKash, Nagad and Rocket payment through
-                  SSLCOMMERZ is the next phase. To licence a beat now, send an enquiry and it will
-                  be invoiced directly.
+                  <b>No payment is taken on the site.</b> Add a licence to your cart and place the
+                  order — SnareByt messages you on WhatsApp to arrange payment and send the files.
                 </span>
               </div>
               <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-                <a href="/contact" className="btn btn-red">Enquire about this beat →</a>
+                {open.soldExclusive ? null : (
+                  <button
+                    type="button"
+                    className="btn btn-red"
+                    disabled={!tier}
+                    onClick={() => {
+                      if (!tier) return;
+                      add({ beatId: open.id, tierId: tier.id });
+                      setOpen(null);
+                    }}
+                  >
+                    {!tier
+                      ? 'Choose a licence above'
+                      : has(open.id, tier.id) ? 'Already in your cart' : `Add ${tier.name} to cart →`}
+                  </button>
+                )}
+                <Link href="/cart" className="btn btn-ghost">View cart</Link>
                 <button type="button" className="btn btn-ghost" onClick={() => setOpen(null)}>Close</button>
               </div>
             </div>

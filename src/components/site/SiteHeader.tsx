@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Wordmark } from './Wordmark';
 import { CurrencySwitch } from './Currency';
+import { CartButton } from './Cart';
 
 export type NavLink = { label: string; href: string };
 
@@ -53,6 +54,7 @@ export function SiteHeader({ links }: { links: NavLink[] }) {
 
           <div className="nav-act">
             <CurrencySwitch />
+            <CartButton />
             <button
               type="button"
               className={open ? 'burger x' : 'burger'}
