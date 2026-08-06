@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { updateField, toggleSection, reorderSections, saveVersion } from './actions';
 import type { Field, SectionSpec } from '@/lib/content-spec';
 import { MediaPicker, type PickerAsset } from '@/components/admin/MediaPicker';
@@ -29,6 +30,7 @@ export function SiteEditor({ pages, specs, assets }: { pages: PageRow[]; specs: 
   const [sectionKey, setSectionKey] = useState(pages[0]?.sections[0]?.key ?? '');
   const [saving, startSaving] = useTransition();
   const [note, setNote] = useState<string | null>(null);
+  const router = useRouter();
 
   const page = pages.find((p) => p.slug === pageSlug);
   const section = page?.sections.find((s) => s.key === sectionKey) ?? page?.sections[0];
@@ -41,6 +43,10 @@ export function SiteEditor({ pages, specs, assets }: { pages: PageRow[]; specs: 
     startSaving(async () => {
       const res = await updateField({ pageSlug, sectionKey: section.key, path, value });
       flash(res.ok ? 'Saved' : res.error ?? 'Could not save');
+      // The section values on screen come from the server render. Without this
+      // a newly chosen image still reads "Nothing chosen" until a manual
+      // reload, which looks exactly like the save having failed.
+      if (res.ok) router.refresh();
     });
   };
 
