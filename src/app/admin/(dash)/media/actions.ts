@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin, requireOwner } from '@/lib/prisma-safe-auth';
 import { audit } from '@/lib/audit';
-import { presignUpload } from '@/lib/storage';
+import { presignUpload, publicUrl } from '@/lib/storage';
 import type { MediaKind } from '@prisma/client';
 
 const ALLOWED: Record<string, MediaKind> = {
@@ -38,7 +38,10 @@ export async function getMediaUploadUrl(input: { filename: string; contentType: 
   const key = `media/${Date.now().toString(36)}-${safe}.${ext}`;
 
   const url = await presignUpload({ key, contentType: input.contentType, visibility: 'public' });
-  return { ok: true as const, url, key, kind };
+  // The public base lives in a server env var, so the browser cannot work this
+  // out for itself — it is returned here so a just-uploaded file can be shown
+  // immediately without a round trip.
+  return { ok: true as const, url, key, kind, publicUrl: publicUrl(key) };
 }
 
 /** Called once the browser has finished PUTting the file. */

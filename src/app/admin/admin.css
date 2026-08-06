@@ -88,6 +88,23 @@ div#login.hide{display:none}
 .qr-box{display:grid;place-items:center;padding:1rem;border-radius:14px;
   border:1px solid var(--line2);background:rgba(255,255,255,.03)}
 .qr-box svg{width:190px;height:190px;display:block}
+/* ---------- Media picker ---------- */
+.mediapick-wrap{display:flex;flex-direction:column;gap:.6rem}
+.mediapick .prev img{width:100%;height:100%;object-fit:cover}
+.mediapick .ttl{font-family:Archivo;font-weight:700;font-size:.82rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mediapick-panel{padding:.9rem;border-radius:12px;border:1px solid var(--line);
+  background:rgba(255,255,255,.025)}
+.pickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:.55rem;margin-top:.6rem}
+.pickcard{padding:0;border-radius:10px;border:1px solid var(--line);overflow:hidden;
+  background:#111114;text-align:left;transition:.2s;display:block}
+.pickcard:hover{border-color:var(--line2)}
+.pickcard.on{border-color:var(--red);box-shadow:0 0 0 2px rgba(224,27,54,.3)}
+.pickcard img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.pickcard .prev{display:grid;place-items:center;aspect-ratio:1;font-size:1.3rem;color:var(--dim)}
+.pickcard .nm{display:block;padding:.35rem .45rem;font-size:.62rem;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
 .secret-key{display:block;padding:.7rem .8rem;border-radius:9px;border:1px solid var(--line2);
   background:rgba(255,255,255,.04);word-break:break-all;font-size:.86rem;letter-spacing:.09em;
   user-select:all}

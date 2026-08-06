@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { updateField, toggleSection, reorderSections, saveVersion } from './actions';
 import type { Field, SectionSpec } from '@/lib/content-spec';
+import { MediaPicker, type PickerAsset } from '@/components/admin/MediaPicker';
 
 export type SectionRow = {
   id: string;
@@ -23,7 +24,7 @@ export type PageRow = { slug: string; label: string; sections: SectionRow[] };
  * cannot overwrite each other, and the field spec on the server is an
  * allow-list — a crafted request cannot invent a key.
  */
-export function SiteEditor({ pages, specs }: { pages: PageRow[]; specs: Record<string, SectionSpec[]> }) {
+export function SiteEditor({ pages, specs, assets }: { pages: PageRow[]; specs: Record<string, SectionSpec[]>; assets: PickerAsset[] }) {
   const [pageSlug, setPageSlug] = useState(pages[0]?.slug ?? 'home');
   const [sectionKey, setSectionKey] = useState(pages[0]?.sections[0]?.key ?? '');
   const [saving, startSaving] = useTransition();
@@ -134,7 +135,7 @@ export function SiteEditor({ pages, specs }: { pages: PageRow[]; specs: Record<s
               <h4>{spec.name}</h4>
               <div className="sub" style={{ marginBottom: '1rem' }}>{spec.about}</div>
               {spec.fields.map((f) => (
-                <FieldEditor key={f.k} field={f} values={section.values} onSave={save} />
+                <FieldEditor key={f.k} field={f} values={section.values} onSave={save} assets={assets} />
               ))}
             </div>
           ) : (
@@ -153,8 +154,8 @@ export function SiteEditor({ pages, specs }: { pages: PageRow[]; specs: Record<s
 }
 
 function FieldEditor({
-  field, values, onSave,
-}: { field: Field; values: Record<string, unknown>; onSave: (path: string, value: unknown) => void }) {
+  field, values, onSave, assets,
+}: { field: Field; values: Record<string, unknown>; onSave: (path: string, value: unknown) => void; assets: PickerAsset[] }) {
   const raw = values[field.k];
 
   if (field.t === 'list') return <ListEditor field={field} values={values} onSave={onSave} />;
@@ -174,21 +175,18 @@ function FieldEditor({
     );
   }
 
-  // Media fields store a MediaAsset id. Until Cloudflare R2 has credentials
-  // there is no library to pick from, so this says so rather than offering a
-  // picker that cannot work.
+  // Media fields store a MediaAsset id, so replacing the file updates every
+  // page that uses it instead of leaving stale copies of a URL behind.
   if (field.t === 'image' || field.t === 'audio') {
     return (
       <div className="fg">
         <label className="fl">{field.l} <span className="ftype">{field.t}</span></label>
-        <div className="mediapick">
-          <div className="prev">{field.t === 'image' ? '🖼' : '♪'}</div>
-          <div className="sub">
-            {typeof raw === 'string' && raw
-              ? <>Using asset <code className="mono">{raw}</code></>
-              : 'Nothing chosen. Uploads need Cloudflare R2 credentials in the server environment.'}
-          </div>
-        </div>
+        <MediaPicker
+          kind={field.t}
+          value={typeof raw === 'string' ? raw : ''}
+          assets={assets}
+          onChange={(id) => onSave(field.k, id)}
+        />
         {field.h ? <div className="hint">{field.h}</div> : null}
       </div>
     );
