@@ -23,7 +23,10 @@ const NAV = [
     { href: '/admin/projects', label: 'Projects', icon: '◈' },
     { href: '/admin/customers', label: 'Customers', icon: '☺' },
   ]},
-  { group: 'System', items: [{ href: '/admin/settings', label: 'Settings', icon: '⚙' }] },
+  { group: 'System', items: [
+    { href: '/admin/settings', label: 'Settings', icon: '⚙' },
+    { href: '/admin/account', label: 'Your account', icon: '⚿' },
+  ]},
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

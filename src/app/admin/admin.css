@@ -49,14 +49,53 @@ a{color:inherit;text-decoration:none}
 #login{position:fixed;inset:0;z-index:500;display:grid;place-items:center;padding:1.2rem;
   background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(224,27,54,.2),transparent 60%),var(--ink)}
 #login.hide{display:none}
-/* The prototype's login was a client-toggled overlay. The real one is a
-   server-rendered page, so it needs a static wrapper and an error box that is
-   visible on render — `.err` above is display:none until JS shows it. Same
-   look, no new design decisions. */
-.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1.2rem;
-  background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(224,27,54,.2),transparent 60%),var(--ink)}
-.err-box{font-size:.78rem;color:var(--red-b);margin:.6rem 0 0;padding:.55rem .7rem;border-radius:9px;
-  border:1px solid rgba(224,27,54,.35);background:rgba(224,27,54,.1)}
+/* ---------- Sign-in page ----------
+   The heading used to carry .display, whose clamp() is sized for a hero and
+   rendered "SIGN IN" three lines tall inside a 390px card. And browser autofill
+   paints its own near-white background over dark inputs, which is why the boxes
+   looked wrong: the fix is a large inset shadow, since background-color itself
+   cannot be overridden on an autofilled field. */
+.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1.2rem;position:relative;
+  background:var(--ink);overflow:hidden}
+.login-glow{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 70% 50% at 50% -10%,rgba(224,27,54,.22),transparent 60%)}
+.login-box{position:relative;width:100%;max-width:420px;padding:2.4rem 2.1rem;border-radius:20px;
+  border:1px solid var(--line2);background:linear-gradient(165deg,#141418,#0a0a0c);
+  box-shadow:0 40px 100px -30px #000}
+.login-box h1{font-family:Syne,sans-serif;font-weight:800;font-size:1.9rem;letter-spacing:-.02em;
+  margin:.7rem 0 .5rem;line-height:1.05}
+.login-sub{font-size:.84rem;color:var(--muted);line-height:1.6;margin-bottom:1.5rem}
+.login-box .fl{display:block;margin:1rem 0 .35rem}
+.login-box .in{width:100%}
+.login-box .btn{margin-top:1.5rem}
+.login-note{font-size:.72rem;color:var(--dim);line-height:1.6;margin-top:1rem;text-align:center}
+
+/* Autofill repaint. Chrome ignores background-color on autofilled inputs but
+   honours an inset shadow, so this restores the dark field. */
+.login-box .in:-webkit-autofill,
+.login-box .in:-webkit-autofill:hover,
+.login-box .in:-webkit-autofill:focus{
+  -webkit-text-fill-color:var(--text);
+  -webkit-box-shadow:0 0 0 1000px #141418 inset;
+  caret-color:var(--text);
+  transition:background-color 9999s ease-in-out 0s}
+
+.totp-in{text-align:center;font-family:'JetBrains Mono',monospace;font-size:1.5rem;
+  letter-spacing:.5em;padding-left:.5em}
+.pw-rules{list-style:none;margin:.9rem 0 0;padding:0;display:flex;flex-direction:column;gap:.3rem}
+.pw-rules li{font-size:.74rem;color:var(--dim);padding-left:1.1rem;position:relative}
+.pw-rules li::before{content:"·";position:absolute;left:.35rem;color:var(--red)}
+.qr-box{display:grid;place-items:center;padding:1rem;border-radius:14px;
+  border:1px solid var(--line2);background:rgba(255,255,255,.03)}
+.qr-box svg{width:190px;height:190px;display:block}
+.secret-key{display:block;padding:.7rem .8rem;border-radius:9px;border:1px solid var(--line2);
+  background:rgba(255,255,255,.04);word-break:break-all;font-size:.86rem;letter-spacing:.09em;
+  user-select:all}
+
+.err-box{font-size:.78rem;color:var(--red-b);margin:.9rem 0 0;padding:.6rem .75rem;border-radius:9px;
+  border:1px solid rgba(224,27,54,.35);background:rgba(224,27,54,.1);line-height:1.5}
+.ok-box{font-size:.78rem;color:var(--ok);margin:.9rem 0 0;padding:.6rem .75rem;border-radius:9px;
+  border:1px solid rgba(43,182,115,.35);background:rgba(43,182,115,.1);line-height:1.5}
 .login-box{width:100%;max-width:390px;padding:2.1rem;border-radius:20px;border:1px solid var(--line2);
   background:linear-gradient(165deg,#141418,#0a0a0c);box-shadow:0 40px 100px -30px #000}
 
