@@ -26,8 +26,10 @@ export function PasswordForm() {
         <input className="in" id="next" name="next" type="password" autoComplete="new-password" required />
       </div>
       <div className="fg" style={{ marginTop: '1rem' }}>
-        <label className="fl" htmlFor="confirm">Repeat new password</label>
-        <input className="in" id="confirm" name="confirm" type="password" autoComplete="new-password" required />
+        {/* Not id="confirm" — that collides with the #confirm modal overlay in
+            admin.css and hides the field entirely. */}
+        <label className="fl" htmlFor="confirmPw">Repeat new password</label>
+        <input className="in" id="confirmPw" name="confirm" type="password" autoComplete="new-password" required />
       </div>
 
       <ul className="pw-rules">

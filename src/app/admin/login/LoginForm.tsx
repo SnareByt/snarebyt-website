@@ -97,8 +97,12 @@ export function FirstRunForm({ email }: { email: string }) {
       <label className="fl" htmlFor="password">New password</label>
       <input className="in" id="password" name="password" type="password" autoComplete="new-password" required />
 
-      <label className="fl" htmlFor="confirm">Repeat it</label>
-      <input className="in" id="confirm" name="confirm" type="password" autoComplete="new-password" required />
+      {/* id must not be "confirm": admin.css styles #confirm as a full-screen
+          modal overlay, which made this field invisible, and Chrome silently
+          refuses to submit a form containing a required field it cannot focus.
+          The name stays "confirm" — only the id collided. */}
+      <label className="fl" htmlFor="confirmPw">Repeat it</label>
+      <input className="in" id="confirmPw" name="confirm" type="password" autoComplete="new-password" required />
 
       <ul className="pw-rules">
         <li>At least 10 characters</li>

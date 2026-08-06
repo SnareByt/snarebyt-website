@@ -46,9 +46,9 @@ a{color:inherit;text-decoration:none}
 .wm-t{font-family:Syne,sans-serif;font-weight:800;font-size:30px;text-transform:uppercase}
 
 /* ---------- Login ---------- */
-#login{position:fixed;inset:0;z-index:500;display:grid;place-items:center;padding:1.2rem;
+div#login{position:fixed;inset:0;z-index:500;display:grid;place-items:center;padding:1.2rem;
   background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(224,27,54,.2),transparent 60%),var(--ink)}
-#login.hide{display:none}
+div#login.hide{display:none}
 /* ---------- Sign-in page ----------
    The heading used to carry .display, whose clamp() is sized for a hero and
    rendered "SIGN IN" three lines tall inside a 390px card. And browser autofill
@@ -96,12 +96,9 @@ a{color:inherit;text-decoration:none}
   border:1px solid rgba(224,27,54,.35);background:rgba(224,27,54,.1);line-height:1.5}
 .ok-box{font-size:.78rem;color:var(--ok);margin:.9rem 0 0;padding:.6rem .75rem;border-radius:9px;
   border:1px solid rgba(43,182,115,.35);background:rgba(43,182,115,.1);line-height:1.5}
-.login-box{width:100%;max-width:390px;padding:2.1rem;border-radius:20px;border:1px solid var(--line2);
-  background:linear-gradient(165deg,#141418,#0a0a0c);box-shadow:0 40px 100px -30px #000}
-
 /* ---------- Shell ---------- */
-#shell{display:none}
-#shell.on{display:block}
+div#shell{display:none}
+div#shell.on{display:block}
 aside{position:fixed;top:0;left:0;bottom:0;width:var(--side);z-index:80;
   background:linear-gradient(#0b0b0e,#080809);border-right:1px solid var(--line);
   display:flex;flex-direction:column;transition:transform .4s var(--e)}
@@ -236,14 +233,14 @@ textarea.in{resize:vertical;min-height:70px;line-height:1.6}
 .inline{display:flex;align-items:center;gap:.6rem}
 
 /* ---------- Drawer ---------- */
-#scrim{position:fixed;inset:0;z-index:180;background:rgba(2,2,3,.72);backdrop-filter:blur(5px);
+div#scrim{position:fixed;inset:0;z-index:180;background:rgba(2,2,3,.72);backdrop-filter:blur(5px);
   opacity:0;visibility:hidden;transition:.35s var(--e)}
-#scrim.on{opacity:1;visibility:visible}
-#drawer{position:fixed;top:0;right:0;bottom:0;width:min(660px,100%);z-index:190;
+div#scrim.on{opacity:1;visibility:visible}
+div#drawer{position:fixed;top:0;right:0;bottom:0;width:min(660px,100%);z-index:190;
   background:linear-gradient(200deg,#131317,#0a0a0c);border-left:1px solid var(--line2);
   box-shadow:-30px 0 80px -30px #000;transform:translateX(101%);transition:transform .45s var(--e);
   display:flex;flex-direction:column}
-#drawer.on{transform:none}
+div#drawer.on{transform:none}
 .dw-hd{padding:1.1rem 1.3rem;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;
   justify-content:space-between;gap:1rem;flex:none}
 .dw-hd h3{font-family:Syne;font-weight:800;font-size:1.12rem;letter-spacing:-.02em;margin-top:.35rem}
@@ -254,16 +251,16 @@ textarea.in{resize:vertical;min-height:70px;line-height:1.6}
 .x:hover{border-color:var(--red);background:rgba(224,27,54,.12)}
 
 /* ---------- Confirm ---------- */
-#confirm{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:1.2rem;
+div#confirm{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:1.2rem;
   background:rgba(2,2,3,.82);backdrop-filter:blur(8px);opacity:0;visibility:hidden;transition:.3s}
-#confirm.on{opacity:1;visibility:visible}
+div#confirm.on{opacity:1;visibility:visible}
 .cf-box{width:100%;max-width:400px;padding:1.5rem;border-radius:18px;border:1px solid var(--line2);
   background:linear-gradient(165deg,#16161b,#0b0b0d);box-shadow:0 30px 80px -20px #000;
   transform:scale(.96);transition:.35s var(--e)}
-#confirm.on .cf-box{transform:none}
+div#confirm.on .cf-box{transform:none}
 
 /* ---------- Toast ---------- */
-#toasts{position:fixed;bottom:1.1rem;right:1.1rem;z-index:260;display:flex;flex-direction:column;
+div#toasts{position:fixed;bottom:1.1rem;right:1.1rem;z-index:260;display:flex;flex-direction:column;
   gap:.5rem;max-width:min(370px,92vw);pointer-events:none}
 .toast{padding:.75rem 1rem;border-radius:12px;background:rgba(18,18,22,.97);border:1px solid var(--line2);
   backdrop-filter:blur(14px);box-shadow:0 16px 40px -14px #000;display:flex;gap:.65rem;align-items:flex-start;
