@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { getPage } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
@@ -12,8 +13,7 @@ const str = (v: Values, k: string, fallback = '') =>
 const list = <T,>(v: Values, k: string): T[] => (Array.isArray(v[k]) ? (v[k] as T[]) : []);
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPage('services');
-  return { title: page?.seoTitle ?? 'Services — SnareByt', description: page?.seoDescription ?? undefined };
+  return pageMetadata('services');
 }
 
 export default async function ServicesPage() {

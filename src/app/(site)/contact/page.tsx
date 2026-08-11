@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { getPage, getNav } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
 import { PageHead } from '@/components/site/PageHead';
@@ -15,8 +16,7 @@ function initials(label: string) {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPage('contact');
-  return { title: page?.seoTitle ?? 'Contact — SnareByt', description: page?.seoDescription ?? undefined };
+  return pageMetadata('contact');
 }
 
 export default async function ContactPage() {

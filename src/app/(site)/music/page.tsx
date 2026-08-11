@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { getPage, getNav } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
 import { coverCss, seedFrom } from '@/lib/cover-art';
@@ -31,8 +32,7 @@ const DSPS = ['Spotify', 'Apple Music', 'SoundCloud', 'TIDAL', 'Deezer'];
 const year = (d: Date | null) => (d ? String(d.getUTCFullYear()) : '—');
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPage('music');
-  return { title: page?.seoTitle ?? 'Music — SnareByt', description: page?.seoDescription ?? undefined };
+  return pageMetadata('music');
 }
 
 export default async function MusicPage() {

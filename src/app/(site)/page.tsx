@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { getPage } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
 import { seedFrom } from '@/lib/cover-art';
 import { HomeBeatStrip } from '@/components/site/HomeBeatStrip';
+import { ArtistSchema } from '@/components/site/ArtistSchema';
 import type { BeatView } from '@/components/site/BeatStore';
 import {
   Hero, Marquee, Intro, Testimonials, BookingCta, Newsletter,
@@ -19,11 +21,7 @@ import {
  */
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPage('home');
-  return {
-    title: page?.seoTitle ?? 'SnareByt',
-    description: page?.seoDescription ?? undefined,
-  };
+  return pageMetadata('home');
 }
 
 /** Section keys this page can render today. Anything else is skipped. */
@@ -82,6 +80,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <ArtistSchema />
       {sections.map((s, i) => {
         const v = (s.values ?? {}) as Values;
         switch (s.key) {

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { getPage, getMedia, getNav } from '@/lib/content';
 import { PageHead } from '@/components/site/PageHead';
@@ -17,8 +18,7 @@ const str = (v: Values, k: string, fallback = '') =>
 const list = <T,>(v: Values, k: string): T[] => (Array.isArray(v[k]) ? (v[k] as T[]) : []);
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPage('about');
-  return { title: page?.seoTitle ?? 'About — SnareByt', description: page?.seoDescription ?? undefined };
+  return pageMetadata('about');
 }
 
 export default async function AboutPage() {

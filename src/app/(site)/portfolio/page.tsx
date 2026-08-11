@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { getPage } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
@@ -15,8 +16,7 @@ const str = (v: Values, k: string, fallback = '') =>
   typeof v[k] === 'string' ? (v[k] as string) : fallback;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPage('portfolio');
-  return { title: page?.seoTitle ?? 'Portfolio — SnareByt', description: page?.seoDescription ?? undefined };
+  return pageMetadata('portfolio');
 }
 
 export default async function PortfolioPage() {

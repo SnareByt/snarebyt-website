@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { getPage } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
 import { seedFrom } from '@/lib/cover-art';
@@ -23,8 +24,7 @@ const str = (v: Values, k: string, fallback = '') =>
 const lines = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPage('beats');
-  return { title: page?.seoTitle ?? 'Beats — SnareByt', description: page?.seoDescription ?? undefined };
+  return pageMetadata('beats');
 }
 
 export default async function BeatsPage() {

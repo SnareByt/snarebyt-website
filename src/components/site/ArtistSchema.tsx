@@ -1,0 +1,52 @@
+import { prisma } from '@/lib/prisma';
+import { getNav } from '@/lib/content';
+
+/**
+ * Structured data describing SnareByt as a music act.
+ *
+ * This is what lets a search engine understand the site is an artist rather
+ * than a generic page, and it is what feeds the panel that can appear beside
+ * results. Every value is taken from the database — releases that are actually
+ * live, profiles that actually have a URL. Nothing is asserted that is not
+ * already stated on the site, and no listener or view figures appear anywhere.
+ */
+export async function ArtistSchema() {
+  const base = process.env.APP_URL;
+  if (!base) return null;
+
+  const [socials, releases] = await Promise.all([
+    getNav('SOCIAL'),
+    prisma.release.findMany({
+      where: { live: true, type: { in: ['ALBUM', 'EP', 'BEAT_TAPE'] } },
+      orderBy: { sortOrder: 'asc' },
+      select: { title: true, releasedAt: true, spotifyUrl: true, type: true },
+    }),
+  ]);
+
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'MusicGroup',
+    name: 'SnareByt',
+    alternateName: 'Samir Islam',
+    url: base,
+    description:
+      'Music producer, recording artist and mixing and mastering engineer from Dhaka, Bangladesh. Member of the Wrong Side collective.',
+    genre: ['Hip hop', 'Trap', 'Drill'],
+    foundingLocation: { '@type': 'Place', name: 'Dhaka, Bangladesh' },
+    // Only profiles with a real URL. getNav already drops empty ones.
+    sameAs: socials.map((s) => s.href),
+    album: releases.map((r) => ({
+      '@type': 'MusicAlbum',
+      name: r.title,
+      ...(r.releasedAt ? { datePublished: r.releasedAt.toISOString().slice(0, 10) } : {}),
+      ...(r.spotifyUrl ? { sameAs: r.spotifyUrl } : {}),
+    })),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
+}
