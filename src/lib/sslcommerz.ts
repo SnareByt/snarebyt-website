@@ -1,0 +1,92 @@
+import 'server-only';
+
+/**
+ * SSLCOMMERZ session initiation.
+ *
+ * Sandbox and live differ only by host. The store password is read from the
+ * environment at call time and never reaches the browser — the browser only
+ * ever receives the GatewayPageURL that comes back.
+ */
+const SANDBOX = process.env.SSLC_SANDBOX !== 'false';
+
+const SESSION_URL = SANDBOX
+  ? 'https://sandbox.sslcommerz.com/gwprocess/v4/api.php'
+  : 'https://securepay.sslcommerz.com/gwprocess/v4/api.php';
+
+export type SessionInput = {
+  tranId: string;
+  amountBdt: number;
+  customer: { name: string; email: string; phone: string; country?: string | null };
+  baseUrl: string;
+  itemCount: number;
+};
+
+export type SessionResult =
+  | { ok: true; gatewayUrl: string; sessionKey: string; raw: unknown }
+  | { ok: false; error: string; raw: unknown };
+
+export async function createPaymentSession(input: SessionInput): Promise<SessionResult> {
+  const storeId = process.env.SSLC_STORE_ID;
+  const storePasswd = process.env.SSLC_STORE_PASSWORD;
+  if (!storeId || !storePasswd) {
+    return { ok: false, error: 'SSLCOMMERZ credentials are not configured on the server.', raw: null };
+  }
+
+  const body = new URLSearchParams({
+    store_id: storeId,
+    store_passwd: storePasswd,
+    // Whole taka. Every price in this system is an integer of BDT, and the
+    // gateway is asked for exactly the figure we recorded on the Payment row —
+    // the IPN later refuses anything that does not match it.
+    total_amount: input.amountBdt.toFixed(2),
+    currency: 'BDT',
+    tran_id: input.tranId,
+
+    success_url: `${input.baseUrl}/checkout/success`,
+    fail_url: `${input.baseUrl}/checkout/failed`,
+    cancel_url: `${input.baseUrl}/checkout/cancelled`,
+    ipn_url: `${input.baseUrl}/api/payments/sslcommerz/ipn`,
+
+    cus_name: input.customer.name,
+    cus_email: input.customer.email,
+    cus_phone: input.customer.phone,
+    cus_add1: 'N/A',
+    cus_city: 'N/A',
+    cus_country: input.customer.country || 'Bangladesh',
+
+    // Digital goods: nothing is posted, so shipping is explicitly off.
+    shipping_method: 'NO',
+    num_of_item: String(input.itemCount),
+    product_name: 'Beat licence',
+    product_category: 'Digital goods',
+    product_profile: 'digital-goods',
+  });
+
+  try {
+    const res = await fetch(SESSION_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body,
+      cache: 'no-store',
+    });
+    const raw = (await res.json()) as Record<string, unknown>;
+
+    if (raw.status === 'SUCCESS' && typeof raw.GatewayPageURL === 'string') {
+      return {
+        ok: true,
+        gatewayUrl: raw.GatewayPageURL,
+        sessionKey: String(raw.sessionkey ?? ''),
+        raw,
+      };
+    }
+    return {
+      ok: false,
+      error: String(raw.failedreason || raw.status || 'The payment gateway refused the request.'),
+      raw,
+    };
+  } catch (e) {
+    return { ok: false, error: `Could not reach the payment gateway: ${String(e)}`, raw: null };
+  }
+}
+
+export const isSandbox = () => SANDBOX;

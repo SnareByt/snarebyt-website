@@ -5,6 +5,8 @@ import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { rateLimit } from '@/lib/audit';
 import { licencePrice } from '@/lib/money';
+import { createPaymentSession, isSandbox } from '@/lib/sslcommerz';
+import { siteUrl } from '@/lib/seo';
 
 export type OrderState = {
   ok: boolean;
@@ -15,6 +17,9 @@ export type OrderState = {
   message?: string;
   attempt: number;
   values?: Record<string, string>;
+  orderId?: string;
+  /** False when SSLCOMMERZ is not configured, so the UI can fall back. */
+  payable?: boolean;
 };
 
 const schema = z.object({
@@ -141,7 +146,7 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
       userAgent: h.get('user-agent') ?? undefined,
       items: { create: items },
     },
-    select: { number: true, totalBdt: true },
+    select: { id: true, number: true, totalBdt: true },
   });
 
   const wa = await prisma.setting.findUnique({ where: { key: 'whatsapp' } });
@@ -149,8 +154,71 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
   return {
     ok: true,
     attempt,
+    orderId: order.id,
     number: order.number,
     totalBdt: order.totalBdt,
     whatsapp: (wa?.value ?? '').replace(/[^0-9]/g, ''),
+    payable: Boolean(process.env.SSLC_STORE_ID && process.env.SSLC_STORE_PASSWORD),
   };
+}
+
+/**
+ * Hand an existing order to SSLCOMMERZ and return the gateway URL.
+ *
+ * The amount comes from the order row, never from the browser. The Payment row
+ * is written BEFORE the gateway is called, because the IPN's whole job is to
+ * compare what the gateway reports against what we recorded here — if the row
+ * did not exist first, there would be nothing to check against.
+ */
+export async function startPayment(orderId: string): Promise<
+  { ok: true; url: string } | { ok: false; error: string }
+> {
+  const h = await headers();
+  const ip = h.get('x-forwarded-for')?.split(',')[0] ?? 'unknown';
+
+  const limited = await rateLimit(`pay:ip:${ip}`, 12, 60 * 60_000);
+  if (!limited.ok) return { ok: false, error: 'Too many payment attempts. Try again in an hour.' };
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true },
+  });
+  if (!order) return { ok: false, error: 'That order no longer exists.' };
+  if (order.status === 'PAID') return { ok: false, error: 'This order is already paid.' };
+  if (order.status !== 'PENDING_PAYMENT') return { ok: false, error: 'This order cannot be paid.' };
+
+  const base = await siteUrl();
+  if (!base) return { ok: false, error: 'The site address could not be determined.' };
+
+  // A fresh transaction id per attempt. Reusing one would collide with the
+  // Payment.tranId unique constraint and make a retry look like a duplicate.
+  const tranId = `SB-${order.number.replace(/[^A-Z0-9]/gi, '')}-${Date.now().toString(36).toUpperCase()}`;
+
+  const session = await createPaymentSession({
+    tranId,
+    amountBdt: order.totalBdt,
+    customer: {
+      name: order.billingName ?? order.guestName ?? 'Customer',
+      email: order.billingEmail,
+      phone: order.billingPhone ?? '',
+      country: order.billingCountry,
+    },
+    baseUrl: base,
+    itemCount: order.items.length,
+  });
+
+  await prisma.payment.create({
+    data: {
+      orderId: order.id,
+      environment: isSandbox() ? 'sandbox' : 'live',
+      tranId,
+      amountBdt: order.totalBdt,
+      status: session.ok ? 'INITIATED' : 'FAILED',
+      failureReason: session.ok ? null : session.error.slice(0, 300),
+      validationRawJson: (session.raw ?? null) as never,
+    },
+  });
+
+  if (!session.ok) return { ok: false, error: session.error };
+  return { ok: true, url: session.gatewayUrl };
 }

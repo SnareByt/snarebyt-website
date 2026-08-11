@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useMemo } from 'react';
+import { useActionState, useMemo, useState, useTransition } from 'react';
 import { useCart } from './Cart';
 import { Price } from './Currency';
-import { placeOrder, type OrderState } from '@/app/(site)/cart/actions';
+import { placeOrder, startPayment, type OrderState } from '@/app/(site)/cart/actions';
 
 export type CatalogueBeat = { id: string; title: string; basePriceBdt: number; exclusiveAvailable: boolean };
 export type CatalogueTier = {
@@ -19,6 +19,8 @@ const initial: OrderState = { ok: false, attempt: 0 };
 export function CartView({ beats, tiers }: { beats: CatalogueBeat[]; tiers: CatalogueTier[] }) {
   const { lines, remove, clear, ready } = useCart();
   const [state, action, pending] = useActionState(placeOrder, initial);
+  const [paying, startPaying] = useTransition();
+  const [payError, setPayError] = useState<string | null>(null);
   const e = state.errors ?? {};
   const v = state.values ?? {};
 
@@ -42,22 +44,42 @@ export function CartView({ beats, tiers }: { beats: CatalogueBeat[]; tiers: Cata
         <div className="eyebrow">Order received</div>
         <h2 className="display" style={{ margin: '1rem 0' }}>{state.number}</h2>
         <p className="lead">
-          Your order is saved. <strong>Nothing has been charged</strong> — SnareByt will message you
-          to arrange payment, then send your files directly.
+          Saved, and <strong>nothing has been charged yet</strong>. Pay by card, bKash, Nagad or
+          Rocket now, or arrange it with SnareByt directly.
         </p>
-        <p className="lead" style={{ marginTop: '.8rem' }}>
-          The fastest way to finish is to message on WhatsApp with your order number.
-        </p>
+
+        {payError ? <div className="err-box">{payError}</div> : null}
+
         <div style={{ display: 'flex', gap: '.7rem', flexWrap: 'wrap', marginTop: '1.6rem' }}>
+          {state.payable && state.orderId ? (
+            <button
+              type="button"
+              className="btn btn-red"
+              disabled={paying}
+              onClick={() => {
+                setPayError(null);
+                startPaying(async () => {
+                  const res = await startPayment(state.orderId!);
+                  // The gateway is a different origin, so this is a full
+                  // navigation rather than a router push.
+                  if (res.ok) window.location.href = res.url;
+                  else setPayError(res.error);
+                });
+              }}
+            >
+              {paying ? 'Opening secure payment…' : `Pay ৳${(state.totalBdt ?? 0).toLocaleString('en-US')} now →`}
+            </button>
+          ) : null}
           {wa ? (
-            <a className="btn btn-red" href={`https://wa.me/${wa}?text=${msg}`} target="_blank" rel="noopener noreferrer">
-              Message on WhatsApp →
+            <a className="btn btn-ghost" href={`https://wa.me/${wa}?text=${msg}`} target="_blank" rel="noopener noreferrer">
+              Arrange on WhatsApp
             </a>
           ) : null}
-          <Link href="/beats" className="btn btn-ghost" onClick={() => clear()}>Back to the store</Link>
         </div>
+
         <p className="note" style={{ marginTop: '1.4rem' }}>
-          Keep your order number. A copy of it is in SnareByt&apos;s dashboard against your email.
+          Keep your order number. Paying takes you to SSLCOMMERZ — SnareByt never sees your card
+          details, and the payment is confirmed by their servers, not by your browser.
         </p>
       </div>
     );
