@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { prisma } from '@/lib/prisma';
+import { siteUrl } from '@/lib/seo';
 
 /**
  * Public pages only, built from the Page rows so it cannot drift from what
@@ -7,8 +8,9 @@ import { prisma } from '@/lib/prisma';
  * URL's contents to search engines is the thing robots.ts is preventing.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = process.env.APP_URL;
-  if (process.env.SITE_LIVE !== 'true' || !base) return [];
+  const base = await siteUrl();
+  // Matches robots.ts: live unless explicitly switched off.
+  if (process.env.SITE_LIVE === 'false' || !base) return [];
 
   const pages = await prisma.page.findMany({
     orderBy: { sortOrder: 'asc' },

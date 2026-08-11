@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { getNav } from '@/lib/content';
+import { siteUrl } from '@/lib/seo';
 
 /**
  * Structured data describing SnareByt as a music act.
@@ -11,7 +12,7 @@ import { getNav } from '@/lib/content';
  * already stated on the site, and no listener or view figures appear anywhere.
  */
 export async function ArtistSchema() {
-  const base = process.env.APP_URL;
+  const base = await siteUrl();
   if (!base) return null;
 
   const [socials, releases] = await Promise.all([

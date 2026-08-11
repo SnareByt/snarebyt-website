@@ -1,5 +1,27 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { getPage } from './content';
+
+/**
+ * The site's own origin.
+ *
+ * APP_URL is used when it is set, because it is the deliberate answer and the
+ * one thing that stays right if the site is ever reached through something
+ * else. When it is missing, the request's own host is used rather than
+ * emitting a relative canonical — a canonical of "/" tells a search engine
+ * nothing, and the site spent a week doing exactly that because one
+ * environment variable had never been filled in.
+ */
+export async function siteUrl(): Promise<string> {
+  const configured = process.env.APP_URL?.trim();
+  if (configured) return configured.replace(/\/$/, '');
+
+  const h = await headers();
+  const host = h.get('x-forwarded-host') ?? h.get('host');
+  if (!host) return '';
+  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
+  return `${proto}://${host}`;
+}
 
 /**
  * Metadata for a public page, built from its own Page row.
@@ -17,7 +39,7 @@ const PATHS: Record<string, string> = {
 export async function pageMetadata(slug: string): Promise<Metadata> {
   const page = await getPage(slug);
   const path = PATHS[slug] ?? `/${slug}`;
-  const base = process.env.APP_URL ?? '';
+  const base = await siteUrl();
 
   const title = page?.seoTitle ?? 'SnareByt';
   const description = page?.seoDescription ?? undefined;
@@ -26,7 +48,9 @@ export async function pageMetadata(slug: string): Promise<Metadata> {
   return {
     title,
     description,
-    alternates: { canonical: path },
+    // Absolute, not the path. Relative only resolves against metadataBase, and
+    // if that is unset it ships as href="/" — which is worse than none.
+    alternates: { canonical: url },
     openGraph: {
       title,
       description,

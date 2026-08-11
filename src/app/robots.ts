@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { siteUrl } from '@/lib/seo';
 
 /**
  * Indexing is OFF until SITE_LIVE is explicitly "true".
@@ -13,9 +14,13 @@ import type { MetadataRoute } from 'next';
  * costly and silent, forgetting to enable it is obvious the first time
  * someone searches for the site.
  */
-export default function robots(): MetadataRoute.Robots {
-  const live = process.env.SITE_LIVE === 'true';
-  const base = process.env.APP_URL ?? '';
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  // Default is now LIVE. This started as opt-in so an unfinished preview could
+  // not be indexed, but the site has been publicly serving on its own domain
+  // for a while and the switch was quietly keeping it out of search. Opting
+  // OUT is still one variable away.
+  const live = process.env.SITE_LIVE !== 'false';
+  const base = await siteUrl();
 
   if (!live) {
     return { rules: [{ userAgent: '*', disallow: '/' }] };
