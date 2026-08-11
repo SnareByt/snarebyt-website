@@ -13,6 +13,18 @@ const SESSION_URL = SANDBOX
   ? 'https://sandbox.sslcommerz.com/gwprocess/v4/api.php'
   : 'https://securepay.sslcommerz.com/gwprocess/v4/api.php';
 
+/**
+ * Whether the gateway can be used at all.
+ *
+ * Pages ask this before promising a buyer they can pay on the site. Without it
+ * the copy would advertise card and mobile-wallet checkout on a deployment
+ * where the credentials were never added, and the button would simply be
+ * missing under a paragraph saying it exists.
+ */
+export function paymentsConfigured(): boolean {
+  return Boolean(process.env.SSLC_STORE_ID && process.env.SSLC_STORE_PASSWORD);
+}
+
 export type SessionInput = {
   tranId: string;
   amountBdt: number;
@@ -42,9 +54,11 @@ export async function createPaymentSession(input: SessionInput): Promise<Session
     currency: 'BDT',
     tran_id: input.tranId,
 
-    success_url: `${input.baseUrl}/checkout/success`,
-    fail_url: `${input.baseUrl}/checkout/failed`,
-    cancel_url: `${input.baseUrl}/checkout/cancelled`,
+    // Via the return handler, not straight at the pages: the gateway sends a
+    // form POST and carries tran_id in the body, which a page cannot read.
+    success_url: `${input.baseUrl}/api/payments/sslcommerz/return?to=success`,
+    fail_url: `${input.baseUrl}/api/payments/sslcommerz/return?to=failed`,
+    cancel_url: `${input.baseUrl}/api/payments/sslcommerz/return?to=cancelled`,
     ipn_url: `${input.baseUrl}/api/payments/sslcommerz/ipn`,
 
     cus_name: input.customer.name,

@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { rateLimit } from '@/lib/audit';
 import { licencePrice } from '@/lib/money';
-import { createPaymentSession, isSandbox } from '@/lib/sslcommerz';
+import { createPaymentSession, isSandbox, paymentsConfigured } from '@/lib/sslcommerz';
 import { siteUrl } from '@/lib/seo';
 
 export type OrderState = {
@@ -20,6 +20,8 @@ export type OrderState = {
   orderId?: string;
   /** False when SSLCOMMERZ is not configured, so the UI can fall back. */
   payable?: boolean;
+  /** True when the order contains a service package, which needs a brief. */
+  hasService?: boolean;
 };
 
 const schema = z.object({
@@ -33,7 +35,24 @@ const schema = z.object({
   lines: z.string(),
 });
 
-const lineSchema = z.array(z.object({ beatId: z.string().min(1), tierId: z.string().min(1) })).min(1).max(20);
+/**
+ * A cart line is either a beat licence or a service package. Carts saved before
+ * services were sellable carry no `kind`, so that case is read as a beat —
+ * rejecting them would empty a cart someone had already built.
+ */
+const lineSchema = z
+  .array(
+    z.union([
+      z.object({ kind: z.literal('service'), serviceTierId: z.string().min(1) }),
+      z.object({
+        kind: z.literal('beat').optional(),
+        beatId: z.string().min(1),
+        tierId: z.string().min(1),
+      }),
+    ]),
+  )
+  .min(1)
+  .max(20);
 
 /**
  * Place an order request.
@@ -77,27 +96,49 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
     return { ok: false, attempt, errors, values };
   }
 
-  let lines: { beatId: string; tierId: string }[];
+  let lines: z.infer<typeof lineSchema>;
   try {
     lines = lineSchema.parse(JSON.parse(parsed.data.lines));
   } catch {
     return { ok: false, attempt, values, message: 'Your cart is empty or unreadable. Add a licence and try again.' };
   }
 
-  // Only beats that are actually on sale. A draft or an already-sold exclusive
+  const beatLines = lines.filter((l) => l.kind !== 'service') as { beatId: string; tierId: string }[];
+  const serviceLines = lines.filter((l) => l.kind === 'service') as { serviceTierId: string }[];
+
+  // Only beats that are actually on sale, and only packages belonging to an
+  // active service. A draft, a withdrawn package or an already-sold exclusive
   // cannot be ordered even if its id is submitted directly.
-  const [beats, tiers] = await Promise.all([
+  const [beats, tiers, serviceTiers] = await Promise.all([
     prisma.beat.findMany({
-      where: { id: { in: lines.map((l) => l.beatId) }, status: 'PUBLISHED' },
+      where: { id: { in: beatLines.map((l) => l.beatId) }, status: 'PUBLISHED' },
     }),
-    prisma.licenceTier.findMany({ where: { id: { in: lines.map((l) => l.tierId) }, active: true } }),
+    prisma.licenceTier.findMany({ where: { id: { in: beatLines.map((l) => l.tierId) }, active: true } }),
+    prisma.serviceTier.findMany({
+      where: { id: { in: serviceLines.map((l) => l.serviceTierId) }, service: { active: true } },
+      include: { service: { select: { id: true, title: true } } },
+    }),
   ]);
 
   const beatById = new Map(beats.map((b) => [b.id, b]));
   const tierById = new Map(tiers.map((t) => [t.id, t]));
+  const svcTierById = new Map(serviceTiers.map((t) => [t.id, t]));
 
   const items = [];
   for (const line of lines) {
+    if (line.kind === 'service') {
+      const st = svcTierById.get(line.serviceTierId);
+      if (!st) continue;
+      items.push({
+        kind: 'SERVICE_PACKAGE' as const,
+        serviceTierId: st.id,
+        titleSnapshot: `${st.service.title} — ${st.name}`,
+        priceBdt: st.priceBdt,
+        quantity: 1,
+      });
+      continue;
+    }
+
     const beat = beatById.get(line.beatId);
     const tier = tierById.get(line.tierId);
     if (!beat || !tier) continue;
@@ -158,7 +199,8 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
     number: order.number,
     totalBdt: order.totalBdt,
     whatsapp: (wa?.value ?? '').replace(/[^0-9]/g, ''),
-    payable: Boolean(process.env.SSLC_STORE_ID && process.env.SSLC_STORE_PASSWORD),
+    payable: paymentsConfigured(),
+    hasService: items.some((i) => i.kind === 'SERVICE_PACKAGE'),
   };
 }
 

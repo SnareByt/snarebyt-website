@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useActionState, useMemo, useState, useTransition } from 'react';
-import { useCart } from './Cart';
+import { useCart, lineKey } from './Cart';
 import { Price } from './Currency';
 import { placeOrder, startPayment, type OrderState } from '@/app/(site)/cart/actions';
 
@@ -11,12 +11,34 @@ export type CatalogueTier = {
   id: string; name: string; nameBn: string; multiplier: number;
   filesLabel: string; isExclusive: boolean;
 };
+export type CatalogueService = {
+  id: string; name: string; priceBdt: number; descriptionBn: string;
+  serviceTitle: string; deliveryDays: string;
+};
 
 const price = (base: number, mult: number) => Math.round((base * mult) / 50) * 50;
 
 const initial: OrderState = { ok: false, attempt: 0 };
 
-export function CartView({ beats, tiers }: { beats: CatalogueBeat[]; tiers: CatalogueTier[] }) {
+/** One resolved cart row, whichever kind of thing it is. */
+type Row = {
+  key: string;
+  title: string;
+  sub: string;
+  bn: string;
+  priceBdt: number;
+  /** Services need a brief afterwards; beats do not. */
+  isService: boolean;
+};
+
+export function CartView({
+  beats, tiers, services, payable,
+}: {
+  beats: CatalogueBeat[];
+  tiers: CatalogueTier[];
+  services: CatalogueService[];
+  payable: boolean;
+}) {
   const { lines, remove, clear, ready } = useCart();
   const [state, action, pending] = useActionState(placeOrder, initial);
   const [paying, startPaying] = useTransition();
@@ -26,12 +48,43 @@ export function CartView({ beats, tiers }: { beats: CatalogueBeat[]; tiers: Cata
 
   const beatById = useMemo(() => new Map(beats.map((b) => [b.id, b])), [beats]);
   const tierById = useMemo(() => new Map(tiers.map((t) => [t.id, t])), [tiers]);
+  const serviceById = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
 
-  const rows = lines
-    .map((l) => ({ line: l, beat: beatById.get(l.beatId), tier: tierById.get(l.tierId) }))
-    .filter((r) => r.beat && r.tier);
+  // A line whose beat or package has since been withdrawn simply drops out —
+  // the server would refuse it anyway, so showing it would only mislead.
+  const rows: Row[] = useMemo(() => {
+    const out: Row[] = [];
+    for (const l of lines) {
+      if (l.kind === 'service') {
+        const s = serviceById.get(l.serviceTierId);
+        if (!s) continue;
+        out.push({
+          key: lineKey(l),
+          title: s.serviceTitle,
+          sub: `${s.name} package · ${s.deliveryDays}`,
+          bn: s.descriptionBn,
+          priceBdt: s.priceBdt,
+          isService: true,
+        });
+      } else {
+        const b = beatById.get(l.beatId);
+        const t = tierById.get(l.tierId);
+        if (!b || !t) continue;
+        out.push({
+          key: lineKey(l),
+          title: b.title,
+          sub: `${t.name} · ${t.filesLabel}${t.isExclusive ? ' · takes the beat off sale permanently' : ''}`,
+          bn: t.nameBn,
+          priceBdt: price(b.basePriceBdt, t.multiplier),
+          isService: false,
+        });
+      }
+    }
+    return out;
+  }, [lines, beatById, tierById, serviceById]);
 
-  const total = rows.reduce((n, r) => n + price(r.beat!.basePriceBdt, r.tier!.multiplier), 0);
+  const total = rows.reduce((n, r) => n + r.priceBdt, 0);
+  const hasService = rows.some((r) => r.isService);
 
   /* ---------------- after a successful order ---------------- */
   if (state.ok) {
@@ -44,11 +97,13 @@ export function CartView({ beats, tiers }: { beats: CatalogueBeat[]; tiers: Cata
         <div className="eyebrow">Order received</div>
         <h2 className="display" style={{ margin: '1rem 0' }}>{state.number}</h2>
         <p className="lead">
-          Saved, and <strong>nothing has been charged yet</strong>. Pay by card, bKash, Nagad or
-          Rocket now, or arrange it with SnareByt directly.
+          Saved, and <strong>nothing has been charged yet</strong>.{' '}
+          {state.payable
+            ? 'Pay by card, bKash, Nagad or Rocket now, or arrange it with SnareByt directly.'
+            : 'SnareByt will message you to arrange payment and delivery.'}
         </p>
 
-        {payError ? <div className="err-box">{payError}</div> : null}
+        {payError ? <div className="err-box" style={{ marginTop: '1rem' }}>{payError}</div> : null}
 
         <div style={{ display: 'flex', gap: '.7rem', flexWrap: 'wrap', marginTop: '1.6rem' }}>
           {state.payable && state.orderId ? (
@@ -77,9 +132,15 @@ export function CartView({ beats, tiers }: { beats: CatalogueBeat[]; tiers: Cata
           ) : null}
         </div>
 
-        <p className="note" style={{ marginTop: '1.4rem' }}>
-          Keep your order number. Paying takes you to SSLCOMMERZ — SnareByt never sees your card
-          details, and the payment is confirmed by their servers, not by your browser.
+        {state.hasService ? (
+          <p className="note" style={{ marginTop: '1.4rem' }}>
+            A service package needs a brief before work can start. SnareByt will ask you for
+            references and details on WhatsApp once the order is confirmed.
+          </p>
+        ) : null}
+
+        <p className="note" style={{ marginTop: '.9rem' }}>
+          Keep your order number.{state.payable ? ' Paying takes you to SSLCOMMERZ — SnareByt never sees your card details, and the payment is confirmed by their servers, not by your browser.' : ''}
         </p>
       </div>
     );
@@ -96,7 +157,10 @@ export function CartView({ beats, tiers }: { beats: CatalogueBeat[]; tiers: Cata
             ? 'Nothing in your cart is still on sale. It may have sold or been taken off the store.'
             : 'Your cart is empty.'}
         </p>
-        <Link href="/beats" className="btn btn-red">Browse beats</Link>
+        <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Link href="/beats" className="btn btn-red">Browse beats</Link>
+          <Link href="/services" className="btn btn-ghost">See services</Link>
+        </div>
       </div>
     );
   }
@@ -105,21 +169,18 @@ export function CartView({ beats, tiers }: { beats: CatalogueBeat[]; tiers: Cata
   return (
     <div className="split" style={{ alignItems: 'start' }}>
       <div>
-        {rows.map(({ line, beat, tier }) => (
-          <div className="cart-row" key={`${line.beatId}-${line.tierId}`}>
+        {rows.map((r) => (
+          <div className="cart-row" key={r.key}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="ttl">{beat!.title}</div>
-              <div className="sub">
-                {tier!.name} · {tier!.filesLabel}
-                {tier!.isExclusive ? ' · takes the beat off sale permanently' : ''}
-              </div>
-              <div className="bn sub">{tier!.nameBn}</div>
+              <div className="ttl">{r.title}</div>
+              <div className="sub">{r.sub}</div>
+              <div className="bn sub">{r.bn}</div>
             </div>
-            <div className="price"><Price bdt={price(beat!.basePriceBdt, tier!.multiplier)} /></div>
+            <div className="price"><Price bdt={r.priceBdt} /></div>
             <button
               type="button" className="btn btn-ghost btn-sm"
-              onClick={() => remove(line.beatId, line.tierId)}
-              aria-label={`Remove ${beat!.title}`}
+              onClick={() => remove(r.key)}
+              aria-label={`Remove ${r.title}`}
             >✕</button>
           </div>
         ))}
@@ -173,13 +234,18 @@ export function CartView({ beats, tiers }: { beats: CatalogueBeat[]; tiers: Cata
             <input className="inp" id="country" name="country" defaultValue={v.country ?? ''} />
           </div>
           <div className="field full">
-            <label className="lb" htmlFor="notes">Anything else</label>
-            <textarea className="inp" id="notes" name="notes" rows={3} defaultValue={v.notes ?? ''} />
+            <label className="lb" htmlFor="notes">
+              {hasService ? 'Your brief — references, deadline, anything I should know' : 'Anything else'}
+            </label>
+            <textarea className="inp" id="notes" name="notes" rows={hasService ? 5 : 3} defaultValue={v.notes ?? ''} />
           </div>
           <div className={`field full${e.terms ? ' bad' : ''}`}>
             <label className="check">
               <input type="checkbox" name="terms" />
-              <span>I have read and accept the licence terms for the beats in this order. *</span>
+              <span>
+                I have read and accept the {hasService ? 'licence and service terms' : 'licence terms'} for
+                this order. *
+              </span>
             </label>
             {e.terms && <div className="err">{e.terms}</div>}
           </div>
@@ -189,11 +255,14 @@ export function CartView({ beats, tiers }: { beats: CatalogueBeat[]; tiers: Cata
           {pending ? 'Placing order…' : 'Place order →'}
         </button>
 
-        {/* Said plainly, twice, because a cart that takes no payment is not what
-            anyone expects and being vague about it would be a complaint later. */}
+        {/* Said plainly, because what happens next differs entirely depending on
+            whether the gateway is configured, and being vague is a complaint. */}
         <p className="note" style={{ marginTop: '.9rem' }}>
-          <b>No payment is taken here.</b> Placing the order sends it to SnareByt, who will message
-          you on WhatsApp to arrange payment and deliver your files.
+          {payable
+            ? <><b>Nothing is charged on this screen.</b> Placing the order gives you a payment button
+                for card, bKash, Nagad and Rocket — or you can arrange it on WhatsApp instead.</>
+            : <><b>No payment is taken here.</b> Placing the order sends it to SnareByt, who will message
+                you on WhatsApp to arrange payment and deliver your files.</>}
         </p>
       </form>
     </div>

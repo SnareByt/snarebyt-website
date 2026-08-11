@@ -522,6 +522,57 @@ select.sel option{background:#111114}
   flex:none;transition:.3s;font-size:1.1rem;line-height:1}
 .x-btn:hover{border-color:var(--red);background:rgba(224,27,54,.12)}
 
+/* The scrim has to sit UNDER the panel, not beside it. `.modal` is a grid, so
+   a plain sibling div takes its own row and shoves the panel down the screen. */
+.modal-scrim{position:absolute;inset:0;cursor:default}
+.modal-box{position:relative;z-index:1}
+.modal-box.wide{max-width:980px}
+.modal-title{margin-top:.6rem;font-size:clamp(1.5rem,3.4vw,2.15rem);line-height:1.04;letter-spacing:-.03em}
+.modal-sub{margin-top:.6rem;max-width:60ch;font-size:.88rem;color:var(--muted)}
+.modal-scroll{padding:1.5rem 1.7rem 1.8rem}
+.modal-sec{margin-top:1.9rem}
+.modal-foot{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:2rem;padding-top:1.4rem;border-top:1px solid var(--line)}
+@media(max-width:640px){.modal-scroll{padding:1.2rem 1.1rem 1.5rem}}
+
+/* Micro-caps heading with a short red rule. Used for every block in the
+   package modal so the eye can find the structure without extra weight. */
+.rule-eyebrow{display:flex;align-items:center;gap:.6rem;font-family:Archivo,sans-serif;
+  font-size:.62rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--red)}
+.rule-eyebrow::before{content:"";width:22px;height:1px;background:var(--red);flex:none}
+
+.micro{font-family:Archivo,sans-serif;font-size:.58rem;font-weight:600;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--muted);padding:.24rem .55rem;border-radius:6px;
+  border:1px solid var(--line);display:inline-block;line-height:1.5}
+
+.spec{display:flex;flex-direction:column;gap:.8rem;padding-bottom:1.5rem;border-bottom:1px solid var(--line)}
+.spec>div{display:grid;gap:.2rem}
+@media(min-width:640px){.spec>div{grid-template-columns:150px 1fr;gap:1rem}}
+.spec dt{font-family:Archivo,sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);padding-top:.22rem}
+.spec dd{font-size:.88rem;color:var(--muted);line-height:1.62}
+
+.tick-grid{display:grid;gap:.6rem;margin-top:1.05rem;list-style:none}
+@media(min-width:640px){.tick-grid{grid-template-columns:1fr 1fr}}
+@media(min-width:1000px){.tick-grid{grid-template-columns:repeat(3,1fr)}}
+.tick-grid li{display:flex;gap:.6rem;font-size:.86rem;color:var(--muted);line-height:1.5}
+.tick-grid li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--red);flex:none;margin-top:.5rem}
+
+/* ---------- Service cards ---------- */
+.svc-tag{color:var(--muted);font-size:.86rem}
+.svc-meta{display:flex;gap:.4rem;flex-wrap:wrap}
+/* Pins price and buttons to the bottom edge so a row of cards lines up
+   however uneven the bullet lists above them are. */
+.svc-foot{margin-top:auto;padding-top:1.1rem;display:flex;flex-direction:column;gap:.9rem}
+.svc-btns{display:flex;gap:.5rem}
+
+/* ---------- Package tiers ---------- */
+.tiers{margin-top:1.05rem;grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+.tier-name{font-family:Syne,Archivo,sans-serif;font-weight:800;font-size:1.05rem;letter-spacing:-.02em}
+.tier .from{font-family:Archivo,sans-serif;font-weight:900;font-size:1.45rem;letter-spacing:-.03em;margin:.1rem 0 .2rem}
+.tier-desc{font-size:.83rem;color:var(--muted);line-height:1.55}
+.tier-meta{align-self:flex-start;margin-top:.45rem}
+.tier-cta{margin-top:auto;width:100%}
+
 /* Licence rows */
 .lic{display:flex;gap:.9rem;align-items:flex-start;padding:1rem;border-radius:14px;
   border:1px solid var(--line);background:rgba(255,255,255,.026);cursor:pointer;transition:.35s var(--e-out)}

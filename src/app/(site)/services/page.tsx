@@ -3,6 +3,7 @@ import { pageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { getPage } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
+import { paymentsConfigured } from '@/lib/sslcommerz';
 import { PageHead } from '@/components/site/PageHead';
 import { Faq, type FaqItem } from '@/components/site/Faq';
 import { ServiceCards, type ServiceView } from '@/components/site/ServiceCards';
@@ -71,7 +72,7 @@ export default async function ServicesPage() {
 
       <section className="blk" style={{ paddingTop: 0 }}>
         <div className="wrap">
-          <ServiceCards services={view} />
+          <ServiceCards services={view} payable={paymentsConfigured()} />
 
           {str(proof, 'h1') ? (
             <>

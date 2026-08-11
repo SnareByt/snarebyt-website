@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { pageMetadata } from '@/lib/seo';
 import { getPage } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
+import { paymentsConfigured } from '@/lib/sslcommerz';
 import { seedFrom } from '@/lib/cover-art';
 import { PageHead } from '@/components/site/PageHead';
 import { BeatStore, type BeatView, type LicenceView } from '@/components/site/BeatStore';
@@ -94,7 +95,7 @@ export default async function BeatsPage() {
 
       <section className="blk" style={{ paddingTop: 0 }}>
         <div className="wrap">
-          <BeatStore beats={view} licences={licences} />
+          <BeatStore beats={view} licences={licences} payable={paymentsConfigured()} />
 
           <div className="hairline" style={{ margin: '3.4rem 0 2.6rem' }} />
 

@@ -38,6 +38,20 @@ type ValidationResponse = {
 };
 
 export async function POST(req: NextRequest) {
+  // The comment above says "always 200". That has to survive an unexpected
+  // exception too, or the gateway retries the same callback for hours against
+  // a route that keeps throwing. An unhandled error means we do NOT fulfil —
+  // which is the safe direction — so acknowledging costs nothing.
+  try {
+    return await handle(req);
+  } catch (e) {
+    await audit({ action: 'payment.ipn.error', entity: 'Payment', entityId: 'unknown',
+      diff: { error: String(e) } }).catch(() => {});
+    return NextResponse.json({ received: true });
+  }
+}
+
+async function handle(req: NextRequest) {
   const form = await req.formData();
   const tranId = String(form.get('tran_id') ?? '');
   const valId = String(form.get('val_id') ?? '');
@@ -45,11 +59,35 @@ export async function POST(req: NextRequest) {
   // Always 200 to the gateway so it stops retrying. Never leak detail.
   const ack = () => NextResponse.json({ received: true });
 
-  if (!tranId || !valId) return ack();
+  if (!tranId) return ack();
+
+  // A failed or cancelled transaction carries no val_id, so there is nothing to
+  // validate against and this message can never be trusted. Record it on the
+  // attempt and stop.
+  //
+  // The ORDER deliberately stays PENDING_PAYMENT. Flipping it to FAILED on an
+  // unverifiable POST would let anyone who guessed a transaction id lock a real
+  // buyer out of retrying, because startPayment refuses any other status.
+  if (!valId) {
+    const attempt = await prisma.payment.findUnique({ where: { tranId } });
+    if (attempt && attempt.status === 'INITIATED') {
+      await prisma.payment.update({
+        where: { id: attempt.id },
+        data: {
+          status: 'FAILED',
+          failureReason: `gateway_reported_${String(form.get('status') ?? 'failure')}`.slice(0, 300),
+          ipnRawJson: Object.fromEntries(form) as never,
+        },
+      });
+      await audit({ action: 'payment.ipn.unvalidatable', entity: 'Payment', entityId: attempt.id,
+        diff: { tranId, status: String(form.get('status') ?? '') } });
+    }
+    return ack();
+  }
 
   const payment = await prisma.payment.findUnique({
     where: { tranId },
-    include: { order: { include: { items: { include: { beat: true, licenceTier: true } } } } },
+    include: { order: { include: { items: { include: { beat: true, licenceTier: true, serviceTier: true } } } } },
   });
   if (!payment) {
     await audit({ action: 'payment.ipn.unknown', entity: 'Payment', entityId: tranId,
@@ -97,24 +135,31 @@ export async function POST(req: NextRequest) {
   const tranMatches = v.tran_id === tranId;
 
   if (!validStatus || !amountMatches || !currencyMatches || !tranMatches) {
-    await prisma.$transaction([
-      prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'FAILED',
-          valId: valId,
-          gatewayAmount: v.amount ?? null,
-          gatewayCurrency: v.currency ?? null,
-          ipnRawJson: Object.fromEntries(form) as never,
-          validationRawJson: v as never,
-          failureReason: !validStatus ? `status=${v.status}`
-            : !amountMatches ? `amount_mismatch expected=${payment.amountBdt} got=${v.amount}`
-            : !currencyMatches ? `currency=${v.currency}`
-            : 'tran_id_mismatch',
-        },
-      }),
-      prisma.order.update({ where: { id: payment.orderId }, data: { status: 'FAILED' } }),
-    ]);
+    // Only the ATTEMPT is marked failed. The order stays PENDING_PAYMENT on
+    // purpose: this endpoint is public, so anyone who learned a transaction id
+    // could otherwise POST a bogus val_id and permanently block a real buyer
+    // from retrying, since startPayment refuses any other status. Nothing is
+    // lost by leaving it pending — no money arrived either way, and every
+    // rejected attempt is recorded here and in the audit log.
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'FAILED',
+        // valId is NOT written here. It is the duplicate guard, so recording a
+        // val_id we just rejected would make a later genuine callback for this
+        // transaction look like a replay and be dropped — the buyer would pay
+        // and never be fulfilled. It is unique too, so a forged value repeated
+        // across rows would throw. The raw body below keeps it for disputes.
+        gatewayAmount: v.amount ?? null,
+        gatewayCurrency: v.currency ?? null,
+        ipnRawJson: Object.fromEntries(form) as never,
+        validationRawJson: v as never,
+        failureReason: !validStatus ? `status=${v.status}`
+          : !amountMatches ? `amount_mismatch expected=${payment.amountBdt} got=${v.amount}`
+          : !currencyMatches ? `currency=${v.currency}`
+          : 'tran_id_mismatch',
+      },
+    });
     await audit({ action: 'payment.rejected', entity: 'Order', entityId: payment.orderId,
       diff: { expected: payment.amountBdt, got: v.amount, status: v.status } });
     return ack();
@@ -135,6 +180,31 @@ export async function POST(req: NextRequest) {
       where: { id: payment.orderId },
       data: { status: 'PAID', paidAt: new Date() },
     });
+
+    // A paid service package has to become a project inside this transaction.
+    // If it did not, the money would land with nothing recorded to work on and
+    // the booking would exist only in the order line.
+    let seq = await tx.project.count();
+    for (const item of payment.order.items) {
+      if (item.kind !== 'SERVICE_PACKAGE' || !item.serviceTier) continue;
+      seq += 1;
+      await tx.project.create({
+        data: {
+          number: `PRJ-${new Date().getFullYear()}-${String(seq).padStart(6, '0')}`,
+          orderId: payment.orderId,
+          serviceId: item.serviceTier.serviceId,
+          serviceTierId: item.serviceTierId,
+          status: 'ORDER_RECEIVED',
+          contactName: payment.order.billingName ?? payment.order.guestName ?? 'Customer',
+          email: payment.order.billingEmail,
+          phone: payment.order.billingPhone,
+          country: payment.order.billingCountry,
+          // The brief is collected after payment, so this starts as the order
+          // note rather than pretending a full brief was given at checkout.
+          description: `Paid via ${payment.order.number}. Brief to be collected.`,
+        },
+      });
+    }
 
     for (const item of payment.order.items) {
       if (!item.beatId || !item.licenceTier) continue;

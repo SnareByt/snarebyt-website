@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { coverCss } from '@/lib/cover-art';
 import { Price } from './Currency';
 import { PlayButton, usePlayer, type Track } from './Player';
-import { useCart } from './Cart';
+import { useCart, beatLine, lineKey } from './Cart';
 import Link from 'next/link';
 
 export type LicenceView = {
@@ -46,7 +46,7 @@ const price = (base: number, mult: number) => Math.round((base * mult) / 50) * 5
 type Filters = { q: string; genre: string; mood: string; key: string; bpm: number; sort: string };
 const EMPTY: Filters = { q: '', genre: '', mood: '', key: '', bpm: 0, sort: 'popular' };
 
-export function BeatStore({ beats, licences }: { beats: BeatView[]; licences: LicenceView[] }) {
+export function BeatStore({ beats, licences, payable }: { beats: BeatView[]; licences: LicenceView[]; payable: boolean }) {
   const [f, setF] = useState<Filters>(EMPTY);
   const [sheet, setSheet] = useState(false);
   const [open, setOpen] = useState<BeatView | null>(null);
@@ -231,7 +231,7 @@ export function BeatStore({ beats, licences }: { beats: BeatView[]; licences: Li
 
       {open ? (
         <div className="modal open" role="dialog" aria-modal="true" aria-label={`${open.title} licences`}>
-          <div className="modal-bd" onClick={() => setOpen(null)} />
+          <div className="modal-scrim" onClick={() => setOpen(null)} />
           <div className="modal-box">
             <div className="modal-hd">
               <div>
@@ -291,13 +291,15 @@ export function BeatStore({ beats, licences }: { beats: BeatView[]; licences: Li
                   ))}
               </div>
 
-              {/* Orders are requests, not payments. Saying so here stops anyone
-                  expecting a card form on the next screen. */}
+              {/* What happens after "add to cart" depends on whether the gateway is
+                  configured, so the promise made here has to depend on it too. */}
               <div className="notice" style={{ marginTop: '1.4rem' }}>
                 <span>ℹ</span>
-                <span>
-                  <b>No payment is taken on the site.</b> Add a licence to your cart and place the
-                  order — SnareByt messages you on WhatsApp to arrange payment and send the files.
+                <span>{payable
+                  ? <>Add a licence to your cart and place the order, then pay by card, bKash, Nagad
+                      or Rocket. Files are sent by SnareByt on WhatsApp once payment clears.</>
+                  : <><b>No payment is taken on the site.</b> Add a licence to your cart and place the
+                      order — SnareByt messages you on WhatsApp to arrange payment and send the files.</>}
                 </span>
               </div>
               <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap', marginTop: '1rem' }}>
@@ -308,13 +310,13 @@ export function BeatStore({ beats, licences }: { beats: BeatView[]; licences: Li
                     disabled={!tier}
                     onClick={() => {
                       if (!tier) return;
-                      add({ beatId: open.id, tierId: tier.id });
+                      add(beatLine(open.id, tier.id));
                       setOpen(null);
                     }}
                   >
                     {!tier
                       ? 'Choose a licence above'
-                      : has(open.id, tier.id) ? 'Already in your cart' : `Add ${tier.name} to cart →`}
+                      : has(lineKey(beatLine(open.id, tier.id))) ? 'Already in your cart' : `Add ${tier.name} to cart →`}
                   </button>
                 )}
                 <Link href="/cart" className="btn btn-ghost">View cart</Link>
