@@ -304,6 +304,13 @@ model Order {
   termsAcceptedAt   DateTime?
   privacyAcceptedAt DateTime?
 
+  /// What the buyer typed at checkout — references, a deadline, the brief for
+  /// a service package. It was being collected and discarded, which for a
+  /// service order threw away the only description of the work.
+  customerNote  String?
+  /// Admin-only. Never shown to the customer.
+  adminNote     String?
+
   items         OrderItem[]
   payments      Payment[]
   licences      LicenceDocument[]

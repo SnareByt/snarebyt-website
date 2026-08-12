@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { bdt } from '@/lib/money';
 import { DeliveryPanel, type GrantView } from './DeliveryPanel';
+import { ContactForm, DangerZone, RemoveItemButton, type OrderShape } from './OrderControls';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,13 +15,20 @@ const CHIP: Record<string, string> = {
   CANCELLED: 'off', REFUNDED: 'red', PARTIALLY_REFUNDED: 'warn',
 };
 
+/** Kept in step with TRANSITIONS in actions.ts — the server is the authority,
+ *  this only decides which buttons are worth showing. */
+const NEXT: Record<string, string[]> = {
+  PENDING_PAYMENT: ['CANCELLED'],
+  CANCELLED: ['PENDING_PAYMENT'],
+  FAILED: ['PENDING_PAYMENT', 'CANCELLED'],
+};
+
 /**
- * One order, and everything needed to deliver it.
+ * One order, and everything needed to run it.
  *
- * There is deliberately no "mark as paid" control anywhere on this page. If a
- * customer insists they have paid, the payment is re-validated with
- * SSLCOMMERZ — an admin can re-send what was bought, never decide that
- * something was bought.
+ * There is deliberately no "mark as paid" control. If a customer insists they
+ * have paid, the payment is re-validated with SSLCOMMERZ — an admin may
+ * re-deliver what was bought, never decide that something was bought.
  */
 export default async function AdminOrderPage({
   params,
@@ -33,6 +41,7 @@ export default async function AdminOrderPage({
     include: {
       items: { include: { beat: { select: { title: true } }, licenceTier: true, serviceTier: true } },
       payments: { orderBy: { createdAt: 'desc' } },
+      refunds: { orderBy: { createdAt: 'desc' } },
       projects: true,
       licences: true,
     },
@@ -60,9 +69,27 @@ export default async function AdminOrderPage({
   }
 
   const paid = order.status === 'PAID';
+  const settled = ['PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(order.status);
   const beatItems = order.items.filter((i) => i.beatId);
   const serviceItems = order.items.filter((i) => i.kind === 'SERVICE_PACKAGE');
   const wa = (order.billingPhone ?? '').replace(/[^0-9]/g, '');
+  const refunded = order.refunds.reduce((n, r) => n + r.amountBdt, 0);
+
+  const shape: OrderShape = {
+    id: order.id,
+    number: order.number,
+    status: order.status,
+    totalBdt: order.totalBdt,
+    refundedBdt: refunded,
+    billingName: order.billingName ?? order.guestName ?? '',
+    billingEmail: order.billingEmail,
+    billingPhone: order.billingPhone ?? '',
+    billingCountry: order.billingCountry ?? '',
+    adminNote: order.adminNote ?? '',
+    canDelete: !settled && !order.licences.length
+      && !order.payments.some((p) => p.status === 'VALIDATED'),
+    nextStatuses: NEXT[order.status] ?? [],
+  };
 
   return (
     <>
@@ -75,39 +102,50 @@ export default async function AdminOrderPage({
       </header>
 
       <div className="wrap">
-        <div className="sec-hd"><h2>Customer</h2></div>
+        <div className="sec-hd"><h2>Summary</h2></div>
         <table>
           <tbody>
-            <tr><td>Name</td><td>{order.billingName ?? order.guestName ?? '—'}</td></tr>
-            <tr><td>Email</td><td>{order.billingEmail}</td></tr>
+            <tr><td>Total</td><td>{bdt(order.totalBdt)}</td></tr>
+            {refunded ? <tr><td>Refunded</td><td>{bdt(refunded)}</td></tr> : null}
+            <tr><td>Placed</td><td>{day(order.createdAt)}</td></tr>
+            <tr><td>Paid</td><td>{order.paidAt ? day(order.paidAt) : '—'}</td></tr>
             <tr>
               <td>WhatsApp</td>
               <td>
                 {order.billingPhone ?? '—'}
-                {wa ? (
-                  <>
-                    {' '}
-                    <a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer">open chat ↗</a>
-                  </>
-                ) : null}
+                {wa ? <> <a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer">open chat ↗</a></> : null}
               </td>
             </tr>
-            <tr><td>Country</td><td>{order.billingCountry ?? '—'}</td></tr>
-            <tr><td>Total</td><td>{bdt(order.totalBdt)}</td></tr>
-            <tr><td>Placed</td><td>{day(order.createdAt)}</td></tr>
-            <tr><td>Paid</td><td>{order.paidAt ? day(order.paidAt) : '—'}</td></tr>
           </tbody>
         </table>
 
-        <div className="sec-hd" style={{ marginTop: '2rem' }}><h2>Items</h2></div>
+        {order.customerNote ? (
+          <>
+            <div className="sec-hd" style={{ marginTop: '2rem' }}><h2>What the customer wrote</h2></div>
+            <div className="card" style={{ padding: '1.1rem', whiteSpace: 'pre-wrap' }}>{order.customerNote}</div>
+          </>
+        ) : null}
+
+        <div className="sec-hd" style={{ marginTop: '2rem' }}><h2>Customer details</h2></div>
+        <div className="card" style={{ padding: '1.2rem' }}>
+          <ContactForm order={shape} />
+        </div>
+
+        <div className="sec-hd" style={{ marginTop: '2rem' }}>
+          <h2>Items</h2>
+          {paid ? <span className="chip ok">frozen — order is paid</span> : null}
+        </div>
         <table>
-          <thead><tr><th>Item</th><th>Kind</th><th>Price</th></tr></thead>
+          <thead><tr><th>Item</th><th>Kind</th><th>Price</th><th /></tr></thead>
           <tbody>
             {order.items.map((i) => (
               <tr key={i.id}>
                 <td><div className="ttl">{i.titleSnapshot}</div></td>
                 <td className="sub">{i.kind.replace(/_/g, ' ').toLowerCase()}</td>
                 <td>{bdt(i.priceBdt)}</td>
+                <td>
+                  <RemoveItemButton itemId={i.id} disabled={settled || order.items.length <= 1} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -159,7 +197,7 @@ export default async function AdminOrderPage({
         <div className="sec-hd" style={{ marginTop: '2rem' }}><h2>Payments</h2></div>
         {order.payments.length ? (
           <table>
-            <thead><tr><th>Transaction</th><th>Environment</th><th>Amount</th><th>Status</th><th>Why</th><th>When</th></tr></thead>
+            <thead><tr><th>Transaction</th><th>Where</th><th>Amount</th><th>Status</th><th>Why</th><th>When</th></tr></thead>
             <tbody>
               {order.payments.map((p) => (
                 <tr key={p.id}>
@@ -181,10 +219,31 @@ export default async function AdminOrderPage({
           <p className="sub">No payment has been started for this order.</p>
         )}
 
-        <p className="sub" style={{ marginTop: '1.6rem' }}>
-          There is no button here to mark an order paid. If a customer says they have paid,
-          check the transaction above — a payment only counts once SSLCOMMERZ has confirmed it
-          to our server directly.
+        {order.refunds.length ? (
+          <>
+            <div className="sec-hd" style={{ marginTop: '2rem' }}><h2>Refunds</h2></div>
+            <table>
+              <thead><tr><th>Amount</th><th>Reason</th><th>When</th></tr></thead>
+              <tbody>
+                {order.refunds.map((r) => (
+                  <tr key={r.id}>
+                    <td>{bdt(r.amountBdt)}</td>
+                    <td className="sub">{r.reason}</td>
+                    <td className="sub">{day(r.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : null}
+
+        <div className="sec-hd" style={{ marginTop: '2rem' }}><h2>Status, refunds and deletion</h2></div>
+        <DangerZone order={shape} />
+
+        <p className="sub" style={{ margin: '1.6rem 0 3rem' }}>
+          There is no button here to mark an order paid. If a customer says they have paid, check
+          the transaction above — a payment only counts once SSLCOMMERZ has confirmed it to our
+          server directly.
         </p>
       </div>
     </>

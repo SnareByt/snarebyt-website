@@ -183,6 +183,7 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
       totalBdt: subtotal,
       usdRateAtSale: rate ? Number(rate.value) : null,
       termsAcceptedAt: new Date(),
+      customerNote: parsed.data.notes || null,
       ip,
       userAgent: h.get('user-agent') ?? undefined,
       items: { create: items },

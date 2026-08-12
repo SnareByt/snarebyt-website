@@ -14,7 +14,8 @@
     "setup": "prisma db push && npm run db:seed",
     "check:payment": "tsx --env-file=.env scripts/check-payment.ts",
     "check:ipn": "tsx --env-file=.env scripts/check-ipn-forgery.ts",
-    "check:download": "tsx --env-file=.env scripts/check-download.ts"
+    "check:download": "tsx --env-file=.env scripts/check-download.ts",
+    "check:orders": "tsx scripts/check-orders.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.700.0",
