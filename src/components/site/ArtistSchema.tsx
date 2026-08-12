@@ -47,7 +47,11 @@ export async function ArtistSchema() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      // JSON.stringify does not escape "<", so a title or description
+      // containing "</script>" would close this tag early and everything after
+      // it would run as script. Escaping the angle bracket keeps the JSON valid
+      // and makes that impossible.
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }}
     />
   );
 }
