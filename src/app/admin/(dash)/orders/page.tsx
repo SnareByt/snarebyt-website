@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { bdt } from '@/lib/money';
@@ -38,7 +39,7 @@ export default async function AdminOrdersPage() {
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
-                  <td><div className="ttl mono">{o.number}</div></td>
+                  <td><Link href={`/admin/orders/${o.id}`} className="ttl mono">{o.number}</Link></td>
                   <td>{o.billingName ?? o.guestName ?? '—'}<div className="sub">{o.billingEmail}</div></td>
                   <td>{o.items.length}</td>
                   <td>{bdt(o.totalBdt)}</td>

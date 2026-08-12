@@ -244,13 +244,20 @@ async function handle(req: NextRequest) {
 
   // Grants and email are outside the transaction: a slow mail provider
   // must never roll back a verified payment.
+  //
+  // The base URL comes from the request, not APP_URL. That variable is unset
+  // in production by design, and using it built the literal string
+  // "undefined/download/…" — a dead link handed to someone who had paid.
+  const base = req.nextUrl.origin;
   const links: string[] = [];
   for (const item of payment.order.items) {
-    if (item.beatId) links.push(await issueDownloadGrant(item.id));
+    if (item.beatId) links.push(await issueDownloadGrant(item.id, base));
   }
 
+  // Recorded in the audit log so the links can be recovered and re-sent by
+  // hand. Until the delivery email exists this is the only copy there is.
   await audit({ action: 'payment.validated', entity: 'Order', entityId: payment.orderId,
-    diff: { valId, amount: payment.amountBdt, links: links.length } });
+    diff: { valId, amount: payment.amountBdt, links } });
 
   // TODO: queue receipt + licence + download emails via Resend.
   // Deliberately last: if mail fails, the order is still correct and the

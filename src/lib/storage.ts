@@ -53,7 +53,21 @@ export const publicUrl = (key: string) => `${process.env.R2_PUBLIC_BASE_URL}/${k
  *
  * The raw token is returned once and only its hash is stored.
  */
-export async function issueDownloadGrant(orderItemId: string, hours = 72, maxAttempts = 5) {
+export async function issueDownloadGrant(
+  orderItemId: string,
+  baseUrl: string,
+  hours = 24 * 14,
+) {
+  // The cap counts FILE fetches, not visits, and a stems licence is several
+  // files. A flat 5 would lock a buyer out halfway through their own purchase,
+  // so it scales with what they actually bought.
+  const item = await prisma.orderItem.findUnique({
+    where: { id: orderItemId },
+    select: { licenceTier: { select: { includedAssets: true } } },
+  });
+  const fileCount = item?.licenceTier?.includedAssets.length ?? 1;
+  const maxAttempts = Math.max(5, fileCount * 3);
+
   const raw = randomBytes(24).toString('base64url');
   await prisma.downloadGrant.create({
     data: {
@@ -63,8 +77,15 @@ export async function issueDownloadGrant(orderItemId: string, hours = 72, maxAtt
       expiresAt: new Date(Date.now() + hours * 3600_000),
     },
   });
-  return `${process.env.APP_URL}/download/${raw}`;
+
+  // baseUrl is passed in, never read from APP_URL. That variable is unset in
+  // production on purpose, and building the link from it produced the string
+  // "undefined/download/…" — a dead link handed to someone who had paid.
+  return `${baseUrl.replace(/\/$/, '')}/download/${raw}`;
 }
+
+/** Hash a raw download token the same way the grant stored it. */
+export const hashToken = (raw: string) => createHash('sha256').update(raw).digest('hex');
 
 /** Short-lived signed URL, generated only after a grant has been validated. */
 export async function presignDownload(objectKey: string, seconds = 300) {
