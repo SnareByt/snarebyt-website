@@ -22,8 +22,24 @@ export function embedUrl(ref: SpotifyRef) {
   return `https://open.spotify.com/embed/${ref.type}/${ref.id}?utm_source=oembed`;
 }
 
-/** Album players need more height than single-track players. */
-export const embedHeight = (type: SpotifyRef['type']) => (type === 'track' ? 152 : 352);
+/**
+ * Player height, decided by how many tracks there are — NOT by whether the
+ * link happens to be an /album/ or a /track/ URL.
+ *
+ * Several singles here are published on Spotify as one-track albums, so the
+ * link is an album link. Sizing off the URL gave them the tall player, which
+ * renders a single row and then a large empty panel underneath. Sizing off the
+ * track count gives every one-track release the compact player, which is what
+ * it actually is.
+ */
+export const FULL_PLAYER = 352;
+export const COMPACT_PLAYER = 152;
+
+export const embedHeight = (trackCount?: number | null) =>
+  (trackCount ?? 1) > 1 ? FULL_PLAYER : COMPACT_PLAYER;
+
+/** True when a release earns the tall player with its tracklist. */
+export const isFullPlayer = (trackCount?: number | null) => (trackCount ?? 1) > 1;
 
 /**
  * Optional: confirm the link is what the user thinks it is before

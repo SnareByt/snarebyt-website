@@ -307,7 +307,17 @@ ul.bn-terms li::before{content:"";width:4px;height:4px;border-radius:50%;backgro
 .sp-embed{position:relative;width:100%;border-radius:12px;overflow:hidden;
   background:#0b0b0e;box-shadow:0 14px 40px -20px #000}
 .sp-embed iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:12px}
-.sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
+/* Every player in a given grid is the same height, so rows line up and the
+   last row cannot leave a hole. grid-auto-rows pins the row height to the
+   player rather than letting a slow-loading iframe decide it. */
+.sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;
+  align-items:start;grid-auto-rows:352px}
+.sp-grid.compact{grid-auto-rows:152px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.sp-grid>*{min-width:0}
+@media(max-width:640px){
+  .sp-grid{grid-template-columns:1fr}
+  .sp-grid.compact{grid-template-columns:1fr}
+}
 .sp-note{display:flex;gap:.8rem;align-items:flex-start;padding:.95rem 1.15rem;border-radius:13px;
   border:1px dashed var(--line-strong);background:rgba(255,255,255,.02);font-size:.82rem;color:var(--muted)}
 .hero-h1{max-width:16ch}

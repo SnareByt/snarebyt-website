@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { saveRelease } from './actions';
-import { parseSpotifyUrl, embedUrl, embedHeight } from '@/lib/spotify';
+import { parseSpotifyUrl, embedUrl, FULL_PLAYER } from '@/lib/spotify';
 
 type Release = {
   id: string; title: string; type: string; trackCount: number; releasedAt: string;
@@ -71,7 +71,11 @@ export default function ReleaseForm({ mode, release }: { mode: 'create' | 'edit'
                 {ref && (
                   <div className="fg">
                     <label className="fl">Live player preview</label>
-                    <iframe title="Spotify preview" src={embedUrl(ref)} height={embedHeight(ref.type)}
+                    {/* Always the full player here. This preview exists to
+                        confirm the link is the right record, so it should show
+                        everything the link contains — the public page picks the
+                        size from the track count. */}
+                    <iframe title="Spotify preview" src={embedUrl(ref)} height={FULL_PLAYER}
                       style={{ width: '100%', border: 0, borderRadius: 12 }} loading="lazy" allowFullScreen
                       allow="clipboard-write *; encrypted-media *; fullscreen *; picture-in-picture *;" />
                     <div className="hint">Detected: <b>{ref.type}</b> · <span className="mono">{ref.id}</span></div>

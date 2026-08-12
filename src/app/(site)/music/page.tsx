@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { coverCss, seedFrom } from '@/lib/cover-art';
 import { PageHead } from '@/components/site/PageHead';
 import { SpotifyEmbed } from '@/components/site/SpotifyEmbed';
-import type { SpotifyRef } from '@/lib/spotify';
+import { isFullPlayer, type SpotifyRef } from '@/lib/spotify';
 
 /**
  * MUSIC — the catalogue.
@@ -58,6 +58,11 @@ export default async function MusicPage() {
   const projects = releases.filter((r) => PROJECT_TYPES.includes(r.type));
   const singles = releases.filter((r) => !PROJECT_TYPES.includes(r.type));
   const withSpotify = releases.filter((r) => r.spotifyEmbedId && r.spotifyEmbedType);
+  // Split by player height. A grid holding both 352px and 152px players leaves
+  // a hole under every short one, which is exactly the ragged look this
+  // section had. Each group is uniform, so each grid aligns.
+  const fullPlayers = withSpotify.filter((r) => isFullPlayer(r.trackCount));
+  const compactPlayers = withSpotify.filter((r) => !isFullPlayer(r.trackCount));
   const awaitingSpotify = releases.filter((r) => !r.spotifyEmbedId);
   const collabNames = list<{ t?: string }>(collabsSec, 'names').filter((n) => n.t);
 
@@ -98,6 +103,7 @@ export default async function MusicPage() {
                         type={r.spotifyEmbedType as SpotifyRef['type']}
                         id={r.spotifyEmbedId}
                         title={r.title}
+                        trackCount={r.trackCount}
                       />
                     ) : (
                       <div className="rel-art" style={{ background: coverCss(seedFrom(r.slug)) }}>
@@ -199,17 +205,35 @@ export default async function MusicPage() {
                 <h2 className="display" style={{ marginTop: '1rem' }}>{str(spotifySec, 'h1')}</h2>
                 <p className="lead">{str(spotifySec, 'lead')}</p>
               </div>
-              <div className="sp-grid">
-                {withSpotify.map((r) => (
-                  <div className="rv" key={r.id}>
-                    <SpotifyEmbed
-                      type={r.spotifyEmbedType as SpotifyRef['type']}
-                      id={r.spotifyEmbedId as string}
-                      title={r.title}
-                    />
-                  </div>
-                ))}
-              </div>
+              {fullPlayers.length ? (
+                <div className="sp-grid">
+                  {fullPlayers.map((r) => (
+                    <div className="rv" key={r.id}>
+                      <SpotifyEmbed
+                        type={r.spotifyEmbedType as SpotifyRef['type']}
+                        id={r.spotifyEmbedId as string}
+                        title={r.title}
+                        trackCount={r.trackCount}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {compactPlayers.length ? (
+                <div className="sp-grid compact" style={{ marginTop: fullPlayers.length ? '1rem' : 0 }}>
+                  {compactPlayers.map((r) => (
+                    <div className="rv" key={r.id}>
+                      <SpotifyEmbed
+                        type={r.spotifyEmbedType as SpotifyRef['type']}
+                        id={r.spotifyEmbedId as string}
+                        title={r.title}
+                        trackCount={r.trackCount}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </>
           ) : null}
 
