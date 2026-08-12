@@ -32,29 +32,47 @@ export default async function AdminOrdersPage() {
         </div>
 
         {orders.length ? (
-          <table>
-            <thead>
-              <tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Placed</th></tr>
-            </thead>
-            <tbody>
-              {orders.map((o) => (
-                <tr key={o.id}>
-                  <td><Link href={`/admin/orders/${o.id}`} className="ttl mono">{o.number}</Link></td>
-                  <td>{o.billingName ?? o.guestName ?? '—'}<div className="sub">{o.billingEmail}</div></td>
-                  <td>{o.items.length}</td>
-                  <td>{bdt(o.totalBdt)}</td>
-                  <td><span className={`chip ${CHIP[o.status] ?? 'off'}`}>{o.status.replace(/_/g, ' ')}</span></td>
-                  <td className="sub">{o.createdAt.toISOString().slice(0, 10)}</td>
+          <>
+            {/* Said out loud. Every edit lives on the order's own page, and a
+                table that only hints at it with a colour is a table nobody
+                clicks. */}
+            <div className="note" style={{ marginBottom: '1rem' }}>
+              <span>✎</span>
+              <span>
+                <b>Open an order to change it.</b> Customer details, download links, cancelling,
+                refunds and deletion are all on the order&rsquo;s own page.
+              </span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th><th>Customer</th><th>Items</th><th>Total</th>
+                  <th>Status</th><th>Placed</th><th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {orders.map((o) => (
+                  <tr key={o.id}>
+                    <td><Link href={`/admin/orders/${o.id}`} className="ttl mono">{o.number}</Link></td>
+                    <td>{o.billingName ?? o.guestName ?? '—'}<div className="sub">{o.billingEmail}</div></td>
+                    <td>{o.items.length}</td>
+                    <td>{bdt(o.totalBdt)}</td>
+                    <td><span className={`chip ${CHIP[o.status] ?? 'off'}`}>{o.status.replace(/_/g, ' ')}</span></td>
+                    <td className="sub">{o.createdAt.toISOString().slice(0, 10)}</td>
+                    <td className="acts">
+                      <Link href={`/admin/orders/${o.id}`} className="rowgo">Open &amp; edit →</Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         ) : (
           <div className="note">
             <span>₿</span>
             <span>
-              <b>No orders yet.</b> Checkout is not built, so nothing can be bought — this fills in
-              once SSLCOMMERZ is wired up.
+              <b>No orders yet.</b> Nothing has been bought so far — paid orders appear here
+              automatically, ready to edit and deliver.
             </span>
           </div>
         )}
