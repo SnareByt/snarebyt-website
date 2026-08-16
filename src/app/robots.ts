@@ -33,7 +33,15 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         allow: '/',
         // The admin is not secret — it is protected — but there is no reason
         // for it to be in an index, and /download links are single-use grants.
-        disallow: ['/admin', '/api/', '/download/'],
+        //
+        // /cdn-cgi/ is Cloudflare's, not ours. Its email obfuscation rewrites
+        // every address on the contact page into a link to
+        // /cdn-cgi/l/email-protection and decodes it back in the browser. That
+        // placeholder URL is not a page and answers 404, so crawling it earned
+        // a "Not found (404)" report in Search Console for a link no visitor
+        // ever follows. The obfuscation itself is worth keeping — it is what
+        // stops address scrapers — so the crawler is pointed away instead.
+        disallow: ['/admin', '/api/', '/download/', '/cdn-cgi/'],
       },
     ],
     sitemap: base ? `${base}/sitemap.xml` : undefined,
