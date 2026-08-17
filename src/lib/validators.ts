@@ -99,7 +99,7 @@ export const settingsSchema = z.object({
     .string()
     .trim()
     .max(120)
-    .refine((s) => s === '' || /^@[w.-]{2,}$/.test(s) || /^UC[w-]{20,}$/.test(s),
+    .refine((s) => s === '' || /^@[\w.-]{2,}$/.test(s) || /^UC[\w-]{20,}$/.test(s),
       'Paste your @handle (like @snarebyt) or the UC… channel id')
     .default(''),
 });
