@@ -14,6 +14,13 @@ import { siteUrl } from '@/lib/seo';
  * costly and silent, forgetting to enable it is obvious the first time
  * someone searches for the site.
  */
+/**
+ * Per request, like the sitemap: siteUrl() derives the origin from request
+ * headers, and a prerendered robots.txt would bake in whichever host happened
+ * to build it — including a preview URL.
+ */
+export const dynamic = 'force-dynamic';
+
 export default async function robots(): Promise<MetadataRoute.Robots> {
   // Default is now LIVE. This started as opt-in so an unfinished preview could
   // not be indexed, but the site has been publicly serving on its own domain
