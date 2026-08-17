@@ -8,10 +8,6 @@ import { prisma } from './prisma';
  * null — and the section renders nothing — unless every part is genuinely
  * configured and the API actually answered. There is no placeholder mode.
  *
- * The fetch is cached for an hour through Next's data cache. Channel stats
- * move slowly, YouTube's quota is finite, and a request per page view would
- * spend it for no benefit — "live" here means live data, not a socket.
- *
  * The API key stays server-side. The browser only ever receives the two
  * numbers, already formatted.
  */
@@ -37,45 +33,144 @@ type ApiResponse = {
       videoCount?: string;
     };
   }[];
+  error?: { code?: number; message?: string; errors?: { reason?: string }[] };
 };
 
-export async function getYouTubeStats(): Promise<YtStats | null> {
-  const key = process.env.YOUTUBE_API_KEY;
-  if (!key) return null;
-
+/** Resolved once so the page and the diagnostic can never disagree. */
+async function resolveChannel(): Promise<string | null> {
   const setting = await prisma.setting.findUnique({ where: { key: 'youtubeChannel' } });
-  const channel = setting?.value?.trim() || process.env.YOUTUBE_CHANNEL_ID?.trim();
-  if (!channel) return null;
+  return setting?.value?.trim() || process.env.YOUTUBE_CHANNEL_ID?.trim() || null;
+}
 
+function buildUrl(channel: string, key: string): URL {
   const url = new URL('https://www.googleapis.com/youtube/v3/channels');
   url.searchParams.set('part', 'statistics,snippet');
   // Both forms Samir might paste: an @handle or a raw UC… id.
   if (channel.startsWith('@')) url.searchParams.set('forHandle', channel);
   else url.searchParams.set('id', channel);
   url.searchParams.set('key', key);
+  return url;
+}
+
+function toStats(data: ApiResponse): YtStats | null {
+  const item = data.items?.[0];
+  if (!item?.statistics) return null;
+  const s = item.statistics;
+  return {
+    subscribers: Number(s.subscriberCount ?? 0),
+    views: Number(s.viewCount ?? 0),
+    videos: Number(s.videoCount ?? 0),
+    title: item.snippet?.title ?? '',
+    url: item.snippet?.customUrl
+      ? `https://www.youtube.com/${item.snippet.customUrl}`
+      : `https://www.youtube.com/channel/${item.id ?? ''}`,
+    subscribersHidden: Boolean(s.hiddenSubscriberCount),
+  };
+}
+
+export async function getYouTubeStats(): Promise<YtStats | null> {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) return null;
+
+  const channel = await resolveChannel();
+  if (!channel) return null;
 
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } });
+    // Ten minutes, not an hour. Next caches the fetch RESPONSE whatever its
+    // status, so a single 403 from a half-configured key would otherwise keep
+    // the section hidden long after the key was fixed. Channel stats barely
+    // move, and 144 calls a day is nothing against a 10,000-unit quota.
+    const res = await fetch(buildUrl(channel, key), { next: { revalidate: 600 } });
     if (!res.ok) return null;
-    const data = (await res.json()) as ApiResponse;
-    const item = data.items?.[0];
-    if (!item?.statistics) return null;
-
-    const s = item.statistics;
-    return {
-      subscribers: Number(s.subscriberCount ?? 0),
-      views: Number(s.viewCount ?? 0),
-      videos: Number(s.videoCount ?? 0),
-      title: item.snippet?.title ?? '',
-      url: item.snippet?.customUrl
-        ? `https://www.youtube.com/${item.snippet.customUrl}`
-        : `https://www.youtube.com/channel/${item.id ?? ''}`,
-      subscribersHidden: Boolean(s.hiddenSubscriberCount),
-    };
+    return toStats((await res.json()) as ApiResponse);
   } catch {
     // An API outage must never take the home page down with it.
     return null;
   }
+}
+
+export type YtDiagnosis =
+  | { ok: true; stats: YtStats }
+  | { ok: false; problem: string; fix: string };
+
+/**
+ * Why the home page strip is or is not showing, in plain language.
+ *
+ * Deliberately uncached and deliberately specific: "it does not work" is not
+ * something anyone can act on, and the three real causes — no key, a key
+ * restricted to the wrong thing, a channel the API cannot find — all look
+ * identical from the outside. The key itself is never returned, only whether
+ * one exists.
+ */
+export async function diagnoseYouTube(): Promise<YtDiagnosis> {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) {
+    return {
+      ok: false,
+      problem: 'No API key is set on the server.',
+      fix: 'Add YOUTUBE_API_KEY in Vercel → Settings → Environment Variables (tick Production), then redeploy. A variable only reaches a build that starts after it is saved.',
+    };
+  }
+
+  const channel = await resolveChannel();
+  if (!channel) {
+    return {
+      ok: false,
+      problem: 'No channel is set.',
+      fix: 'Enter your @handle or UC… channel id in the field above and save.',
+    };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(channel, key), { cache: 'no-store' });
+  } catch (e) {
+    return { ok: false, problem: `Could not reach YouTube: ${String(e)}`, fix: 'Try again in a moment.' };
+  }
+
+  const data = (await res.json().catch(() => ({}))) as ApiResponse;
+
+  if (!res.ok) {
+    const reason = data.error?.errors?.[0]?.reason ?? '';
+    const message = data.error?.message ?? `HTTP ${res.status}`;
+
+    if (res.status === 403 && /blocked|referer|restrict/i.test(`${reason} ${message}`)) {
+      return {
+        ok: false,
+        problem: `YouTube refused the key: ${message}`,
+        fix: 'The key is restricted to a website or IP. Calls come from the server, which sends no referer and has no fixed IP. In Google Cloud → Credentials → your key, set Application restrictions to "None" and keep API restrictions limited to YouTube Data API v3.',
+      };
+    }
+    if (res.status === 403 && /disabled|not been used|SERVICE_DISABLED/i.test(message)) {
+      return {
+        ok: false,
+        problem: `The API is not enabled for this key's project: ${message}`,
+        fix: 'In Google Cloud, make sure YouTube Data API v3 is enabled in the SAME project the key belongs to.',
+      };
+    }
+    if (res.status === 403 && /quota/i.test(`${reason} ${message}`)) {
+      return { ok: false, problem: 'Daily YouTube quota exceeded.', fix: 'It resets at midnight Pacific time.' };
+    }
+    if (res.status === 400) {
+      return {
+        ok: false,
+        problem: `YouTube rejected the request: ${message}`,
+        fix: 'The API key is probably malformed or truncated. Copy it again from Google Cloud → Credentials.',
+      };
+    }
+    return { ok: false, problem: `YouTube returned ${res.status}: ${message}`, fix: 'Check the key in Google Cloud → Credentials.' };
+  }
+
+  const stats = toStats(data);
+  if (!stats) {
+    return {
+      ok: false,
+      problem: `The API answered, but found no channel matching "${channel}".`,
+      fix: 'Check the handle or channel id. A UC… id is the most reliable — it is in your YouTube Studio URL.',
+    };
+  }
+
+  return { ok: true, stats };
 }
 
 /** 1234 → "1.2K", 1_240_000 → "1.24M". The exact figure goes in the title attr. */

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { audit } from '@/lib/audit';
 import { settingsSchema } from '@/lib/validators';
+import { diagnoseYouTube } from '@/lib/youtube';
 
 export type SettingsState = { ok: boolean; message?: string; errors?: Record<string, string> };
 
@@ -50,4 +51,27 @@ export async function saveSettings(_prev: SettingsState, formData: FormData): Pr
   revalidatePath('/', 'layout');
 
   return { ok: true, message: 'Saved. The site is already using these.' };
+}
+
+export type YtCheck =
+  | { ok: true; title: string; subscribers: string; views: string; videos: string }
+  | { ok: false; problem: string; fix: string };
+
+/**
+ * Ask YouTube directly, right now, and report what came back.
+ *
+ * requireAdmin because a server action is a public endpoint. The API key is
+ * never returned — only whether one exists and what YouTube said about it.
+ */
+export async function testYouTube(): Promise<YtCheck> {
+  await requireAdmin();
+  const d = await diagnoseYouTube();
+  if (!d.ok) return { ok: false, problem: d.problem, fix: d.fix };
+  return {
+    ok: true,
+    title: d.stats.title,
+    subscribers: d.stats.subscribersHidden ? 'hidden' : d.stats.subscribers.toLocaleString('en-US'),
+    views: d.stats.views.toLocaleString('en-US'),
+    videos: d.stats.videos.toLocaleString('en-US'),
+  };
 }

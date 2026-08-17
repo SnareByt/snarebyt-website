@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { YouTubeCheck } from './YouTubeCheck';
 import { saveSettings, type SettingsState } from './actions';
 
 const initial: SettingsState = { ok: false };
@@ -53,6 +54,7 @@ export function SettingsForm({
           UC… channel id. Leave empty to hide the section.
         </div>
         {e.youtubeChannel && <div className="err">{e.youtubeChannel}</div>}
+        <YouTubeCheck />
       </div>
 
       <button className="btn b-red" type="submit" style={{ marginTop: '1.4rem' }} disabled={pending}>
