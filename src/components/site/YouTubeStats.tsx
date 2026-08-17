@@ -25,13 +25,9 @@ export async function YouTubeStats() {
     exact: yt.views.toLocaleString('en-US'),
     label: 'Total views',
   });
-  if (yt.videos > 0) {
-    stats.push({
-      n: compact(yt.videos),
-      exact: yt.videos.toLocaleString('en-US'),
-      label: 'Uploads',
-    });
-  }
+  // Upload count is deliberately not shown. Subscribers and views are reach;
+  // a video count is inventory, and a small number next to 28M views reads as
+  // a weaker signal than no number at all.
 
   return (
     <section className="blk yt-blk" aria-label="SnareByt on YouTube">
