@@ -7,7 +7,10 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic'; // counts must never be cached
 
 const NAV = [
-  { group: 'Overview', items: [{ href: '/admin', label: 'Dashboard', icon: '◧' }] },
+  { group: 'Overview', items: [
+    { href: '/admin', label: 'Dashboard', icon: '◧' },
+    { href: '/admin/analytics', label: 'Analytics', icon: '◪' },
+  ]},
   { group: 'Catalogue', items: [
     { href: '/admin/beats', label: 'Beats', icon: '♫' },
     { href: '/admin/releases', label: 'Releases', icon: '◉' },

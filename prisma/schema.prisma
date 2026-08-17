@@ -965,3 +965,27 @@ model ErrorLog {
 
   @@index([level, createdAt])
 }
+
+/// One page view on the public site.
+///
+/// Deliberately anonymous. No cookie is set and no IP address is stored —
+/// `visitorId` is a hash of IP + user agent + a salt that changes every day,
+/// so the same person is countable within a day and uncorrelatable across
+/// days. That is enough to answer "how many people came" without keeping
+/// anything that identifies anybody.
+model PageView {
+  id         String   @id @default(cuid())
+  path       String
+  /// Hostname only, never the full referring URL — it can carry search terms
+  /// and private query strings.
+  referrer   String?
+  country    String?
+  device     String?  // mobile | tablet | desktop
+  /// Rotating daily hash. Not reversible to a person.
+  visitorId  String
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+  @@index([visitorId, createdAt])
+}
