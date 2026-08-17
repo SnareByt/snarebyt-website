@@ -10,6 +10,7 @@ import {
   Hero, Marquee, Intro, Testimonials, BookingCta, Newsletter,
   Latest, Recent, Featured, type Values, type ReleaseLite,
 } from './sections';
+import { YouTubeStats } from '@/components/site/YouTubeStats';
 
 /**
  * HOME — section driven.
@@ -94,7 +95,12 @@ export default async function HomePage() {
           case 'latest':
             return <Latest key={s.id} v={v} release={latest} />;
           case 'intro':
-            return <Intro key={s.id} v={v} />;
+            return (
+              <div key={s.id}>
+                <Intro v={v} />
+                <YouTubeStats />
+              </div>
+            );
           case 'recent':
             return <Recent key={s.id} v={v} releases={singles} />;
           case 'featured':

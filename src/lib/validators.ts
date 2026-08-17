@@ -94,6 +94,14 @@ export const settingsSchema = z.object({
     .transform((v) => v.replace(/[^0-9]/g, ''))
     .refine((v) => v === '' || v.length >= 10, 'Include the country code, digits only'),
   businessEmail: z.string().trim().email(),
+  // "@handle" or the UC… channel id — either form the YouTube API accepts.
+  youtubeChannel: z
+    .string()
+    .trim()
+    .max(120)
+    .refine((s) => s === '' || /^@[w.-]{2,}$/.test(s) || /^UC[w-]{20,}$/.test(s),
+      'Paste your @handle (like @snarebyt) or the UC… channel id')
+    .default(''),
 });
 
 export const discountSchema = z.object({

@@ -6,8 +6,8 @@ import { saveSettings, type SettingsState } from './actions';
 const initial: SettingsState = { ok: false };
 
 export function SettingsForm({
-  usdRate, whatsapp, businessEmail,
-}: { usdRate: string; whatsapp: string; businessEmail: string }) {
+  usdRate, whatsapp, businessEmail, youtubeChannel,
+}: { usdRate: string; whatsapp: string; businessEmail: string; youtubeChannel: string }) {
   const [state, action, pending] = useActionState(saveSettings, initial);
   const e = state.errors ?? {};
 
@@ -42,6 +42,17 @@ export function SettingsForm({
         <input className="in" id="businessEmail" name="businessEmail" type="email"
           defaultValue={businessEmail} required />
         {e.businessEmail && <div className="err">{e.businessEmail}</div>}
+      </div>
+
+      <div className={`fg ${e.youtubeChannel ? 'bad' : ''}`} style={{ marginTop: '1.1rem' }}>
+        <label className="fl" htmlFor="youtubeChannel">YouTube channel</label>
+        <input className="in" id="youtubeChannel" name="youtubeChannel"
+          placeholder="@snarebyt" defaultValue={youtubeChannel} />
+        <div className="hint">
+          Powers the live subscriber and view counts on the home page. Paste your @handle or the
+          UC… channel id. Leave empty to hide the section.
+        </div>
+        {e.youtubeChannel && <div className="err">{e.youtubeChannel}</div>}
       </div>
 
       <button className="btn b-red" type="submit" style={{ marginTop: '1.4rem' }} disabled={pending}>

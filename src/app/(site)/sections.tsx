@@ -165,7 +165,7 @@ export function Latest({ v, release }: { v: Values; release: ReleaseLite | null 
           </div>
           <div className="latest-body">
             <h2 className="display">{release.title}</h2>
-            <div style={{ fontSize: '.68rem', letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--dim)', fontFamily: 'Archivo', fontWeight: 600 }}>
+            <div style={{ fontSize: '.68rem', letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--dim)', fontFamily: 'var(--font-archivo), sans-serif', fontWeight: 600 }}>
               SnareByt · {TYPE_LABEL[release.type] ?? release.type} · {release.year}
             </div>
             <p className="lead" style={{ fontSize: '.92rem' }}>{str(v, 'body')}</p>

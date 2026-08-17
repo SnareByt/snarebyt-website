@@ -66,7 +66,7 @@ function Card({ p }: { p: PortfolioView }) {
             style={{
               fontSize: '.7rem',
               color: 'var(--muted)',
-              fontFamily: 'Archivo',
+              fontFamily: 'var(--font-archivo), sans-serif',
               fontWeight: 600,
               letterSpacing: '.12em',
               textTransform: 'uppercase',

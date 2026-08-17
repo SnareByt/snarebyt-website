@@ -147,7 +147,7 @@ export function BeatStore({ beats, licences, payable }: { beats: BeatView[]; lic
           {keys.map((k) => <option key={k}>{k}</option>)}
         </select>
         <div className="bpm-box">
-          <span style={{ fontSize: '.62rem', letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--dim)', fontFamily: 'Archivo', fontWeight: 600 }}>
+          <span style={{ fontSize: '.62rem', letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--dim)', fontFamily: 'var(--font-archivo), sans-serif', fontWeight: 600 }}>
             BPM
           </span>
           <input type="range" min={0} max={160} step={2} value={f.bpm} onChange={(e) => set({ bpm: Number(e.target.value) })} />
@@ -188,7 +188,7 @@ export function BeatStore({ beats, licences, payable }: { beats: BeatView[]; lic
               </div>
               <div>
                 <div className="beat-title"><span>{b.title}</span></div>
-                <div style={{ fontSize: '.68rem', letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--dim)', fontFamily: 'Archivo', fontWeight: 600, marginTop: '.2rem' }}>
+                <div style={{ fontSize: '.68rem', letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--dim)', fontFamily: 'var(--font-archivo), sans-serif', fontWeight: 600, marginTop: '.2rem' }}>
                   Prod. SnareByt
                 </div>
               </div>

@@ -26,11 +26,12 @@ export async function saveSettings(_prev: SettingsState, formData: FormData): Pr
     return { ok: false, errors };
   }
 
-  const { usdRate, whatsapp, businessEmail } = parsed.data;
+  const { usdRate, whatsapp, businessEmail, youtubeChannel } = parsed.data;
   const values: Record<string, string> = {
     usdRate: String(usdRate),
     whatsapp,
     businessEmail,
+    youtubeChannel,
   };
 
   for (const [key, value] of Object.entries(values)) {

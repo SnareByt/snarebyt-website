@@ -113,13 +113,13 @@ export default async function MusicPage() {
                       </div>
                     )}
                     <div>
-                      <div style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '1.05rem', letterSpacing: '-.02em' }}>
+                      <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 800, fontSize: '1.05rem', letterSpacing: '-.02em' }}>
                         {r.title}
                       </div>
                       <div
                         style={{
                           fontSize: '.64rem', letterSpacing: '.18em', textTransform: 'uppercase',
-                          color: 'var(--dim)', fontFamily: 'Archivo', fontWeight: 600, marginTop: '.3rem',
+                          color: 'var(--dim)', fontFamily: 'var(--font-archivo), sans-serif', fontWeight: 600, marginTop: '.3rem',
                         }}
                       >
                         {TYPE_LABEL[r.type] ?? r.type} · {year(r.releasedAt)}

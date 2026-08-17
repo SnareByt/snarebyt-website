@@ -26,6 +26,7 @@ export default async function SettingsPage() {
         <SettingsForm
           usdRate={get('usdRate', '122')}
           whatsapp={get('whatsapp')}
+          youtubeChannel={get('youtubeChannel')}
           businessEmail={get('businessEmail', 'hello@snarebyt.com')}
         />
 

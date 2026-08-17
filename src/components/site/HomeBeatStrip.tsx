@@ -48,7 +48,7 @@ export function HomeBeatStrip({ beats, cheapestMultiplier }: { beats: BeatView[]
           </div>
           <div>
             <div className="beat-title"><span>{b.title}</span></div>
-            <div style={{ fontSize: '.68rem', letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--dim)', fontFamily: 'Archivo', fontWeight: 600, marginTop: '.2rem' }}>
+            <div style={{ fontSize: '.68rem', letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--dim)', fontFamily: 'var(--font-archivo), sans-serif', fontWeight: 600, marginTop: '.2rem' }}>
               Prod. SnareByt
             </div>
           </div>
