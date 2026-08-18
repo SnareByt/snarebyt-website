@@ -837,3 +837,73 @@ input.inp:focus-visible,select.sel:focus-visible,textarea.inp:focus-visible{outl
 .yt-l{font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.56rem;
   letter-spacing:.22em;text-transform:uppercase;color:var(--dim)}
 @media(max-width:640px){.yt-strip{padding:1.4rem 1.3rem}.yt-nums{gap:1.6rem}}
+
+/* ---------- Beat store: coming soon ----------
+   One statement, centred, on glass. The restraint IS the effect: a single
+   slow light pass across the headline, a very slowly drifting aura behind
+   the panel, and nothing else moving. */
+.cs-blk{padding-top:0}
+.cs-panel{
+  position:relative;overflow:hidden;border-radius:26px;
+  padding:clamp(3.2rem,10vw,6rem) clamp(1.4rem,5vw,3.5rem);
+  text-align:center;isolation:isolate;
+  border:1px solid var(--line-strong);
+  background:linear-gradient(160deg,rgba(255,255,255,.055),rgba(255,255,255,.012) 45%,rgba(255,255,255,.04));
+  backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);
+  box-shadow:0 40px 110px -50px rgba(0,0,0,.95),inset 0 1px 0 rgba(255,255,255,.11);
+}
+/* Crimson light behind the glass, drifting slowly enough to read as depth
+   rather than animation. */
+.cs-aura{
+  position:absolute;z-index:-1;left:50%;top:-30%;width:min(760px,120%);aspect-ratio:1;
+  transform:translateX(-50%);border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(224,27,54,.30),rgba(224,27,54,.08) 45%,transparent 68%);
+  filter:blur(28px);animation:csDrift 14s var(--e-in-out) infinite}
+@keyframes csDrift{
+  0%,100%{transform:translateX(-50%) translateY(0) scale(1);opacity:.85}
+  50%{transform:translateX(-50%) translateY(26px) scale(1.06);opacity:1}
+}
+
+.cs-in{position:relative;z-index:1;max-width:56ch;margin:0 auto}
+
+.cs-eyebrow{
+  display:inline-flex;align-items:center;gap:.6rem;
+  font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.62rem;
+  letter-spacing:.28em;text-transform:uppercase;color:var(--red-bright);
+  padding:.4rem .9rem;border-radius:99px;
+  border:1px solid rgba(224,27,54,.32);background:rgba(224,27,54,.09)}
+.cs-dot{width:6px;height:6px;border-radius:50%;background:var(--red-bright);
+  box-shadow:0 0 0 0 rgba(255,45,74,.6);animation:csPulse 2.6s ease-out infinite}
+@keyframes csPulse{
+  70%{box-shadow:0 0 0 9px rgba(255,45,74,0)}
+  100%{box-shadow:0 0 0 0 rgba(255,45,74,0)}
+}
+
+.cs-title{margin:1.5rem 0 0;line-height:.95}
+/* The headline is a red gradient with one slow specular pass over it —
+   the same light-sweep idea as the wordmark, at a calmer tempo. */
+.cs-text{
+  display:inline-block;
+  font-family:var(--font-syne),sans-serif;font-weight:800;
+  font-size:clamp(2.9rem,10vw,6.2rem);letter-spacing:-.045em;
+  background:linear-gradient(100deg,
+    #8A0F20 0%,#E01B36 22%,#FF6076 44%,#fff 50%,#FF6076 56%,#E01B36 78%,#8A0F20 100%);
+  background-size:280% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 8px 40px rgba(224,27,54,.42));
+  animation:csSweep 7s var(--e-in-out) infinite}
+@keyframes csSweep{
+  0%,12%{background-position:130% 50%}
+  88%,100%{background-position:-30% 50%}
+}
+
+.cs-lead{margin-top:1.5rem;font-size:clamp(.92rem,1.6vw,1.02rem);line-height:1.75;color:var(--muted)}
+.cs-bn{margin-top:.7rem;font-size:.86rem;color:var(--dim)}
+.cs-cta{display:flex;gap:.7rem;flex-wrap:wrap;justify-content:center;margin-top:2.2rem}
+
+@media(prefers-reduced-motion:reduce){
+  .cs-aura{animation:none}
+  .cs-dot{animation:none}
+  /* Keep the gradient, drop the movement, and park the highlight centred. */
+  .cs-text{animation:none;background-position:50% 50%}
+}

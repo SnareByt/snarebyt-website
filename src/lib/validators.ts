@@ -94,6 +94,9 @@ export const settingsSchema = z.object({
     .transform((v) => v.replace(/[^0-9]/g, ''))
     .refine((v) => v === '' || v.length >= 10, 'Include the country code, digits only'),
   businessEmail: z.string().trim().email(),
+  // An unticked checkbox is absent from FormData, so the default is what
+  // makes "off" mean off rather than throwing.
+  beatsComingSoon: z.coerce.boolean().default(false),
   // "@handle" or the UC… channel id — either form the YouTube API accepts.
   youtubeChannel: z
     .string()

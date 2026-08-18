@@ -3,6 +3,8 @@ import { pageMetadata } from '@/lib/seo';
 import { getPage } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
 import { paymentsConfigured } from '@/lib/sslcommerz';
+import { beatStoreClosed } from '@/lib/store-state';
+import { ComingSoon } from '@/components/site/ComingSoon';
 import { seedFrom } from '@/lib/cover-art';
 import { PageHead } from '@/components/site/PageHead';
 import { BeatStore, type BeatView, type LicenceView } from '@/components/site/BeatStore';
@@ -83,6 +85,23 @@ export default async function BeatsPage() {
   // Sample prices in the licensing section are quoted against a reference
   // beat, because tier prices are a multiple of each beat's own base price.
   const sampleBase = view.length ? view[0].basePriceBdt : 1500;
+
+  // Closed for restocking. The hero still renders so the page keeps its
+  // identity and its metadata; only the store and the licence pricing go.
+  if (await beatStoreClosed()) {
+    const wa = await prisma.setting.findUnique({ where: { key: 'whatsapp' } });
+    return (
+      <>
+        <PageHead
+          eyebrow={str(head, 'eyebrow')}
+          h1={str(head, 'h1')}
+          h2={str(head, 'h2')}
+          lead="The store is closed while the catalogue is prepared."
+        />
+        <ComingSoon whatsapp={(wa?.value ?? '').replace(/[^0-9]/g, '') || undefined} />
+      </>
+    );
+  }
 
   return (
     <>

@@ -7,6 +7,7 @@ import { rateLimit } from '@/lib/audit';
 import { licencePrice } from '@/lib/money';
 import { createPaymentSession, isSandbox, paymentsConfigured } from '@/lib/sslcommerz';
 import { siteUrl } from '@/lib/seo';
+import { beatStoreClosed } from '@/lib/store-state';
 
 export type OrderState = {
   ok: boolean;
@@ -103,7 +104,14 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
     return { ok: false, attempt, values, message: 'Your cart is empty or unreadable. Add a licence and try again.' };
   }
 
-  const beatLines = lines.filter((l) => l.kind !== 'service') as { beatId: string; tierId: string }[];
+  // Closing the store hides the UI, but placeOrder is a public HTTP endpoint —
+  // anyone holding an old beat id could still post one. Beat lines are dropped
+  // server-side while it is closed; service packages are unaffected.
+  const storeClosed = await beatStoreClosed();
+
+  const beatLines = storeClosed
+    ? []
+    : (lines.filter((l) => l.kind !== 'service') as { beatId: string; tierId: string }[]);
   const serviceLines = lines.filter((l) => l.kind === 'service') as { serviceTierId: string }[];
 
   // Only beats that are actually on sale, and only packages belonging to an
@@ -157,7 +165,9 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
   if (!items.length) {
     return {
       ok: false, attempt, values,
-      message: 'Nothing in your cart is still available. It may have sold or been taken off sale.',
+      message: storeClosed
+        ? 'The beat store is closed while the catalogue is being prepared. Service packages can still be ordered.'
+        : 'Nothing in your cart is still available. It may have sold or been taken off sale.',
     };
   }
 

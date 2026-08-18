@@ -27,12 +27,13 @@ export async function saveSettings(_prev: SettingsState, formData: FormData): Pr
     return { ok: false, errors };
   }
 
-  const { usdRate, whatsapp, businessEmail, youtubeChannel } = parsed.data;
+  const { usdRate, whatsapp, businessEmail, youtubeChannel, beatsComingSoon } = parsed.data;
   const values: Record<string, string> = {
     usdRate: String(usdRate),
     whatsapp,
     businessEmail,
     youtubeChannel,
+    beatsComingSoon: String(beatsComingSoon),
   };
 
   for (const [key, value] of Object.entries(values)) {
@@ -49,6 +50,7 @@ export async function saveSettings(_prev: SettingsState, formData: FormData): Pr
 
   // Every public page reads these, so they all have to re-render.
   revalidatePath('/', 'layout');
+  revalidatePath('/beats');
 
   return { ok: true, message: 'Saved. The site is already using these.' };
 }

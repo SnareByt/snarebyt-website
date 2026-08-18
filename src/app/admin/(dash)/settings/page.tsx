@@ -27,6 +27,7 @@ export default async function SettingsPage() {
           usdRate={get('usdRate', '122')}
           whatsapp={get('whatsapp')}
           youtubeChannel={get('youtubeChannel')}
+          beatsComingSoon={get('beatsComingSoon') === 'true'}
           businessEmail={get('businessEmail', 'hello@snarebyt.com')}
         />
 

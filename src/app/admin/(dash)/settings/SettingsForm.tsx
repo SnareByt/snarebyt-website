@@ -7,8 +7,11 @@ import { saveSettings, type SettingsState } from './actions';
 const initial: SettingsState = { ok: false };
 
 export function SettingsForm({
-  usdRate, whatsapp, businessEmail, youtubeChannel,
-}: { usdRate: string; whatsapp: string; businessEmail: string; youtubeChannel: string }) {
+  usdRate, whatsapp, businessEmail, youtubeChannel, beatsComingSoon,
+}: {
+  usdRate: string; whatsapp: string; businessEmail: string;
+  youtubeChannel: string; beatsComingSoon: boolean;
+}) {
   const [state, action, pending] = useActionState(saveSettings, initial);
   const e = state.errors ?? {};
 
@@ -55,6 +58,23 @@ export function SettingsForm({
         </div>
         {e.youtubeChannel && <div className="err">{e.youtubeChannel}</div>}
         <YouTubeCheck />
+      </div>
+
+      <div className="fg" style={{ marginTop: '1.4rem' }}>
+        <label className="fl" htmlFor="beatsComingSoon">Beat store</label>
+        <label className="check" style={{ marginTop: '.4rem' }}>
+          <input
+            type="checkbox" id="beatsComingSoon" name="beatsComingSoon"
+            defaultChecked={beatsComingSoon}
+          />
+          <span>
+            Show &ldquo;Coming soon&rdquo; instead of the store
+          </span>
+        </label>
+        <div className="hint">
+          Hides the beat grid and licence pricing from visitors and stops beat orders being
+          placed. Your catalogue and prices are untouched — untick this to reopen.
+        </div>
       </div>
 
       <button className="btn b-red" type="submit" style={{ marginTop: '1.4rem' }} disabled={pending}>

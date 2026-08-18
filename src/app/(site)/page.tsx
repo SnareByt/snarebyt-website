@@ -11,6 +11,7 @@ import {
   Latest, Recent, Featured, type Values, type ReleaseLite,
 } from './sections';
 import { YouTubeStats } from '@/components/site/YouTubeStats';
+import { beatStoreClosed } from '@/lib/store-state';
 
 /**
  * HOME — section driven.
@@ -77,7 +78,12 @@ export default async function HomePage() {
 
   const cheapest = tiers[0]?.multiplier ?? 1;
 
-  const sections = page.sections.filter((s) => RENDERABLE.has(s.key));
+  // While the store is closed the home page must not advertise it either,
+  // or the strip becomes a row of links into a "coming soon" page.
+  const storeClosed = await beatStoreClosed();
+  const sections = page.sections
+    .filter((s) => RENDERABLE.has(s.key))
+    .filter((s) => !(s.key === 'store' && storeClosed));
 
   return (
     <>
