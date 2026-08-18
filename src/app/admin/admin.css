@@ -633,3 +633,12 @@ div#toasts{position:fixed;bottom:1.1rem;right:1.1rem;z-index:260;display:flex;fl
 a:focus-visible,button:focus-visible{outline:2px solid var(--red);outline-offset:3px;border-radius:6px}
 .in:focus-visible,select:focus-visible,textarea:focus-visible{outline:none}
 td,.kpi-n,.live-n,.live-k{font-variant-numeric:tabular-nums}
+
+/* ---------- Inline price editing ---------- */
+.pricefield{display:flex;flex-direction:column;gap:.3rem;min-width:0}
+.pf-row{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
+.pf-prefix{font-family:var(--font-archivo),sans-serif;font-weight:700;color:var(--dim);font-size:.8rem}
+.in.pf-in{width:88px;padding:.34rem .5rem;font-size:.82rem;font-variant-numeric:tabular-nums;
+  text-align:right}
+.pf-err{font-size:.68rem;color:var(--red-b);line-height:1.45;max-width:230px}
+.pf-ok{font-size:.68rem;color:var(--ok);line-height:1.45;max-width:230px}

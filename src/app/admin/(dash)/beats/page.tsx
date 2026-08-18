@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { bdt, usd, getUsdRate, licencePrice } from '@/lib/money';
+import { PriceField, ToggleButton } from '@/components/admin/PriceField';
+import { setBeatPrice, toggleBeatPublished, setTierMultiplier } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,14 +47,28 @@ export default async function BeatsPage() {
                   </td>
                   <td>{b.genre}<div className="sub">{b.mood}</div></td>
                   <td>{b.bpm}<div className="sub">{b.musicalKey}</div></td>
-                  <td>{bdt(b.basePriceBdt)}<div className="sub">{usd(b.basePriceBdt, rate)}</div></td>
+                  <td>
+                    <PriceField
+                      id={b.id} initial={b.basePriceBdt} action={setBeatPrice}
+                      step="basePriceBdt" label={`Base price for ${b.title}`}
+                    />
+                    <div className="sub">{usd(b.basePriceBdt, rate)} · MP3 {bdt(licencePrice(b.basePriceBdt, 1))}</div>
+                  </td>
                   <td>
                     <span className={`chip ${ready ? 'ok' : 'warn'}`}>
                       {ready ? 'Deliverable' : 'Files missing'}
                     </span>
                   </td>
                   <td><span className={`chip ${STATUS_CHIP[b.status]}`}>{b.status.replace('_', ' ')}</span></td>
-                  <td className="acts">{/* edit / duplicate / delete */}</td>
+                  <td className="acts">
+                    <ToggleButton
+                      id={b.id} action={toggleBeatPublished}
+                      on={b.status === 'PUBLISHED'}
+                      onLabel="Hide" offLabel="Publish"
+                      disabled={b.status === 'SOLD_EXCLUSIVE'}
+                      disabledReason="Exclusive sold"
+                    />
+                  </td>
                 </tr>
               );
             })}
@@ -60,16 +76,34 @@ export default async function BeatsPage() {
         </table>
 
         <section className="sec">
-          <div className="sec-hd"><h2>Licence prices on a ৳1,500 beat</h2></div>
-          <div className="priceprev">
-            {tiers.map((t) => (
-              <div className="pp" key={t.id}>
-                <div className="n">{t.name}</div>
-                <div className="v">{bdt(licencePrice(1500, t.multiplier))}</div>
-                <div className="n">{usd(licencePrice(1500, t.multiplier), rate)}</div>
-              </div>
-            ))}
+          <div className="sec-hd">
+            <h2>Licence tiers</h2>
+            <span className="chip">every beat, every tier</span>
           </div>
+          <div className="sub" style={{ marginBottom: '.9rem' }}>
+            Each tier multiplies a beat&rsquo;s base price. Changing one here moves that tier on
+            <b> every beat at once</b>. Prices shown are for a ৳1,500 beat.
+          </div>
+          <table>
+            <thead><tr><th>Tier</th><th>Multiplier</th><th>On a ৳1,500 beat</th></tr></thead>
+            <tbody>
+              {tiers.map((t) => (
+                <tr key={t.id}>
+                  <td><div className="ttl">{t.name}</div><div className="sub bn">{t.nameBn}</div></td>
+                  <td>
+                    <PriceField
+                      id={t.id} initial={t.multiplier} action={setTierMultiplier}
+                      step="multiplier" prefix="×" label={`Multiplier for ${t.name}`}
+                    />
+                  </td>
+                  <td>
+                    {bdt(licencePrice(1500, t.multiplier))}
+                    <div className="sub">{usd(licencePrice(1500, t.multiplier), rate)}</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
 
         <div className="note">

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { bdt, usd, getUsdRate } from '@/lib/money';
+import { PriceField, ToggleButton } from '@/components/admin/PriceField';
+import { setServicePrice, toggleService } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +37,11 @@ export default async function AdminServicesPage() {
               <span className="chip">{s.deliveryDays}</span>
               <span className="chip">{s.revisions}</span>
               <span className={`chip ${s.active ? 'ok' : 'off'}`}>{s.active ? 'Active' : 'Hidden'}</span>
+              <span className="sp" />
+              <ToggleButton
+                id={s.id} action={toggleService} on={s.active}
+                onLabel="Hide from site" offLabel="Show on site"
+              />
             </div>
             <div className="sub" style={{ marginBottom: '.8rem' }}>{s.tagline}</div>
             <table>
@@ -46,7 +53,13 @@ export default async function AdminServicesPage() {
                       <div className="ttl">{t.name}</div>
                       {t.recommended ? <span className="chip red">Recommended</span> : null}
                     </td>
-                    <td>{bdt(t.priceBdt)}<div className="sub">{usd(t.priceBdt, rate)}</div></td>
+                    <td>
+                      <PriceField
+                        id={t.id} initial={t.priceBdt} action={setServicePrice}
+                        step="priceBdt" label={`Price for ${s.title} ${t.name}`}
+                      />
+                      <div className="sub">{usd(t.priceBdt, rate)}</div>
+                    </td>
                     <td className="sub">{t.description.slice(0, 90)}</td>
                     {/* Bangla is non-nullable in the schema, so an empty cell here
                         means something bypassed validation and needs looking at. */}
@@ -65,9 +78,9 @@ export default async function AdminServicesPage() {
         <div className="note" style={{ marginTop: '1.4rem' }}>
           <span>✎</span>
           <span>
-            <b>Read-only for now.</b> Editing prices and package text from here is not built yet.
-            Every package carries both languages because a Bangladeshi buyer must never be shown an
-            English-only description of what they are paying for.
+            <b>Prices save immediately and the site updates at once.</b> Orders already placed keep
+            the price they were charged — changing a figure here never rewrites what someone
+            already owes. Package wording is still edited in code.
           </span>
         </div>
       </div>

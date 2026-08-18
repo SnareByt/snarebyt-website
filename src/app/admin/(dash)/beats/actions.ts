@@ -1,5 +1,6 @@
 'use server';
 
+import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
@@ -141,4 +142,133 @@ export async function confirmUpload(input: {
   }
   revalidatePath('/admin/beats');
   return { ok: true as const };
+}
+
+/**
+ * Change a beat's base price, and with it every licence tier for that beat —
+ * tiers are multipliers, so one number drives the whole ladder.
+ *
+ * Whole taka only. A price that silently became ৳1,499.5 would show one figure
+ * on the site and send another to the gateway.
+ */
+const basePriceSchema = z.coerce
+  .number({ message: 'Enter a number' })
+  .int('Whole taka only — no decimals')
+  .min(1, 'Price must be above zero')
+  .max(1_000_000, 'That looks like a typo.');
+
+export type PriceResult = { ok: true; message: string } | { ok: false; error: string };
+
+export async function setBeatPrice(beatId: string, formData: FormData): Promise<PriceResult> {
+  const admin = await requireAdmin();
+
+  const parsed = basePriceSchema.safeParse(formData.get('basePriceBdt'));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid price' };
+
+  const beat = await prisma.beat.findUnique({ where: { id: beatId } });
+  if (!beat) return { ok: false, error: 'That beat no longer exists.' };
+  if (beat.basePriceBdt === parsed.data) return { ok: true, message: 'Unchanged.' };
+
+  await prisma.beat.update({ where: { id: beatId }, data: { basePriceBdt: parsed.data } });
+  await audit({
+    actorId: admin.id, action: 'beat.price.changed', entity: 'Beat', entityId: beatId,
+    diff: { title: beat.title, from: beat.basePriceBdt, to: parsed.data },
+  });
+
+  // Orders already placed keep the price they froze at checkout.
+  revalidatePath('/admin/beats');
+  revalidatePath('/beats');
+  revalidatePath('/');
+  return { ok: true, message: `Saved. ${beat.title} base price is now ৳${parsed.data.toLocaleString('en-US')}.` };
+}
+
+/**
+ * Publish or unpublish a beat.
+ *
+ * Publishing is refused unless the files a buyer would receive actually exist.
+ * Taking payment for a beat with no untagged MP3 means someone pays and gets
+ * nothing, which is the one failure this store must never have.
+ *
+ * A sold exclusive is never reopened from here — that would put a beat back on
+ * sale that somebody already owns outright.
+ */
+export async function toggleBeatPublished(beatId: string): Promise<PriceResult> {
+  const admin = await requireAdmin();
+
+  const beat = await prisma.beat.findUnique({ where: { id: beatId }, include: { assets: true } });
+  if (!beat) return { ok: false, error: 'That beat no longer exists.' };
+
+  if (beat.status === 'SOLD_EXCLUSIVE') {
+    return { ok: false, error: 'This beat’s exclusive rights are sold. It cannot go back on sale.' };
+  }
+
+  if (beat.status !== 'PUBLISHED') {
+    const kinds = new Set(beat.assets.map((a) => a.kind));
+    const missing: string[] = [];
+    if (!beat.previewKey) missing.push('a tagged preview');
+    if (!kinds.has('MP3_UNTAGGED')) missing.push('an untagged MP3');
+    if (missing.length) {
+      return {
+        ok: false,
+        error: `Cannot publish without ${missing.join(' and ')}. A buyer would pay and receive nothing.`,
+      };
+    }
+  }
+
+  const next = beat.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+  await prisma.beat.update({
+    where: { id: beatId },
+    data: { status: next, publishedAt: next === 'PUBLISHED' ? (beat.publishedAt ?? new Date()) : beat.publishedAt },
+  });
+  await audit({
+    actorId: admin.id, action: 'beat.status.changed', entity: 'Beat', entityId: beatId,
+    diff: { title: beat.title, from: beat.status, to: next },
+  });
+
+  revalidatePath('/admin/beats');
+  revalidatePath('/beats');
+  revalidatePath('/');
+  return {
+    ok: true,
+    message: next === 'PUBLISHED' ? `${beat.title} is now on sale.` : `${beat.title} is now hidden from the store.`,
+  };
+}
+
+/**
+ * Change a licence tier's multiplier.
+ *
+ * This one field moves the price of EVERY beat at that tier, so the confirmation
+ * message says what it now costs on a real beat rather than quoting the
+ * multiplier back — "×2.4" means nothing at a glance; "৳3,600 on a ৳1,500 beat"
+ * does.
+ */
+const multiplierSchema = z.coerce
+  .number({ message: 'Enter a number' })
+  .min(0.1, 'Multiplier must be above zero')
+  .max(100, 'That looks like a typo.');
+
+export async function setTierMultiplier(tierId: string, formData: FormData): Promise<PriceResult> {
+  const admin = await requireAdmin();
+
+  const parsed = multiplierSchema.safeParse(formData.get('multiplier'));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid multiplier' };
+
+  const tier = await prisma.licenceTier.findUnique({ where: { id: tierId } });
+  if (!tier) return { ok: false, error: 'That licence tier no longer exists.' };
+  if (tier.multiplier === parsed.data) return { ok: true, message: 'Unchanged.' };
+
+  await prisma.licenceTier.update({ where: { id: tierId }, data: { multiplier: parsed.data } });
+  await audit({
+    actorId: admin.id, action: 'tier.multiplier.changed', entity: 'LicenceTier', entityId: tierId,
+    diff: { tier: tier.name, from: tier.multiplier, to: parsed.data },
+  });
+
+  revalidatePath('/admin/beats');
+  revalidatePath('/beats');
+  revalidatePath('/');
+  const example = Math.round((1500 * parsed.data) / 50) * 50;
+  return {
+    ok: true,
+    message: `Saved. ${tier.name} is now ৳${example.toLocaleString('en-US')} on a ৳1,500 beat.`,
+  };
 }
