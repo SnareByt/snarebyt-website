@@ -24,6 +24,7 @@ const base: LicencePdfData = {
   filesLabel: 'WAV 24-bit + MP3 320kbps',
   performanceRights: 'Live performances allowed',
   creditRequired: true,
+  licenseeArtist: 'SNARE', licenseeCountry: 'Bangladesh',
   termsEnglish: 'The licensee may use the beat commercially.\nCredit is required.',
   termsBangla: 'লাইসেন্সধারী বাণিজ্যিকভাবে বিটটি ব্যবহার করতে পারবেন।',
 };
@@ -71,6 +72,11 @@ async function main() {
   // A licensee name with accents must not fall back to blank glyphs.
   const accented = await pagesOf({ ...base, licenseeName: 'Zoë Ñuñez-Ström' });
   accented >= 4 ? pass('accented licensee name renders') : fail('accented name failed');
+
+  // Artist name and country are optional — a buyer may leave them blank, and a
+  // contract that refuses to render because a field is empty is a broken sale.
+  const bare = await pagesOf({ ...base, licenseeArtist: null, licenseeCountry: null });
+  bare >= 4 ? pass('renders with no artist name and no country') : fail('optional identity fields broke the render');
 }
 
 main()

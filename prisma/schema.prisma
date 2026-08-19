@@ -310,6 +310,10 @@ model Order {
   customerNote  String?
   /// Admin-only. Never shown to the customer.
   adminNote     String?
+  /// The name the buyer records under. Collected at checkout since day one
+  /// and discarded until now — it belongs on the licence, because a beat is
+  /// usually released under an artist name rather than a legal one.
+  artistName    String?
 
   items         OrderItem[]
   payments      Payment[]
@@ -441,6 +445,13 @@ model LicenceDocument {
 
   licenseeName   String
   licenseeEmail  String
+  /// The name the record is released under, when it differs from the legal
+  /// name. A beat licence that names only "Samir Islam" does not obviously
+  /// cover a release credited to an artist alias.
+  licenseeArtist  String?
+  /// Frozen at issue. Which country the licensee bought from is the first
+  /// thing anyone asks when a licence is disputed.
+  licenseeCountry String?
   beatTitle      String
   tierName       String
   purchasedAt    DateTime

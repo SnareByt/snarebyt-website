@@ -219,6 +219,11 @@ async function handle(req: NextRequest) {
           orderItemId: item.id,
           licenseeName: payment.order.billingName ?? payment.order.guestName ?? 'Licensee',
           licenseeEmail: payment.order.billingEmail,
+          // Frozen onto the licence, not read from the order later: an admin
+          // correcting a typo next year must not silently rewrite a contract
+          // somebody already holds.
+          licenseeArtist: payment.order.artistName,
+          licenseeCountry: payment.order.billingCountry,
           beatTitle: item.titleSnapshot,
           tierName: item.licenceTier.name,
           purchasedAt: new Date(),

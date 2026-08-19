@@ -28,6 +28,8 @@ export type LicencePdfData = {
   orderNumber: string;
   licenseeName: string;
   licenseeEmail: string;
+  licenseeArtist?: string | null;
+  licenseeCountry?: string | null;
   beatTitle: string;
   tierName: string;
   purchasedAt: Date;
@@ -246,7 +248,10 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
   y -= 10;
 
   const facts: Array<[string, string]> = [
-    ['LICENSEE', `${data.licenseeName}  /  ${data.licenseeEmail}`],
+    ['LICENSEE', data.licenseeName],
+    ...(data.licenseeArtist ? [['RELEASING AS', data.licenseeArtist] as [string, string]] : []),
+    ['EMAIL', data.licenseeEmail],
+    ...(data.licenseeCountry ? [['COUNTRY', data.licenseeCountry] as [string, string]] : []),
     ['BEAT', data.beatTitle], ['LICENCE', data.tierName],
     ['ORDER', data.orderNumber], ['PAID', `BDT ${data.priceBdt.toLocaleString('en-US')}`],
     ['ISSUED', data.purchasedAt.toISOString().slice(0, 10)],
@@ -362,6 +367,7 @@ export async function generateLicenceDocument(licenceId: string) {
   const bytes = await renderLicencePdf({
     number: licence.number, orderNumber: licence.order.number,
     licenseeName: licence.licenseeName, licenseeEmail: licence.licenseeEmail,
+    licenseeArtist: licence.licenseeArtist, licenseeCountry: licence.licenseeCountry,
     beatTitle: licence.beatTitle, tierName: licence.tierName,
     purchasedAt: licence.purchasedAt, priceBdt: licence.orderItem.priceBdt,
     isExclusive: tier.isExclusive, transfersOwnership: tier.transfersOwnership,

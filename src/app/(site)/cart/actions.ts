@@ -189,6 +189,7 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
       billingEmail: parsed.data.email.toLowerCase(),
       billingPhone: parsed.data.phone,
       billingCountry: parsed.data.country || null,
+      artistName: parsed.data.artistName || null,
       subtotalBdt: subtotal,
       totalBdt: subtotal,
       usdRateAtSale: rate ? Number(rate.value) : null,
