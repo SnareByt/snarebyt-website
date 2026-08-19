@@ -30,6 +30,11 @@ export function DeliveryPanel({
   licence: { id: string; number: string; ready: boolean } | null;
 }) {
   const [busy, start] = useTransition();
+  // The licence button gets its own transition. Sharing one means clicking
+  // "Create download link" also makes this button read "Generating…", which
+  // suggests a PDF is being written when nothing of the sort is happening.
+  const [pdfBusy, startPdf] = useTransition();
+  const [pdfNote, setPdfNote] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -46,16 +51,20 @@ export function DeliveryPanel({
               <div className="sub">Licence PDF · {licence.ready ? 'ready in private storage' : 'not generated yet'}</div>
             </div>
             <button
-              type="button" className="btn btn-ghost btn-sm" disabled={busy || !canDeliver}
-              onClick={() => start(async () => {
-                setError(null);
+              type="button" className="btn b-gh b-sm" disabled={pdfBusy || !canDeliver}
+              onClick={() => startPdf(async () => {
+                setError(null); setPdfNote(null);
                 const res = await regenerateLicencePdf(licence.id);
-                if (!res.ok) setError(res.error);
+                // Success was silent before: the label only changed once the
+                // page revalidated, so a slow render looked like a dead button.
+                if (res.ok) setPdfNote(res.message ?? 'Licence PDF generated.');
+                else setError(res.error);
               })}
             >
-              {busy ? 'Generating…' : licence.ready ? 'Regenerate PDF' : 'Generate PDF'}
+              {pdfBusy ? 'Generating…' : licence.ready ? 'Regenerate PDF' : 'Generate PDF'}
             </button>
           </div>
+          {pdfNote ? <div className="ok-box">{pdfNote}</div> : null}
         </div>
       ) : null}
 
@@ -83,7 +92,7 @@ export function DeliveryPanel({
                   <td>
                     {state === 'active' ? (
                       <button
-                        type="button" className="btn btn-ghost btn-sm" disabled={busy}
+                        type="button" className="btn b-gh b-sm" disabled={busy}
                         onClick={() => start(async () => {
                           const res = await revokeDownloadGrant(g.id);
                           if (!res.ok) setError(res.error);
@@ -114,7 +123,7 @@ export function DeliveryPanel({
             onFocus={(e) => e.currentTarget.select()}
           />
           <button
-            type="button" className="btn btn-ghost btn-sm" style={{ marginTop: '.5rem' }}
+            type="button" className="btn b-gh b-sm" style={{ marginTop: '.5rem' }}
             onClick={() => {
               navigator.clipboard?.writeText(link).then(
                 () => { setCopied(true); setTimeout(() => setCopied(false), 2000); },
@@ -129,7 +138,7 @@ export function DeliveryPanel({
 
       {canDeliver ? (
         <button
-          type="button" className="btn btn-red btn-sm" style={{ marginTop: '.9rem' }} disabled={busy}
+          type="button" className="btn b-red b-sm" style={{ marginTop: '.9rem' }} disabled={busy}
           onClick={() => {
             setError(null); setLink(null);
             start(async () => {

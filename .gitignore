@@ -25,3 +25,7 @@ Thumbs.db
 
 # Static review snapshots — generated, not source
 snarebyt-review/
+
+# Locally rendered licence samples
+output/
+tmp/

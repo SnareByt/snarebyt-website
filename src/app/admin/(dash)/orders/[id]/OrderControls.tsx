@@ -63,7 +63,7 @@ export function ContactForm({ order }: { order: OrderShape }) {
           <textarea className="inp" id="adminNote" name="adminNote" rows={3} defaultValue={order.adminNote} />
         </div>
       </div>
-      <button className="btn btn-red btn-sm" type="submit" disabled={busy} style={{ marginTop: '.9rem' }}>
+      <button className="btn b-red b-sm" type="submit" disabled={busy} style={{ marginTop: '.9rem' }}>
         {busy ? 'Saving…' : 'Save details'}
       </button>
       <Note res={res} />
@@ -88,7 +88,7 @@ export function DangerZone({ order }: { order: OrderShape }) {
           <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '.6rem' }}>
             {order.nextStatuses.map((s) => (
               <button
-                key={s} type="button" className="btn btn-ghost btn-sm" disabled={busy}
+                key={s} type="button" className="btn b-gh b-sm" disabled={busy}
                 onClick={() => start(async () => setRes(await setOrderStatus(order.id, s)))}
               >
                 Mark {s.replace(/_/g, ' ').toLowerCase()}
@@ -126,7 +126,7 @@ export function DangerZone({ order }: { order: OrderShape }) {
                 <input className="inp" id="reason" name="reason" placeholder="Why is this being refunded?" />
               </div>
             </div>
-            <button className="btn btn-ghost btn-sm" type="submit" disabled={busy} style={{ marginTop: '.7rem' }}>
+            <button className="btn b-gh b-sm" type="submit" disabled={busy} style={{ marginTop: '.7rem' }}>
               {busy ? 'Recording…' : 'Record refund'}
             </button>
           </form>
@@ -146,7 +146,7 @@ export function DangerZone({ order }: { order: OrderShape }) {
           {confirmDelete ? (
             <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '.7rem' }}>
               <button
-                type="button" className="btn btn-red btn-sm" disabled={busy}
+                type="button" className="btn b-red b-sm" disabled={busy}
                 onClick={() => start(async () => {
                   const r = await deleteOrder(order.id);
                   setRes(r);
@@ -155,13 +155,13 @@ export function DangerZone({ order }: { order: OrderShape }) {
               >
                 {busy ? 'Deleting…' : `Yes, delete ${order.number}`}
               </button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>
+              <button type="button" className="btn b-gh b-sm" onClick={() => setConfirmDelete(false)}>
                 Keep it
               </button>
             </div>
           ) : (
             <button
-              type="button" className="btn btn-ghost btn-sm" style={{ marginTop: '.7rem' }}
+              type="button" className="btn b-gh b-sm" style={{ marginTop: '.7rem' }}
               onClick={() => setConfirmDelete(true)}
             >
               Delete order
@@ -189,7 +189,7 @@ export function RemoveItemButton({ itemId, disabled }: { itemId: string; disable
   return (
     <>
       <button
-        type="button" className="btn btn-ghost btn-sm" disabled={busy}
+        type="button" className="btn b-gh b-sm" disabled={busy}
         onClick={() => start(async () => {
           const r = await removeOrderItem(itemId);
           if (!r.ok) setError(r.error);
