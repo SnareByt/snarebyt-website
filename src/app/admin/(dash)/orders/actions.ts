@@ -7,6 +7,7 @@ import { requireAdmin, requireOwner } from '@/lib/prisma-safe-auth';
 import { audit } from '@/lib/audit';
 import { issueDownloadGrant } from '@/lib/storage';
 import { siteUrl } from '@/lib/seo';
+import { generateLicenceDocument } from '@/lib/licence-pdf';
 import {
   canTransition, canRemoveItem, canRefund, canDelete, canDeliver,
   refundIsFull, type OrderFacts,
@@ -315,4 +316,28 @@ export async function revokeDownloadGrant(grantId: string): Promise<Result> {
   });
   if (item) revalidatePath(`/admin/orders/${item.orderId}`);
   return { ok: true, message: 'Link revoked.' };
+}
+
+/** Generate or replace the immutable PDF for an already-paid licence. */
+export async function regenerateLicencePdf(licenceId: string): Promise<Result> {
+  await requireAdmin();
+  const licence = await prisma.licenceDocument.findUnique({
+    where: { id: licenceId },
+    select: { number: true, orderId: true, order: { select: { status: true } } },
+  });
+  if (!licence) return { ok: false, error: 'That licence no longer exists.' };
+  if (licence.order.status !== 'PAID') {
+    return { ok: false, error: 'Licence PDFs can only be issued for paid orders.' };
+  }
+  try {
+    const result = await generateLicenceDocument(licenceId);
+    await audit({
+      action: 'licence.pdf.generated', entity: 'LicenceDocument', entityId: licenceId,
+      diff: { number: licence.number, sha256: result.signatureHash, bytes: result.bytes },
+    });
+    revalidatePath(`/admin/orders/${licence.orderId}`);
+    return { ok: true, message: 'Licence PDF generated and stored securely.' };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'PDF generation failed.' };
+  }
 }

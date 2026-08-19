@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { reissueDownloadLink, revokeDownloadGrant } from '../actions';
+import { regenerateLicencePdf, reissueDownloadLink, revokeDownloadGrant } from '../actions';
 
 export type GrantView = {
   id: string;
@@ -21,12 +21,13 @@ export type GrantView = {
  * copy into WhatsApp, and said plainly that it will not be shown twice.
  */
 export function DeliveryPanel({
-  orderItemId, title, grants, canDeliver,
+  orderItemId, title, grants, canDeliver, licence,
 }: {
   orderItemId: string;
   title: string;
   grants: GrantView[];
   canDeliver: boolean;
+  licence: { id: string; number: string; ready: boolean } | null;
 }) {
   const [busy, start] = useTransition();
   const [link, setLink] = useState<string | null>(null);
@@ -36,6 +37,27 @@ export function DeliveryPanel({
   return (
     <div className="card" style={{ padding: '1.1rem', marginTop: '.8rem' }}>
       <div className="ttl">{title}</div>
+
+      {licence ? (
+        <div className="card" style={{ padding: '.85rem', marginTop: '.8rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '.8rem', flexWrap: 'wrap' }}>
+            <div>
+              <div className="ttl">{licence.number}</div>
+              <div className="sub">Licence PDF · {licence.ready ? 'ready in private storage' : 'not generated yet'}</div>
+            </div>
+            <button
+              type="button" className="btn btn-ghost btn-sm" disabled={busy || !canDeliver}
+              onClick={() => start(async () => {
+                setError(null);
+                const res = await regenerateLicencePdf(licence.id);
+                if (!res.ok) setError(res.error);
+              })}
+            >
+              {busy ? 'Generating…' : licence.ready ? 'Regenerate PDF' : 'Generate PDF'}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {grants.length ? (
         <table style={{ marginTop: '.8rem' }}>

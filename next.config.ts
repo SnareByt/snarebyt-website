@@ -39,6 +39,9 @@ const CSP = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
+  // Native HarfBuzz/Skia shaping is used only on the server to render the
+  // Bangla licence page. Let Node load its platform binary directly.
+  serverExternalPackages: ['@napi-rs/canvas'],
   // Spotify embeds and R2 assets are the only external origins we allow.
   images: {
     remotePatterns: [
@@ -49,6 +52,10 @@ const nextConfig: NextConfig = {
   },
   // 2GB stems never go through the server, but briefs and images do.
   experimental: { serverActions: { bodySizeLimit: '8mb' } },
+  outputFileTracingIncludes: {
+    '/api/payments/sslcommerz/ipn': ['./src/assets/fonts/*.ttf'],
+    '/admin/orders/*': ['./src/assets/fonts/*.ttf'],
+  },
   poweredByHeader: false,
   async headers() {
     return [

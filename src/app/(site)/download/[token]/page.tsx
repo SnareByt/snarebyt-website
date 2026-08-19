@@ -80,6 +80,17 @@ export default async function DownloadPage({
             <div className="rule-eyebrow">Your files</div>
 
             <div style={{ marginTop: '1.2rem', display: 'flex', flexDirection: 'column', gap: '.7rem' }}>
+              {res.licenceReady ? (
+                <div className="cart-row" style={{ margin: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="ttl">Signed licence agreement (PDF)</div>
+                    <div className="sub">Your permanent proof of licence</div>
+                  </div>
+                  <a className="btn btn-red btn-sm" href={`/download/${token}/licence`}>
+                    Download
+                  </a>
+                </div>
+              ) : null}
               {res.files.map((f) => (
                 <div className="cart-row" key={f.assetId} style={{ margin: 0 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -93,6 +104,9 @@ export default async function DownloadPage({
                   </a>
                 </div>
               ))}
+              {!res.files.length ? (
+                <p className="note">Your audio files are still being prepared. Your licence document is ready now.</p>
+              ) : null}
             </div>
 
             <div className="hairline" style={{ margin: '1.6rem 0 1.1rem' }} />

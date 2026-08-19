@@ -32,7 +32,7 @@ export type DownloadFile = {
 
 export type DownloadCheck =
   | { ok: true; grantId: string; orderNumber: string; beatTitle: string; tierName: string;
-      files: DownloadFile[]; expiresAt: Date; remaining: number }
+      files: DownloadFile[]; licenceReady: boolean; expiresAt: Date; remaining: number }
   | { ok: false; reason: 'not_found' | 'revoked' | 'expired' | 'spent' | 'unpaid' | 'no_files' };
 
 const LABELS: Record<AssetKind, string> = {
@@ -57,6 +57,7 @@ export async function checkDownload(rawToken: string): Promise<DownloadCheck> {
       order: { select: { number: true, status: true } },
       licenceTier: { select: { name: true, includedAssets: true } },
       beat: { select: { title: true, assets: true } },
+      licence: { select: { signatureHash: true } },
     },
   });
   if (!item || !item.order) return { ok: false, reason: 'not_found' };
@@ -75,7 +76,8 @@ export async function checkDownload(rawToken: string): Promise<DownloadCheck> {
       bytes: Number(a.bytes),
     }));
 
-  if (!files.length) return { ok: false, reason: 'no_files' };
+  const licenceReady = Boolean(item.licence?.signatureHash);
+  if (!files.length && !licenceReady) return { ok: false, reason: 'no_files' };
 
   return {
     ok: true,
@@ -84,6 +86,7 @@ export async function checkDownload(rawToken: string): Promise<DownloadCheck> {
     beatTitle: item.beat.title,
     tierName: item.licenceTier.name,
     files,
+    licenceReady,
     expiresAt: grant.expiresAt,
     remaining: grant.maxAttempts - grant.attempts,
   };

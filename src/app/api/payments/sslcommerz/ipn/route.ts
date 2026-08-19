@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { audit } from '@/lib/audit';
 import { issueDownloadGrant } from '@/lib/storage';
+import { generateLicenceDocument } from '@/lib/licence-pdf';
 
 /**
  * SSLCOMMERZ IPN listener — the single most security-sensitive file
@@ -242,8 +243,8 @@ async function handle(req: NextRequest) {
     }
   });
 
-  // Grants and email are outside the transaction: a slow mail provider
-  // must never roll back a verified payment.
+  // PDF rendering, R2 writes, grants and email are outside the transaction:
+  // an unavailable storage provider must never roll back a verified payment.
   //
   // The base URL comes from the request, not APP_URL. That variable is unset
   // in production by design, and using it built the literal string
@@ -254,10 +255,32 @@ async function handle(req: NextRequest) {
     if (item.beatId) links.push(await issueDownloadGrant(item.id, base));
   }
 
+  const licenceResults: Array<{ licenceId: string; ready: boolean; error?: string }> = [];
+  const licences = await prisma.licenceDocument.findMany({
+    where: { orderId: payment.orderId }, select: { id: true, signatureHash: true },
+  });
+  for (const licence of licences) {
+    if (licence.signatureHash) {
+      licenceResults.push({ licenceId: licence.id, ready: true });
+      continue;
+    }
+    try {
+      await generateLicenceDocument(licence.id);
+      licenceResults.push({ licenceId: licence.id, ready: true });
+    } catch (error) {
+      // The paid order remains valid. Admin can regenerate the PDF from the
+      // order screen once R2 or the renderer is available again.
+      licenceResults.push({
+        licenceId: licence.id, ready: false,
+        error: error instanceof Error ? error.message.slice(0, 300) : 'PDF generation failed',
+      });
+    }
+  }
+
   // Recorded in the audit log so the links can be recovered and re-sent by
   // hand. Until the delivery email exists this is the only copy there is.
   await audit({ action: 'payment.validated', entity: 'Order', entityId: payment.orderId,
-    diff: { valId, amount: payment.amountBdt, links } });
+    diff: { valId, amount: payment.amountBdt, links, licences: licenceResults } });
 
   // TODO: queue receipt + licence + download emails via Resend.
   // Deliberately last: if mail fails, the order is still correct and the

@@ -67,6 +67,7 @@ export default async function AdminOrderPage({
     });
     byItem.set(g.orderItemId, list);
   }
+  const licenceByItem = new Map(order.licences.map((l) => [l.orderItemId, l]));
 
   const paid = order.status === 'PAID';
   const settled = ['PAID', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(order.status);
@@ -163,6 +164,12 @@ export default async function AdminOrderPage({
               title={i.titleSnapshot}
               grants={byItem.get(i.id) ?? []}
               canDeliver={paid}
+              licence={(() => {
+                const licence = licenceByItem.get(i.id);
+                return licence ? {
+                  id: licence.id, number: licence.number, ready: Boolean(licence.signatureHash),
+                } : null;
+              })()}
             />
           ))
         ) : (

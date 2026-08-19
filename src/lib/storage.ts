@@ -88,8 +88,30 @@ export async function issueDownloadGrant(
 export const hashToken = (raw: string) => createHash('sha256').update(raw).digest('hex');
 
 /** Short-lived signed URL, generated only after a grant has been validated. */
-export async function presignDownload(objectKey: string, seconds = 300) {
-  return getSignedUrl(r2, new GetObjectCommand({ Bucket: PRIVATE, Key: objectKey }), {
+export async function presignDownload(objectKey: string, seconds = 300, filename?: string) {
+  return getSignedUrl(r2, new GetObjectCommand({
+    Bucket: PRIVATE,
+    Key: objectKey,
+    ResponseContentDisposition: filename ? `attachment; filename="${filename.replace(/[^A-Za-z0-9._-]/g, '_')}"` : undefined,
+    ResponseContentType: filename?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : undefined,
+  }), {
     expiresIn: seconds,
   });
+}
+
+/** Server-side write for generated documents. Private objects are never public. */
+export async function putPrivateObject(opts: {
+  key: string;
+  body: Uint8Array;
+  contentType: string;
+  metadata?: Record<string, string>;
+}) {
+  await r2.send(new PutObjectCommand({
+    Bucket: PRIVATE,
+    Key: opts.key,
+    Body: opts.body,
+    ContentType: opts.contentType,
+    CacheControl: 'private, no-store',
+    Metadata: opts.metadata,
+  }));
 }
