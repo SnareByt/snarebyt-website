@@ -22,13 +22,35 @@ import type { NextConfig } from 'next';
  *   connect-src             — exfiltration by fetch() is limited to origins we
  *                             actually talk to.
  */
+/**
+ * Development needs two relaxations that production must never get.
+ *
+ * React Fast Refresh compiles modules with eval, so under the production
+ * `script-src` the dev bundle throws before hydration finishes and every page
+ * renders as dead HTML — buttons do nothing, no client component mounts. That
+ * is not a warning in the console; it is the whole app being untestable
+ * locally, which is how it went unnoticed.
+ *
+ * `ws:` is the HMR socket. Neither is emitted in a production build.
+ */
+const DEV = process.env.NODE_ENV === 'development';
+
+const scriptSrc = DEV
+  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+  : "script-src 'self' 'unsafe-inline'";
+
+const connectSrc = [
+  "connect-src 'self' https://cdn.snarebyt.com https://*.r2.dev https://*.r2.cloudflarestorage.com",
+  DEV ? 'ws: http://localhost:*' : '',
+].filter(Boolean).join(' ');
+
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  scriptSrc,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   "img-src 'self' data: blob: https://cdn.snarebyt.com https://*.r2.dev https://i.scdn.co https://*.spotifycdn.com https://i.ytimg.com",
@@ -36,9 +58,11 @@ const CSP = [
   // youtube-nocookie is the privacy-preserving host; youtube.com is still
   // needed because the player redirects to it for some content.
   "frame-src https://open.spotify.com https://www.youtube-nocookie.com https://www.youtube.com",
-  "connect-src 'self' https://cdn.snarebyt.com https://*.r2.dev https://*.r2.cloudflarestorage.com",
-  'upgrade-insecure-requests',
-].join('; ');
+  connectSrc,
+  // Would force the dev server's http://localhost to https, which has no
+  // certificate — so it is a production-only directive.
+  DEV ? '' : 'upgrade-insecure-requests',
+].filter(Boolean).join('; ');
 
 const nextConfig: NextConfig = {
   // Native HarfBuzz/Skia shaping is used only on the server to render the

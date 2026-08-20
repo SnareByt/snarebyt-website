@@ -2,9 +2,10 @@ import { Suspense } from 'react';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { getReport, rangeFor } from '@/lib/analytics';
 import { getPulse } from './actions';
-import { Chart3D } from './Chart3D';
+import { TrafficChart } from './TrafficChart';
 import { LivePulse } from './LivePulse';
 import { RangePicker } from './RangePicker';
+import { Figure } from '@/components/admin/Figure';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,17 +79,17 @@ export default async function AnalyticsPage({
           <div className="kpis">
             <div className="glass kpi">
               <div className="kpi-l">Visitors</div>
-              <div className="kpi-n">{report.visitors.toLocaleString('en-US')}</div>
+              <Figure className="kpi-n" value={report.visitors} />
               <Delta now={report.visitors} before={report.prevVisitors} />
             </div>
             <div className="glass kpi">
               <div className="kpi-l">Page views</div>
-              <div className="kpi-n">{report.views.toLocaleString('en-US')}</div>
+              <Figure className="kpi-n" value={report.views} />
               <Delta now={report.views} before={report.prevViews} />
             </div>
             <div className="glass kpi">
               <div className="kpi-l">Pages per visitor</div>
-              <div className="kpi-n">{perVisitor}</div>
+              <Figure className="kpi-n" value={perVisitor} />
               <span className="delta flat">this period</span>
             </div>
           </div>
@@ -96,7 +97,10 @@ export default async function AnalyticsPage({
           <LivePulse initial={pulse} />
         </div>
 
-        <Chart3D points={report.series} bucket={report.bucket} />
+        <TrafficChart
+          points={report.series} bucket={report.bucket}
+          totalViews={report.views} totalVisitors={report.visitors}
+        />
 
         <div className="an-grid">
           <div className="glass panel">

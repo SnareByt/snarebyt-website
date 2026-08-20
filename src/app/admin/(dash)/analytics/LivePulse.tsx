@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { getPulse, type Pulse } from './actions';
+import { Figure } from '@/components/admin/Figure';
 
 /**
  * The real-time panel.
@@ -51,18 +52,18 @@ export function LivePulse({ initial }: { initial: Pulse }) {
         {stale ? <span className="chip warn">reconnecting</span> : null}
       </div>
 
-      <div className="live-n">{pulse.live}</div>
+      <Figure className="live-n" value={pulse.live} />
       <div className="live-sub">
         {pulse.live === 1 ? 'person on the site' : 'people on the site'} · last 5 minutes
       </div>
 
       <div className="live-split">
         <div>
-          <div className="live-k">{pulse.todayVisitors.toLocaleString('en-US')}</div>
+          <Figure className="live-k" value={pulse.todayVisitors} />
           <div className="live-l">visitors today</div>
         </div>
         <div>
-          <div className="live-k">{pulse.todayViews.toLocaleString('en-US')}</div>
+          <Figure className="live-k" value={pulse.todayViews} />
           <div className="live-l">views today</div>
         </div>
       </div>
