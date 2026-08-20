@@ -1,5 +1,6 @@
 import 'server-only';
 import { Resend } from 'resend';
+import { prisma } from './prisma';
 
 /**
  * Emails sent TO artists, as distinct from lib/notify.ts which alerts Samir.
@@ -47,14 +48,46 @@ function shell(opts: {
   </body></html>`;
 }
 
+/**
+ * Record why a message did not go out.
+ *
+ * These sends are fire-and-forget by design — a registration must not fail
+ * because a mail provider had a bad minute — but "swallow the error" was
+ * being read as "discard it". When a code never arrived there was then
+ * nothing, anywhere, saying why. Writing the reason down costs one insert and
+ * turns a mystery into a lookup.
+ */
+async function record(to: string, subject: string, reason: string) {
+  await prisma.errorLog.create({
+    data: {
+      level: 'error',
+      message: `Mail not sent: ${reason}`,
+      contextJson: {
+        to,
+        subject,
+        from: FROM(),
+        hasKey: Boolean(process.env.RESEND_API_KEY),
+      },
+    },
+  }).catch(() => {});
+}
+
 async function send(to: string, subject: string, html: string, text: string): Promise<MailResult> {
   try {
     const key = process.env.RESEND_API_KEY;
-    if (!key) return { sent: false, reason: 'no_api_key' };
+    if (!key) {
+      await record(to, subject, 'no_api_key');
+      return { sent: false, reason: 'no_api_key' };
+    }
     const { error } = await new Resend(key).emails.send({ from: FROM(), to, subject, html, text });
-    if (error) return { sent: false, reason: String(error.message ?? error) };
+    if (error) {
+      const reason = String(error.message ?? error);
+      await record(to, subject, reason);
+      return { sent: false, reason };
+    }
     return { sent: true };
   } catch (e) {
+    await record(to, subject, String(e));
     return { sent: false, reason: String(e) };
   }
 }
