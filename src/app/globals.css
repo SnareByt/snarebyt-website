@@ -1291,3 +1291,39 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
 .tl-t{font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.82rem}
 .tl-d{font-size:.7rem;color:var(--dim);margin-top:.15rem}
 .tl-n{font-size:.8rem;color:var(--muted);margin-top:.35rem;line-height:1.55}
+
+/* ---------- Upload zone ---------- */
+.upz{display:flex;flex-direction:column;align-items:center;gap:.45rem;text-align:center;
+  padding:1.8rem 1.4rem;border-radius:16px;cursor:pointer;
+  border:1px dashed var(--line-strong);background:rgba(255,255,255,.02);
+  transition:.3s var(--e-out)}
+.upz:hover{border-color:var(--red);background:rgba(224,27,54,.05)}
+.upz.over{border-color:var(--red);border-style:solid;background:rgba(224,27,54,.1);
+  box-shadow:0 0 0 3px rgba(224,27,54,.16)}
+.upz b{font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.95rem}
+.upz span{font-size:.78rem;color:var(--dim);line-height:1.6;max-width:44ch}
+.upz:focus-visible{outline:2px solid var(--red);outline-offset:3px}
+
+.upq{display:flex;flex-direction:column;gap:.5rem;margin-top:.9rem}
+.upq-i{display:grid;grid-template-columns:1fr 90px 40px;gap:.7rem;align-items:center;font-size:.78rem}
+.upq-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.upq-t{height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.upq-t i{display:block;height:100%;border-radius:99px;background:var(--grad-red);
+  box-shadow:0 0 10px -2px var(--glow);transition:width .2s linear}
+.upq-p{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim);font-size:.72rem}
+
+/* ---------- Messages ----------
+   Studio messages sit left and the artist's right, the way every messaging
+   app does it, so who said what needs no label to be obvious. */
+.msgs{display:flex;flex-direction:column;gap:.7rem;max-height:420px;overflow-y:auto;
+  padding-right:.3rem}
+.msg{max-width:82%;display:flex;flex-direction:column;gap:.28rem}
+.msg.them{align-self:flex-start}
+.msg.me{align-self:flex-end;align-items:flex-end}
+.msg-b{padding:.75rem .95rem;border-radius:14px;font-size:.86rem;line-height:1.6;
+  white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.them .msg-b{background:rgba(255,255,255,.055);border:1px solid var(--line);
+  border-bottom-left-radius:5px}
+.msg.me .msg-b{background:rgba(224,27,54,.14);border:1px solid rgba(224,27,54,.3);
+  border-bottom-right-radius:5px}
+.msg-m{font-size:.68rem;color:var(--dim)}
