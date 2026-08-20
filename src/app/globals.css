@@ -1021,22 +1021,28 @@ input.inp:focus-visible,select.sel:focus-visible,textarea.inp:focus-visible{outl
    so nothing becomes harder to read. */
 .cursor-glow{
   position:fixed;top:0;left:0;z-index:60;pointer-events:none;
-  width:520px;height:520px;border-radius:50%;
+  /* Tight, not a field. At 520px this read as haze over the whole page
+     rather than a light at the pointer — the give-away that it was an
+     overlay. Roughly a third of the width, with the falloff pulled in so
+     most of the intensity sits within ~60px of the cursor. */
+  width:190px;height:190px;border-radius:50%;
   will-change:transform;mix-blend-mode:screen;
   background:radial-gradient(closest-side,
-    rgba(224,27,54,.20),
-    rgba(224,27,54,.10) 38%,
-    rgba(224,27,54,.035) 62%,
-    transparent 78%);
+    rgba(224,27,54,.17),
+    rgba(224,27,54,.085) 34%,
+    rgba(224,27,54,.025) 58%,
+    transparent 74%);
   opacity:0;transition:opacity .5s var(--e-out)}
 .cursor-glow[data-on]{opacity:1}
 
 /* A small warm core, so there is a definite point of light at the cursor
    rather than a vague cloud with no centre. */
+/* A small warm centre so there is a definite point of light rather than a
+   soft blob. Scaled with the halo. */
 .cursor-glow::after{
   content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:112px;height:112px;border-radius:50%;
-  background:radial-gradient(closest-side,rgba(255,120,140,.16),transparent 72%)}
+  width:46px;height:46px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,130,150,.14),transparent 70%)}
 
 @media(hover:none),(pointer:coarse){.cursor-glow{display:none}}
 @media(prefers-reduced-motion:reduce){.cursor-glow{display:none}}

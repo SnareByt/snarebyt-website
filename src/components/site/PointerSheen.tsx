@@ -5,8 +5,9 @@ import { useEffect, useRef } from 'react';
 /**
  * The cursor light.
  *
- * A large, soft crimson glow that follows the pointer around the page, plus
- * the card highlight that tracks under it.
+ * A small, soft crimson halo that follows the pointer around the page, plus
+ * the card highlight that tracks under it. Deliberately tight — a wide field
+ * reads as haze laid over the page rather than a light at the cursor.
  *
  * What separates this from the cheap version of the same idea is the easing.
  * A glow pinned exactly to the cursor reads as a sticker dragged across the
@@ -45,10 +46,12 @@ export function PointerSheen() {
     let cardPending: { card: HTMLElement; x: number; y: number } | null = null;
 
     const tick = () => {
-      // Ease toward the pointer. 0.14 is slow enough to read as inertia and
-      // fast enough not to feel laggy.
-      cx += (tx - cx) * 0.14;
-      cy += (ty - cy) * 0.14;
+      // Ease toward the pointer. Tightened alongside the smaller halo: a long
+      // trail on a wide field reads as inertia, but on a small one it just
+      // looks detached from the cursor. 0.22 keeps the light on the pointer
+      // while still softening fast flicks.
+      cx += (tx - cx) * 0.22;
+      cy += (ty - cy) * 0.22;
       glow.style.transform = `translate3d(${cx}px, ${cy}px, 0) translate(-50%, -50%)`;
 
       if (cardPending) {
