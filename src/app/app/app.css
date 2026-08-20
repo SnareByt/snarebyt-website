@@ -900,3 +900,57 @@ select.in {
   box-shadow: 0 0 10px var(--glow);
   transition: width .2s linear;
 }
+
+/* ---------- Media grid ----------
+   Three columns on a phone, four once there is room. Square cells, because a
+   ragged grid of mixed aspect ratios is much harder to scan for the one
+   photo you are looking for. */
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .5rem;
+}
+@media (min-width: 480px) {
+  .media-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.media-cell {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(150deg, var(--raise), #0c0c0f);
+  overflow: hidden;
+  transition: transform .18s var(--spring);
+}
+.media-cell:active { transform: scale(.96); }
+.media-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.media-audio {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-archivo), sans-serif;
+  font-size: .6rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Flags an image with no alt text. Red, small, and in the corner — enough to
+   spot at a glance across a grid without shouting over the artwork. */
+.media-flag {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--font-archivo), sans-serif;
+  font-size: .52rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
