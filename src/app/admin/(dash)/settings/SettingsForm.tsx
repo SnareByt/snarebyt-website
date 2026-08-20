@@ -2,15 +2,18 @@
 
 import { useActionState } from 'react';
 import { YouTubeCheck } from './YouTubeCheck';
+import { NotifyCheck } from './NotifyCheck';
 import { saveSettings, type SettingsState } from './actions';
 
 const initial: SettingsState = { ok: false };
 
 export function SettingsForm({
   usdRate, whatsapp, businessEmail, youtubeChannel, beatsComingSoon,
+  notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry,
 }: {
   usdRate: string; whatsapp: string; businessEmail: string;
   youtubeChannel: string; beatsComingSoon: boolean;
+  notifyEmail: string; notifyOnOrder: boolean; notifyOnPaid: boolean; notifyOnEnquiry: boolean;
 }) {
   const [state, action, pending] = useActionState(saveSettings, initial);
   const e = state.errors ?? {};
@@ -58,6 +61,32 @@ export function SettingsForm({
         </div>
         {e.youtubeChannel && <div className="err">{e.youtubeChannel}</div>}
         <YouTubeCheck />
+      </div>
+
+      <div className="fg" style={{ marginTop: '1.4rem' }}>
+        <label className="fl" htmlFor="notifyEmail">Alerts</label>
+        <input
+          className="in" id="notifyEmail" name="notifyEmail" type="email"
+          placeholder={businessEmail || 'you@example.com'} defaultValue={notifyEmail}
+        />
+        <div className="hint">
+          Where order and enquiry alerts are sent. Leave blank to use your business email.
+        </div>
+
+        <label className="check" style={{ marginTop: '.7rem' }}>
+          <input type="checkbox" name="notifyOnOrder" defaultChecked={notifyOnOrder} />
+          <span>New order placed — before payment</span>
+        </label>
+        <label className="check" style={{ marginTop: '.4rem' }}>
+          <input type="checkbox" name="notifyOnPaid" defaultChecked={notifyOnPaid} />
+          <span>Payment confirmed — money actually arrived</span>
+        </label>
+        <label className="check" style={{ marginTop: '.4rem' }}>
+          <input type="checkbox" name="notifyOnEnquiry" defaultChecked={notifyOnEnquiry} />
+          <span>New enquiry from the contact form</span>
+        </label>
+
+        <NotifyCheck />
       </div>
 
       <div className="fg" style={{ marginTop: '1.4rem' }}>

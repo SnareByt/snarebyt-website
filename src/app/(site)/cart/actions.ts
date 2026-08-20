@@ -8,6 +8,7 @@ import { licencePrice } from '@/lib/money';
 import { createPaymentSession, isSandbox, paymentsConfigured } from '@/lib/sslcommerz';
 import { siteUrl } from '@/lib/seo';
 import { beatStoreClosed } from '@/lib/store-state';
+import { notifyAdmin } from '@/lib/notify';
 
 export type OrderState = {
   ok: boolean;
@@ -178,6 +179,7 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
   const number = `SB-${year}-${String(count + 1).padStart(6, '0')}`;
 
   const rate = await prisma.setting.findUnique({ where: { key: 'usdRate' } });
+  const base = await siteUrl();
 
   const order = await prisma.order.create({
     data: {
@@ -200,6 +202,22 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
       items: { create: items },
     },
     select: { id: true, number: true, totalBdt: true },
+  });
+
+  // Fire-and-forget: an alert must never delay or fail an order.
+  void notifyAdmin({
+    event: 'order.placed',
+    subject: `New order ${order.number} — ৳${order.totalBdt.toLocaleString('en-US')} awaiting payment`,
+    title: 'Order placed',
+    rows: [
+      ['Order', order.number],
+      ['Total', `৳${order.totalBdt.toLocaleString('en-US')}`],
+      ['Customer', parsed.data.name],
+      ['WhatsApp', parsed.data.phone],
+      ['Email', parsed.data.email],
+      ['Items', items.map((i) => i.titleSnapshot).join('<br>')],
+    ],
+    action: base ? { label: 'Open the order', href: `${base}/admin/orders/${order.id}` } : undefined,
   });
 
   const wa = await prisma.setting.findUnique({ where: { key: 'whatsapp' } });

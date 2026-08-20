@@ -2,6 +2,8 @@
 
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { notifyAdmin } from '@/lib/notify';
+import { siteUrl } from '@/lib/seo';
 import { rateLimit } from '@/lib/audit';
 import { briefSchema } from '@/lib/validators';
 
@@ -71,7 +73,7 @@ export async function submitBrief(prev: BriefState, formData: FormData): Promise
   // brief to an arbitrary id.
   const service = await prisma.service.findFirst({
     where: { id: d.serviceId, active: true },
-    select: { id: true },
+    select: { id: true, title: true },
   });
   if (!service) return { ok: false, attempt, errors: { serviceId: 'Choose a service' }, values };
 
@@ -106,6 +108,23 @@ export async function submitBrief(prev: BriefState, formData: FormData): Promise
 
   await prisma.projectEvent.create({
     data: { projectId: project.id, status: 'ORDER_RECEIVED', note: 'Submitted through the website' },
+  });
+
+  const origin = await siteUrl();
+  // Fire-and-forget: an alert must never delay or fail an enquiry.
+  void notifyAdmin({
+    event: 'enquiry.received',
+    subject: `New enquiry ${number} — ${service.title}`,
+    title: 'Enquiry received',
+    rows: [
+      ['Project', number],
+      ['Service', service.title],
+      ['From', d.name],
+      ['Email', d.email],
+      ...(d.phone ? [['Phone', d.phone] as [string, string]] : []),
+      ['Brief', d.description.slice(0, 400)],
+    ],
+    action: origin ? { label: 'Open in admin', href: `${origin}/admin/projects` } : undefined,
   });
 
   return { ok: true, attempt, number: project.number };

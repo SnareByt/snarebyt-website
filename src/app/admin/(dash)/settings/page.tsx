@@ -28,6 +28,10 @@ export default async function SettingsPage() {
           whatsapp={get('whatsapp')}
           youtubeChannel={get('youtubeChannel')}
           beatsComingSoon={get('beatsComingSoon') === 'true'}
+          notifyEmail={get('notifyEmail')}
+          notifyOnOrder={get('notifyOnOrder') !== 'false'}
+          notifyOnPaid={get('notifyOnPaid') !== 'false'}
+          notifyOnEnquiry={get('notifyOnEnquiry') !== 'false'}
           businessEmail={get('businessEmail', 'hello@snarebyt.com')}
         />
 

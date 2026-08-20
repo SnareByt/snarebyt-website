@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { audit } from '@/lib/audit';
 import { issueDownloadGrant } from '@/lib/storage';
 import { generateLicenceDocument } from '@/lib/licence-pdf';
+import { notifyAdmin } from '@/lib/notify';
 
 /**
  * SSLCOMMERZ IPN listener — the single most security-sensitive file
@@ -287,9 +288,30 @@ async function handle(req: NextRequest) {
   await audit({ action: 'payment.validated', entity: 'Order', entityId: payment.orderId,
     diff: { valId, amount: payment.amountBdt, links, licences: licenceResults } });
 
-  // TODO: queue receipt + licence + download emails via Resend.
-  // Deliberately last: if mail fails, the order is still correct and the
-  // admin can hit "Resend delivery".
+  // Deliberately last, and deliberately not awaited: the payment is already
+  // verified and fulfilled by this point, and a slow or failing mail provider
+  // must never delay the acknowledgement the gateway is waiting for — nor
+  // leave it retrying a callback that already succeeded.
+  const items = payment.order.items.map((i) => i.titleSnapshot).join('<br>');
+  void notifyAdmin({
+    event: 'order.paid',
+    subject: `PAID — ${payment.order.number} — ৳${payment.amountBdt.toLocaleString('en-US')}`,
+    title: 'Payment confirmed',
+    rows: [
+      ['Order', payment.order.number],
+      ['Amount', `৳${payment.amountBdt.toLocaleString('en-US')}`],
+      ['Customer', payment.order.billingName ?? payment.order.guestName ?? '—'],
+      ['WhatsApp', payment.order.billingPhone ?? '—'],
+      ['Items', items],
+      ['Next', links.length
+        ? 'Download links are ready on the order page — send them on WhatsApp.'
+        : 'No download links needed for this order.'],
+    ],
+    action: { label: 'Open the order', href: `${req.nextUrl.origin}/admin/orders/${payment.orderId}` },
+  });
+
+  // Customer-facing receipt and delivery email are still to come; for now the
+  // links are sent by hand from the order page.
 
   return ack();
 }
