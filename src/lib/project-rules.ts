@@ -63,23 +63,37 @@ export const PROJECT_LABEL: Record<ProjectStatus, string> = {
 };
 
 /**
+ * The only statuses from which a revision can be requested.
+ *
+ * A revision is a response to something the client has heard. Asking for one
+ * before anything was sent is not just nonsense — `setProjectStatus` counts a
+ * revision against the package, so it would silently spend one of the three
+ * the client paid for on work that was never delivered.
+ *
+ * REVISION_REQUESTED sits in the middle of PROJECT_FLOW because that is where
+ * it falls in a normal job, which means a naive "everything after here" slice
+ * offers it from ORDER_RECEIVED onwards. It has to be excluded explicitly.
+ */
+const REVISABLE_FROM: ProjectStatus[] = ['FIRST_PREVIEW_READY', 'FINALISING', 'COMPLETED'];
+
+/**
  * Which statuses this project may move to next.
  *
  * Forward by any number of steps — real work skips stages, and forcing Samir
  * to tap through four of them to record where a project actually is would just
- * mean he stops recording it. Backwards only to REVISION_REQUESTED, and only
- * from the points where a client could plausibly have asked for one.
+ * mean he stops recording it.
+ *
+ * REVISION_REQUESTED is the exception in both directions: it is offered from
+ * the three points above (including backwards, from FINALISING or COMPLETED)
+ * and from nowhere else.
  */
 export function nextProjectStatuses(f: ProjectFacts): ProjectStatus[] {
   if (f.status === 'DELIVERED') return [];
 
   const here = PROJECT_FLOW.indexOf(f.status);
-  const forward = PROJECT_FLOW.slice(here + 1);
+  const forward = PROJECT_FLOW.slice(here + 1).filter((s) => s !== 'REVISION_REQUESTED');
 
-  const canRevise =
-    f.status === 'FIRST_PREVIEW_READY' || f.status === 'FINALISING' || f.status === 'COMPLETED';
-
-  return canRevise && !forward.includes('REVISION_REQUESTED')
+  return REVISABLE_FROM.includes(f.status)
     ? ['REVISION_REQUESTED', ...forward]
     : forward;
 }

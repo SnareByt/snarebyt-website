@@ -20,7 +20,8 @@
     "check:beatfiles": "tsx scripts/check-beat-files.ts",
     "check:licence": "node -r ./scripts/server-only-shim.cjs -e \"require('tsx/cjs'); require('./scripts/check-licence.ts')\"",
     "licence:samples": "node -r ./scripts/server-only-shim.cjs -e \"require('tsx/cjs'); require('./scripts/render-licence-samples.ts')\"",
-    "icons": "node -r ./scripts/server-only-shim.cjs -e \"require('tsx/cjs'); require('./scripts/build-icons.ts')\""
+    "icons": "node -r ./scripts/server-only-shim.cjs -e \"require('tsx/cjs'); require('./scripts/build-icons.ts')\"",
+    "check:app": "tsx scripts/check-app.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.700.0",
