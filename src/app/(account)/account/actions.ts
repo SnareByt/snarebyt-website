@@ -106,15 +106,25 @@ export async function registerAction(_prev: FormState, fd: FormData): Promise<Fo
   // userId is null when the address already has a verified account. The
   // outcome is identical from here so the form cannot be used to discover who
   // has an account; the real owner signs in or resets instead.
+  // Whether the code actually left the building. A failed send used to be
+  // swallowed here, which left someone staring at six empty boxes with no
+  // code coming and nothing on screen saying so.
+  let delivered = true;
+
   if (res.userId) {
     const otp = await issueOtp(res.userId);
-    if (otp.ok) await sendOtpEmail(parsed.data.email, otp.code);
+    if (otp.ok) {
+      const sent = await sendOtpEmail(parsed.data.email, otp.code);
+      delivered = sent.sent;
+    } else {
+      delivered = false;
+    }
     await setPending(res.userId, parsed.data.email);
   } else {
     await setPending('none', parsed.data.email);
   }
 
-  redirect('/account/verify');
+  redirect(delivered ? '/account/verify' : '/account/verify?nomail=1');
 }
 
 /* ------------------------------------------------------------------ *

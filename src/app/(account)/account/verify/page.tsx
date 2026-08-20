@@ -19,11 +19,17 @@ function maskEmail(email: string) {
   return `${head}${'•'.repeat(Math.max(3, user.length - 2))}@${domain}`;
 }
 
-export default async function VerifyPage() {
+export default async function VerifyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ nomail?: string }>;
+}) {
   if (await currentAccount()) redirect('/account');
 
   const pending = await readPending();
   if (!pending) redirect('/account/register');
+
+  const { nomail } = await searchParams;
 
   return (
     <div className="auth-wrap">
@@ -36,6 +42,18 @@ export default async function VerifyPage() {
             It expires in ten minutes.
           </p>
         </div>
+
+        {nomail === '1' && (
+          <div className="banner bad" role="alert">
+            <i aria-hidden="true">!</i>
+            <span>
+              <b>The code could not be emailed.</b> This is a problem at our end, not yours —
+              the site&rsquo;s mail service is not responding. Try &ldquo;Send another code&rdquo;
+              below, and if it still fails, message SnareByt and your account will be opened
+              manually.
+            </span>
+          </div>
+        )}
 
         <VerifyForm />
       </div>
