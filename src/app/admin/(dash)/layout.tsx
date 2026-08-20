@@ -24,7 +24,7 @@ const NAV = [
   { group: 'Business', items: [
     { href: '/admin/orders', label: 'Orders', icon: '₿' },
     { href: '/admin/projects', label: 'Projects', icon: '◈' },
-    { href: '/admin/customers', label: 'Customers', icon: '☺' },
+    { href: '/admin/customers', label: 'Artist accounts', icon: '☺' },
   ]},
   { group: 'System', items: [
     { href: '/admin/settings', label: 'Settings', icon: '⚙' },
