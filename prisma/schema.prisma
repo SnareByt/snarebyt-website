@@ -47,6 +47,15 @@ model User {
   lastLoginAt   DateTime?
   lastLoginIp   String?
 
+  /// Suspension is reversible and never deletes anything. A suspended artist
+  /// cannot sign in or download, but their orders, licences and files stay
+  /// exactly where they are — a paid licence has to stay provable even when
+  /// the relationship has gone wrong.
+  suspendedAt     DateTime?
+  suspendedReason String?
+  /// Admin-only. Never selected by any query the artist's own pages run.
+  adminNote       String?
+
   orders        Order[]
   projects      Project[]
   favourites    Favourite[]
@@ -62,23 +71,45 @@ model User {
   @@index([role])
 }
 
+/// Which door a session was minted at. The admin dashboard and the artist
+/// portal both issue sessions against the same User table, and without this a
+/// token obtained legitimately at one door could be replayed at the other by
+/// pasting it into the other cookie. Role is checked as well; this is the
+/// second lock, so neither alone is load-bearing.
+enum SessionKind {
+  ADMIN
+  ACCOUNT
+}
+
 model Session {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
+  kind      SessionKind @default(ADMIN)
   userAgent String?
   ip        String?
+  /// Refreshed on use, so the artist can see which device was last active and
+  /// recognise one that is not theirs.
+  lastSeenAt DateTime?
+  /// Set instead of deleting, so "sign out that device" leaves a trace. A
+  /// revoked row is refused exactly like an expired one.
+  revokedAt DateTime?
   expiresAt DateTime
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([userId, kind])
 }
 
 enum TokenKind {
   EMAIL_VERIFY
   PASSWORD_RESET
   DOWNLOAD_GRANT
+  /// Six digits, emailed, short-lived. Stored as a hash of userId + code so
+  /// two people holding the same code cannot collide on the unique index —
+  /// and so a database dump does not hand anyone a working code.
+  EMAIL_OTP
 }
 
 model Token {
@@ -87,11 +118,15 @@ model Token {
   user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
   kind      TokenKind
   hash      String    @unique // store the hash, never the raw token
+  /// Wrong guesses against this token. Six digits is a million combinations,
+  /// but a cap is what stops someone walking the space while the code lives.
+  attempts  Int       @default(0)
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
 
   @@index([kind, expiresAt])
+  @@index([userId, kind])
 }
 
 // ------------------------------------------------------------
