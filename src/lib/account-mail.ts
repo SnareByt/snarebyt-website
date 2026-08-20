@@ -22,7 +22,20 @@ import { prisma } from './prisma';
 
 export type MailResult = { sent: boolean; reason?: string };
 
-const FROM = () => process.env.MAIL_FROM || 'SnareByt <onboarding@resend.dev>';
+/**
+ * The sender.
+ *
+ * The fallback used to be Resend's `onboarding@resend.dev`, which is the worst
+ * possible default for this: it is a sandbox sender that delivers ONLY to the
+ * Resend account owner's own address and rejects everything else. So alerts to
+ * Samir arrived, every customer email was refused, and nothing in the app said
+ * so — it looked configured and was not.
+ *
+ * snarebyt.com is a verified sending domain, so the fallback is now an address
+ * on it. MAIL_FROM still overrides, but forgetting to set it no longer means
+ * silently sending to nobody.
+ */
+const FROM = () => process.env.MAIL_FROM || 'SnareByt <no-reply@snarebyt.com>';
 
 function shell(opts: {
   eyebrow: string;

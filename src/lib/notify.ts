@@ -101,7 +101,9 @@ export async function notifyAdmin(input: NotifyInput): Promise<{ sent: boolean; 
 
     const accent = input.event === 'order.paid' ? '#2BB673' : '#E01B36';
     const { error } = await new Resend(key).emails.send({
-      from: process.env.MAIL_FROM || 'SnareByt <onboarding@resend.dev>',
+      // Falls back to the verified domain, not Resend's sandbox sender —
+      // see the note on FROM() in account-mail.ts.
+      from: process.env.MAIL_FROM || 'SnareByt <no-reply@snarebyt.com>',
       to: settings.to,
       subject: input.subject,
       html: shell(input.title, accent, input.rows, input.action),
