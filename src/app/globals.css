@@ -738,8 +738,17 @@ footer{border-top:1px solid var(--line);background:linear-gradient(#08080a,#0404
 .soc{width:38px;height:38px;border-radius:11px;border:1px solid var(--line);display:grid;place-items:center;
   transition:.35s var(--e-out);font-family:var(--font-archivo),sans-serif;font-weight:800;font-size:.66rem;color:var(--muted);
   background:rgba(255,255,255,.025)}
+/* A resting glow, not just a hover one. These sit at the very bottom of a
+   near-black page, and eight unlit outlines read as disabled — a faint red
+   halo makes them look like working links without shouting. */
+.soc{box-shadow:0 2px 14px -6px rgba(224,27,54,.34)}
+.soc svg{display:block;transition:filter .35s var(--e-out)}
 .soc:hover{border-color:var(--red);color:#fff;background:rgba(224,27,54,.16);transform:translateY(-3px);
-  box-shadow:0 8px 24px -8px var(--glow)}
+  box-shadow:0 10px 30px -8px var(--glow),0 0 0 1px rgba(224,27,54,.25)}
+/* The glow belongs to the mark itself on hover, so the logo lights up rather
+   than the box behind it. */
+.soc:hover svg{filter:drop-shadow(0 0 7px rgba(255,45,74,.85))}
+.soc:focus-visible{border-color:var(--red);color:#fff}
 .f-bot{margin-top:2.6rem;padding-top:1.5rem;border-top:1px solid var(--line);display:flex;
   justify-content:space-between;gap:1rem;flex-wrap:wrap;font-size:.74rem;color:var(--dim)}
 .f-bot nav{display:flex;gap:1.1rem;flex-wrap:wrap}

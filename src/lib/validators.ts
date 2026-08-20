@@ -106,6 +106,7 @@ export const settingsSchema = z.object({
   // An unticked checkbox is absent from FormData, so the default is what
   // makes "off" mean off rather than throwing.
   beatsComingSoon: z.coerce.boolean().default(false),
+  pointerSheen: z.coerce.boolean().default(false),
   // Where alerts go. Blank falls back to the business email rather than
   // silently sending nowhere.
   notifyEmail: z.string().trim().email('Enter a valid email').or(z.literal('')).default(''),

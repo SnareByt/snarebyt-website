@@ -31,7 +31,7 @@ export async function saveSettings(_prev: SettingsState, formData: FormData): Pr
 
   const {
     usdRate, whatsapp, businessEmail, youtubeChannel, beatsComingSoon,
-    notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry,
+    notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry, pointerSheen,
   } = parsed.data;
   const values: Record<string, string> = {
     usdRate: String(usdRate),
@@ -43,6 +43,7 @@ export async function saveSettings(_prev: SettingsState, formData: FormData): Pr
     notifyOnOrder: String(notifyOnOrder),
     notifyOnPaid: String(notifyOnPaid),
     notifyOnEnquiry: String(notifyOnEnquiry),
+    pointerSheen: String(pointerSheen),
   };
 
   for (const [key, value] of Object.entries(values)) {

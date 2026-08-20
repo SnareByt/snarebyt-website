@@ -5,6 +5,7 @@ import { PlayerProvider } from '@/components/site/Player';
 import { CartProvider } from '@/components/site/Cart';
 import { Analytics } from '@/components/site/Analytics';
 import { PointerSheen } from '@/components/site/PointerSheen';
+import { pointerSheenOn } from '@/lib/store-state';
 import { getNav, getTheme, themeStyle } from '@/lib/content';
 import { getUsdRate } from '@/lib/money';
 
@@ -20,7 +21,9 @@ import { getUsdRate } from '@/lib/money';
 export const dynamic = 'force-dynamic';
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  const [menu, theme, rate] = await Promise.all([getNav('MENU'), getTheme(), getUsdRate()]);
+  const [menu, theme, rate, sheen] = await Promise.all([
+    getNav('MENU'), getTheme(), getUsdRate(), pointerSheenOn(),
+  ]);
 
   const links: NavLink[] = menu.map((m) => ({ label: m.label, href: m.href }));
 
@@ -32,7 +35,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         {theme.grain ? <div className="grain" aria-hidden="true" /> : null}
 
         <Analytics />
-        <PointerSheen />
+        {sheen ? <PointerSheen /> : null}
 
         <CartProvider>
           <PlayerProvider>

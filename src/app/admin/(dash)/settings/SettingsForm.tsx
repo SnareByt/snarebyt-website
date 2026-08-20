@@ -9,11 +9,12 @@ const initial: SettingsState = { ok: false };
 
 export function SettingsForm({
   usdRate, whatsapp, businessEmail, youtubeChannel, beatsComingSoon,
-  notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry,
+  notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry, pointerSheen,
 }: {
   usdRate: string; whatsapp: string; businessEmail: string;
   youtubeChannel: string; beatsComingSoon: boolean;
   notifyEmail: string; notifyOnOrder: boolean; notifyOnPaid: boolean; notifyOnEnquiry: boolean;
+  pointerSheen: boolean;
 }) {
   const [state, action, pending] = useActionState(saveSettings, initial);
   const e = state.errors ?? {};
@@ -87,6 +88,18 @@ export function SettingsForm({
         </label>
 
         <NotifyCheck />
+      </div>
+
+      <div className="fg" style={{ marginTop: '1.4rem' }}>
+        <label className="fl" htmlFor="pointerSheen">Cursor light</label>
+        <label className="check" style={{ marginTop: '.4rem' }}>
+          <input type="checkbox" id="pointerSheen" name="pointerSheen" defaultChecked={pointerSheen} />
+          <span>Cards catch the light where the mouse is</span>
+        </label>
+        <div className="hint">
+          Desktop only — it never runs on a phone, and it is always off for visitors
+          who ask for reduced motion.
+        </div>
       </div>
 
       <div className="fg" style={{ marginTop: '1.4rem' }}>

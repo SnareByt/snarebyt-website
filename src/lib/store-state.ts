@@ -15,3 +15,15 @@ export async function beatStoreClosed(): Promise<boolean> {
   const row = await prisma.setting.findUnique({ where: { key: 'beatsComingSoon' } });
   return row?.value === 'true';
 }
+
+/**
+ * Whether the cursor light runs.
+ *
+ * Default ON, so a missing row means the effect exists rather than silently
+ * vanishing — the opposite of beatStoreClosed, where the safe default is
+ * "open for business".
+ */
+export async function pointerSheenOn(): Promise<boolean> {
+  const row = await prisma.setting.findUnique({ where: { key: 'pointerSheen' } });
+  return row?.value !== 'false';
+}

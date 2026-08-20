@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Wordmark } from './Wordmark';
 import { getNav } from '@/lib/content';
+import { SocialIcon } from './SocialIcon';
 import { prisma } from '@/lib/prisma';
 
 /** Two-letter badge for a social link, matching the prototype's pills. */
@@ -47,8 +48,9 @@ export async function SiteFooter() {
                   target="_blank"
                   rel="noopener noreferrer"
                   title={s.label}
+                  aria-label={s.label}
                 >
-                  {initials(s.label)}
+                  <SocialIcon label={s.label} />
                 </a>
               ))}
             </div>
