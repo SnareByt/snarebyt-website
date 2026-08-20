@@ -152,7 +152,11 @@ export async function saveDevice(input: {
       userId: input.userId,
       p256dh: input.p256dh,
       auth: input.auth,
-      label: input.label ?? null,
+      // Only overwritten when a label is actually supplied. The service
+      // worker's silent re-subscribe sends none, and blanking the name on
+      // every key rotation would leave an unidentifiable row in the device
+      // list — exactly when you need to know which phone to revoke.
+      ...(input.label ? { label: input.label } : {}),
       disabledReason: null,
     },
     select: { id: true },

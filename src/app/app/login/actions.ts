@@ -10,6 +10,7 @@ import { signIn, openSession } from '@/lib/prisma-safe-auth';
 import { startPasskeyLogin, finishPasskeyLogin } from '@/lib/passkey';
 import { rateLimit, audit } from '@/lib/audit';
 import { prisma } from '@/lib/prisma';
+import { deviceLabel } from '@/lib/app-format';
 
 /**
  * Sign-in for the phone dashboard.
@@ -37,22 +38,6 @@ const clientIp = async () => {
   const h = await headers();
   return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 };
-
-/**
- * A device label for the session list.
- *
- * Derived from the user agent rather than asked for, because a prompt at the
- * login screen is friction for a value nobody wants to type. It only has to be
- * good enough to recognise a row before revoking it.
- */
-function deviceLabel(ua: string) {
-  if (/iPad/i.test(ua)) return 'iPad';
-  if (/iPhone/i.test(ua)) return 'iPhone';
-  if (/Android/i.test(ua)) return 'Android phone';
-  if (/Macintosh/i.test(ua)) return 'Mac';
-  if (/Windows/i.test(ua)) return 'Windows PC';
-  return 'Phone dashboard';
-}
 
 export async function appLogin(prev: LoginState, formData: FormData): Promise<LoginState> {
   const attempt = prev.attempt + 1;

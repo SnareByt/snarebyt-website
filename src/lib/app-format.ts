@@ -71,3 +71,20 @@ export function fileSize(bytes: bigint | number | null | undefined) {
   if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
   return `${(n / 1024 ** 3).toFixed(2)} GB`;
 }
+
+/**
+ * A human name for a device, guessed from its user agent.
+ *
+ * Derived rather than asked for: a prompt at the login screen is friction for
+ * a value nobody wants to type. It only has to be good enough to recognise a
+ * row in a list before revoking it — "iPhone" is enough to know which line is
+ * the phone in your hand.
+ */
+export function deviceLabel(ua: string) {
+  if (/iPad/i.test(ua)) return 'iPad';
+  if (/iPhone/i.test(ua)) return 'iPhone';
+  if (/Android/i.test(ua)) return 'Android phone';
+  if (/Macintosh/i.test(ua)) return 'Mac';
+  if (/Windows/i.test(ua)) return 'Windows PC';
+  return 'Unknown device';
+}
