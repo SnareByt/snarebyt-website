@@ -70,9 +70,13 @@ export async function signIn(email: string, password: string, ip?: string, ua?: 
     prisma.session.create({
       data: {
         userId: user.id,
+        // Stated rather than left to the column default, so the door this
+        // token belongs to is visible at the place it is issued.
+        kind: 'ADMIN',
         token: sha256(raw),
         ip: ip ?? null,
         userAgent: ua ?? null,
+        lastSeenAt: new Date(),
         expiresAt: new Date(Date.now() + TTL_MS),
       },
     }),
@@ -111,6 +115,12 @@ export async function currentAdmin(): Promise<AdminUser | null> {
     include: { user: { select: { id: true, email: true, name: true, role: true } } },
   });
   if (!session || session.expiresAt < new Date()) return null;
+  // Minted at the artist portal, presented here. The role check below already
+  // stops a customer, but this stops the case the role check cannot see: a
+  // STAFF or ADMIN who also holds a portal session. Both doors now refuse the
+  // other's tokens, so neither check is the only thing standing there.
+  if (session.kind !== 'ADMIN') return null;
+  if (session.revokedAt) return null;
   if (session.user.role === 'CUSTOMER') return null;
   return session.user;
 }
