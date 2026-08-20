@@ -47,6 +47,7 @@ export default async function HomePage() {
       where: { status: 'PUBLISHED' },
       orderBy: [{ purchaseCount: 'desc' }, { publishedAt: 'desc' }],
       take: 4,
+      include: { assets: { select: { kind: true } } },
     }),
     prisma.licenceTier.findMany({ where: { active: true }, orderBy: { multiplier: 'asc' }, take: 1 }),
   ]);
@@ -73,6 +74,7 @@ export default async function HomePage() {
     exclusiveAvailable: b.exclusiveAvailable, soldExclusive: false,
     coverUrl: b.coverKey ? `${process.env.R2_PUBLIC_BASE_URL}/${b.coverKey}` : null,
     seed: seedFrom(b.slug), purchaseCount: b.purchaseCount,
+    availableAssets: b.assets.map((a) => a.kind),
     publishedAt: b.publishedAt ? b.publishedAt.toISOString() : null,
     previewUrl: b.previewKey ? `${process.env.R2_PUBLIC_BASE_URL}/${b.previewKey}` : null,
   }));

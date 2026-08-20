@@ -8,6 +8,7 @@ import { licencePrice } from '@/lib/money';
 import { createPaymentSession, isSandbox, paymentsConfigured } from '@/lib/sslcommerz';
 import { siteUrl } from '@/lib/seo';
 import { beatStoreClosed } from '@/lib/store-state';
+import { missingFor } from '@/lib/beat-files';
 import { notifyAdmin } from '@/lib/notify';
 
 export type OrderState = {
@@ -121,6 +122,7 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
   const [beats, tiers, serviceTiers] = await Promise.all([
     prisma.beat.findMany({
       where: { id: { in: beatLines.map((l) => l.beatId) }, status: 'PUBLISHED' },
+      include: { assets: { select: { kind: true } } },
     }),
     prisma.licenceTier.findMany({ where: { id: { in: beatLines.map((l) => l.tierId) }, active: true } }),
     prisma.serviceTier.findMany({
@@ -134,6 +136,12 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
   const svcTierById = new Map(serviceTiers.map((t) => [t.id, t]));
 
   const items = [];
+  // Tiers whose files do not exist on the beat. Selling one means taking
+  // ৳7,500 for stems and delivering a single MP3, so the order is refused
+  // outright rather than quietly reduced — a smaller total than the cart
+  // showed is its own kind of broken.
+  const undeliverable: string[] = [];
+
   for (const line of lines) {
     if (line.kind === 'service') {
       const st = svcTierById.get(line.serviceTierId);
@@ -153,6 +161,15 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
     if (!beat || !tier) continue;
     if (tier.isExclusive && !beat.exclusiveAvailable) continue;
 
+    // The files that back this tier must actually exist before money moves.
+    // Nothing else in the chain checks this: the download route correctly
+    // serves the intersection of "paid for" and "exists", which for a missing
+    // file is an empty set — a paying customer with nothing to download.
+    if (missingFor(tier.includedAssets, beat.assets.map((a) => a.kind)).length) {
+      undeliverable.push(`${beat.title} — ${tier.name}`);
+      continue;
+    }
+
     items.push({
       kind: 'BEAT_LICENCE' as const,
       beatId: beat.id,
@@ -161,6 +178,13 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
       priceBdt: licencePrice(beat.basePriceBdt, tier.multiplier),
       quantity: 1,
     });
+  }
+
+  if (undeliverable.length) {
+    return {
+      ok: false, attempt, values,
+      message: `Not ready to sell yet: ${undeliverable.join(', ')}. The files for that licence are not uploaded, so it would be paid for and not delivered. Message SnareByt — it will be sorted quickly.`,
+    };
   }
 
   if (!items.length) {

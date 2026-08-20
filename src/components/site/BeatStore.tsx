@@ -18,6 +18,8 @@ export type LicenceView = {
   terms: string[];
   termsBn: string[];
   isExclusive: boolean;
+  /** The deliverables this tier promises, as AssetKind strings. */
+  includedAssets: string[];
 };
 
 export type BeatView = {
@@ -38,6 +40,13 @@ export type BeatView = {
   publishedAt: string | null;
   /** Public URL of the TAGGED preview. Null until the file is uploaded. */
   previewUrl: string | null;
+  /**
+   * Deliverables this beat actually has, as AssetKind strings. A licence tier
+   * is only offered when every file it promises exists — otherwise someone
+   * pays for stems and receives an MP3. `placeOrder` enforces the same rule
+   * server-side; this just avoids showing an option that would be refused.
+   */
+  availableAssets: string[];
 };
 
 /** Licence price = base × multiplier, rounded to ৳50. Mirrors licencePrice(). */
@@ -51,6 +60,24 @@ export function BeatStore({ beats, licences, payable }: { beats: BeatView[]; lic
   const [sheet, setSheet] = useState(false);
   const [open, setOpen] = useState<BeatView | null>(null);
   const [tier, setTier] = useState<LicenceView | null>(null);
+
+  /**
+   * The tiers this beat can actually deliver.
+   *
+   * Two filters, and the order does not matter: a sold exclusive shows only the
+   * exclusive tier (so the buyer's licence stays visible), and any tier is
+   * dropped when a file it promises is missing from the beat. `placeOrder`
+   * applies the same file rule server-side — this only keeps the store from
+   * offering something checkout would refuse.
+   */
+  const offered = useMemo(() => {
+    if (!open) return [];
+    return licences.filter(
+      (l) =>
+        (!open.soldExclusive || l.isExclusive) &&
+        l.includedAssets.every((k) => open.availableAssets.includes(k)),
+    );
+  }, [open, licences]);
 
   const genres = useMemo(() => [...new Set(beats.map((b) => b.genre))].sort(), [beats]);
   const moods = useMemo(() => [...new Set(beats.map((b) => b.mood))].sort(), [beats]);
@@ -251,10 +278,18 @@ export function BeatStore({ beats, licences, payable }: { beats: BeatView[]; lic
                 </div>
               ) : null}
 
+              {!offered.length && !open.soldExclusive ? (
+                <div className="notice" style={{ marginBottom: '1.2rem' }}>
+                  <span>⚑</span>
+                  <span>
+                    <b>Not licensable yet.</b> The files for this beat are still being prepared.
+                    Message SnareByt and it will be sorted quickly.
+                  </span>
+                </div>
+              ) : null}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '.7rem' }}>
-                {licences
-                  .filter((l) => !open.soldExclusive || l.isExclusive)
-                  .map((l) => (
+                {offered.map((l) => (
                     <div
                       className={tier?.id === l.id ? 'lic sel' : 'lic'}
                       key={l.id}

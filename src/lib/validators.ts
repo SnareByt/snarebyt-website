@@ -28,7 +28,10 @@ export const beatSchema = z.object({
   tags: z.string().trim().default(''),
   basePriceBdt: z.coerce.number().int().min(100, 'Minimum ৳100'),
   status: z.enum(['DRAFT', 'PUBLISHED', 'SOLD_EXCLUSIVE', 'ARCHIVED']),
-  exclusiveAvailable: z.coerce.boolean().default(true),
+  // An unticked checkbox is absent from FormData, so `.default(true)` meant
+  // unticking it did nothing at all — the field could only ever be turned on.
+  // The form always renders the control, so absent genuinely means off.
+  exclusiveAvailable: z.coerce.boolean().default(false),
   description: z.string().trim().max(2000).optional(),
 });
 

@@ -8,6 +8,8 @@ import { requireAdmin, requireOwner } from '@/lib/prisma-safe-auth';
 import { audit } from '@/lib/audit';
 import { beatSchema } from '@/lib/validators';
 import { presignUpload } from '@/lib/storage';
+import { publishBlockers } from '@/lib/beat-files';
+import { randomBytes } from 'crypto';
 
 const slugify = (s: string) =>
   s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -32,15 +34,24 @@ export async function saveBeat(formData: FormData): Promise<ActionResult> {
 
   // A published beat with no untagged MP3 would take money and deliver
   // nothing. Refuse rather than trust the person clicking Save.
-  if (d.status === 'PUBLISHED' && d.id) {
-    const assets = await prisma.beatAsset.findMany({ where: { beatId: d.id }, select: { kind: true } });
-    const kinds = new Set(assets.map((a) => a.kind));
-    if (!kinds.has('MP3_UNTAGGED')) {
-      return { ok: false, errors: { status: 'Upload the untagged MP3 before publishing — a buyer would receive nothing.' } };
-    }
-    const beat = await prisma.beat.findUnique({ where: { id: d.id }, select: { previewKey: true } });
-    if (!beat?.previewKey) {
-      return { ok: false, errors: { status: 'Upload the tagged preview before publishing — the store has nothing to stream.' } };
+  const existing = d.id
+    ? await prisma.beat.findUnique({
+        where: { id: d.id },
+        select: { previewKey: true, publishedAt: true, assets: { select: { kind: true } } },
+      })
+    : null;
+  if (d.id && !existing) return { ok: false, errors: { _: 'That beat no longer exists.' } };
+
+  if (d.status === 'PUBLISHED' && existing) {
+    const blockers = publishBlockers({
+      previewKey: existing.previewKey,
+      have: existing.assets.map((a) => a.kind),
+    });
+    if (blockers.length) {
+      return {
+        ok: false,
+        errors: { status: `Upload ${blockers.join(' and ')} on the Files tab before publishing — a buyer would pay and receive nothing.` },
+      };
     }
   }
   if (d.status === 'PUBLISHED' && !d.id) {
@@ -51,12 +62,26 @@ export async function saveBeat(formData: FormData): Promise<ActionResult> {
     title: d.title, genre: d.genre, mood: d.mood, bpm: d.bpm, musicalKey: d.musicalKey,
     tags, basePriceBdt: d.basePriceBdt, status: d.status,
     exclusiveAvailable: d.exclusiveAvailable, description: d.description ?? null,
-    publishedAt: d.status === 'PUBLISHED' ? new Date() : null,
+    // Stamped once, on the first publish, and never rewritten. Recomputing it
+    // on every save made "published 3 minutes ago" true of a beat that had been
+    // on sale for a month, and nulled the real date the moment it was hidden.
+    publishedAt: d.status === 'PUBLISHED' ? (existing?.publishedAt ?? new Date()) : (existing?.publishedAt ?? null),
   };
 
-  const beat = d.id
-    ? await prisma.beat.update({ where: { id: d.id }, data })
-    : await prisma.beat.create({ data: { ...data, slug: slugify(d.title) } });
+  // Two beats can legitimately share a title. The slug is unique, so a second
+  // "Monsoon Drill" would otherwise throw a raw Prisma constraint error at
+  // someone who has done nothing wrong.
+  let beat;
+  if (d.id) {
+    beat = await prisma.beat.update({ where: { id: d.id }, data });
+  } else {
+    const base = slugify(d.title) || 'beat';
+    let slug = base;
+    for (let n = 2; await prisma.beat.findUnique({ where: { slug }, select: { id: true } }); n++) {
+      slug = `${base}-${n}`;
+    }
+    beat = await prisma.beat.create({ data: { ...data, slug } });
+  }
 
   await audit({
     actorId: user.id, action: d.id ? 'beat.update' : 'beat.create',
@@ -90,44 +115,101 @@ export async function deleteBeat(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-const PRIVATE_KINDS = ['MP3_UNTAGGED', 'WAV', 'STEMS_ZIP', 'SESSION_NOTES'] as const;
+/**
+ * The six upload slots, and what each one is allowed to receive.
+ *
+ * `cover` and `preview` land in the PUBLIC bucket; everything else is private
+ * and only ever reachable through a validated download grant. That split is
+ * the store's whole security model, so it is declared once, here, rather than
+ * inferred at each call site.
+ *
+ * The accept lists are enforced server-side as well as in the file picker. The
+ * picker is a convenience; this is the check that counts, because a server
+ * action is a public HTTP endpoint.
+ */
+const SLOTS = {
+  cover: { private: false, mimes: ['image/'], ext: ['jpg', 'jpeg', 'png', 'webp', 'avif'], maxMb: 12 },
+  preview: { private: false, mimes: ['audio/'], ext: ['mp3', 'm4a'], maxMb: 40 },
+  MP3_UNTAGGED: { private: true, mimes: ['audio/'], ext: ['mp3'], maxMb: 60 },
+  WAV: { private: true, mimes: ['audio/', 'application/octet-stream'], ext: ['wav', 'aiff', 'aif'], maxMb: 600 },
+  STEMS_ZIP: { private: true, mimes: ['application/', 'multipart/x-zip'], ext: ['zip', 'rar', '7z'], maxMb: 4096 },
+  SESSION_NOTES: { private: true, mimes: [], ext: ['pdf', 'txt', 'rtf', 'md', 'docx'], maxMb: 25 },
+} as const;
+
+type SlotName = keyof typeof SLOTS;
+
+const isSlot = (s: string): s is SlotName => Object.prototype.hasOwnProperty.call(SLOTS, s);
+
+export type UploadTicket =
+  | { ok: true; url: string; key: string }
+  | { ok: false; error: string };
 
 /**
  * Hand the browser a presigned URL so the file uploads straight to R2.
  * A 2GB stems zip must never stream through the web server.
  *
- * `preview` and `cover` go to the PUBLIC bucket. Everything else is
- * private and only reachable through a validated download grant.
+ * The key carries a random suffix. Without one, replacing cover.jpg keeps the
+ * same public URL and Cloudflare keeps serving the old artwork — a replacement
+ * that appears to have silently failed. A fresh key is a fresh URL.
  */
 export async function getUploadUrl(input: {
   beatId: string;
-  slot: 'cover' | 'preview' | 'MP3_UNTAGGED' | 'WAV' | 'STEMS_ZIP' | 'SESSION_NOTES';
+  slot: string;
   filename: string;
   contentType: string;
-}) {
+  bytes: number;
+}): Promise<UploadTicket> {
   const user = await requireAdmin();
-  const isPrivate = (PRIVATE_KINDS as readonly string[]).includes(input.slot);
-  const ext = input.filename.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? 'bin';
-  const key = `beats/${input.beatId}/${input.slot.toLowerCase()}.${ext}`;
+
+  if (!isSlot(input.slot)) return { ok: false, error: 'Unknown upload slot.' };
+  const spec = SLOTS[input.slot];
+
+  const beat = await prisma.beat.findUnique({ where: { id: input.beatId }, select: { id: true } });
+  if (!beat) return { ok: false, error: 'That beat no longer exists. Save it first, then upload.' };
+
+  const ext = input.filename.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? '';
+  if (!(spec.ext as readonly string[]).includes(ext)) {
+    return { ok: false, error: `This slot accepts ${spec.ext.join(', ')} — not .${ext || '?'}` };
+  }
+  if (spec.mimes.length && !spec.mimes.some((m) => input.contentType.startsWith(m))) {
+    return { ok: false, error: `That file reports itself as ${input.contentType || 'an unknown type'}, which does not belong in this slot.` };
+  }
+  if (input.bytes > spec.maxMb * 1024 * 1024) {
+    return { ok: false, error: `Too large — the limit for this slot is ${spec.maxMb} MB.` };
+  }
+  if (input.bytes <= 0) return { ok: false, error: 'That file is empty.' };
+
+  const key = `beats/${input.beatId}/${input.slot.toLowerCase()}-${randomBytes(4).toString('hex')}.${ext}`;
 
   const url = await presignUpload({
-    key, contentType: input.contentType, visibility: isPrivate ? 'private' : 'public',
+    key, contentType: input.contentType, visibility: spec.private ? 'private' : 'public',
   });
 
   await audit({ actorId: user.id, action: 'beat.upload.presign', entity: 'Beat',
     entityId: input.beatId, diff: { slot: input.slot, key } });
 
-  return { url, key, visibility: isPrivate ? 'private' : 'public' };
+  return { ok: true, url, key };
 }
 
-/** Called after the browser finishes PUTting the file to R2. */
+/**
+ * Called after the browser finishes PUTting the file to R2.
+ *
+ * The key is checked rather than trusted. The browser sends back what it was
+ * given, but this action is reachable on its own, and an object key written
+ * straight into the database is a pointer to any file in the bucket.
+ */
 export async function confirmUpload(input: {
   beatId: string;
-  slot: 'cover' | 'preview' | 'MP3_UNTAGGED' | 'WAV' | 'STEMS_ZIP' | 'SESSION_NOTES';
+  slot: string;
   key: string;
   bytes: number;
-}) {
-  await requireAdmin();
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireAdmin();
+
+  if (!isSlot(input.slot)) return { ok: false, error: 'Unknown upload slot.' };
+  if (!input.key.startsWith(`beats/${input.beatId}/${input.slot.toLowerCase()}-`)) {
+    return { ok: false, error: 'That file does not belong to this beat.' };
+  }
 
   if (input.slot === 'cover') {
     await prisma.beat.update({ where: { id: input.beatId }, data: { coverKey: input.key } });
@@ -140,8 +222,65 @@ export async function confirmUpload(input: {
       update: { objectKey: input.key, bytes: BigInt(input.bytes) },
     });
   }
+
+  await audit({ actorId: user.id, action: 'beat.file.added', entity: 'Beat',
+    entityId: input.beatId, diff: { slot: input.slot, key: input.key, bytes: input.bytes } });
+
   revalidatePath('/admin/beats');
-  return { ok: true as const };
+  revalidatePath('/beats');
+  revalidatePath('/');
+  return { ok: true };
+}
+
+/**
+ * Detach a file from a beat.
+ *
+ * The R2 object is deliberately left in place. Someone who has paid may hold a
+ * live grant pointing at it, and a download that 404s after money changed hands
+ * is a far worse outcome than an orphaned object costing a fraction of a penny.
+ *
+ * Removing the untagged MP3 or the preview from a PUBLISHED beat pulls it back
+ * to draft, because a published beat with nothing to deliver is the one state
+ * this store must never be in.
+ */
+export async function removeBeatFile(beatId: string, slot: string): Promise<PriceResult> {
+  const user = await requireOwner();
+
+  if (!isSlot(slot)) return { ok: false, error: 'Unknown upload slot.' };
+
+  const beat = await prisma.beat.findUnique({
+    where: { id: beatId }, include: { assets: { select: { kind: true } } },
+  });
+  if (!beat) return { ok: false, error: 'That beat no longer exists.' };
+
+  if (slot === 'cover') {
+    await prisma.beat.update({ where: { id: beatId }, data: { coverKey: null } });
+  } else if (slot === 'preview') {
+    await prisma.beat.update({ where: { id: beatId }, data: { previewKey: null } });
+  } else {
+    await prisma.beatAsset.deleteMany({ where: { beatId, kind: slot } });
+  }
+
+  // Re-check publishability against the state AFTER the removal.
+  const have = beat.assets.map((a) => a.kind).filter((k) => k !== slot);
+  const blockers = publishBlockers({
+    previewKey: slot === 'preview' ? null : beat.previewKey,
+    have,
+  });
+
+  let note = '';
+  if (beat.status === 'PUBLISHED' && blockers.length) {
+    await prisma.beat.update({ where: { id: beatId }, data: { status: 'DRAFT' } });
+    note = ` ${beat.title} was pulled back to draft — it now needs ${blockers.join(' and ')}.`;
+  }
+
+  await audit({ actorId: user.id, action: 'beat.file.removed', entity: 'Beat', entityId: beatId,
+    diff: { slot, title: beat.title, unpublished: Boolean(note) } });
+
+  revalidatePath('/admin/beats');
+  revalidatePath('/beats');
+  revalidatePath('/');
+  return { ok: true, message: `Removed.${note}` };
 }
 
 /**

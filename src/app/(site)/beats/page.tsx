@@ -36,6 +36,7 @@ export default async function BeatsPage() {
     prisma.beat.findMany({
       where: { status: { in: ['PUBLISHED', 'SOLD_EXCLUSIVE'] } },
       orderBy: [{ purchaseCount: 'desc' }, { publishedAt: 'desc' }],
+      include: { assets: { select: { kind: true } } },
     }),
     prisma.licenceTier.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } }),
   ]);
@@ -59,6 +60,7 @@ export default async function BeatsPage() {
     terms: lines(t.termsMarkdown),
     termsBn: lines(t.termsMarkdownBn),
     isExclusive: t.isExclusive,
+    includedAssets: t.includedAssets,
   }));
 
   const view: BeatView[] = beats.map((b) => ({
@@ -80,6 +82,7 @@ export default async function BeatsPage() {
     // previewKey is the TAGGED mp3 in the PUBLIC bucket. The untagged master,
     // WAV and stems live in the private bucket and never get a URL here.
     previewUrl: b.previewKey ? `${process.env.R2_PUBLIC_BASE_URL}/${b.previewKey}` : null,
+    availableAssets: b.assets.map((a) => a.kind),
   }));
 
   // Sample prices in the licensing section are quoted against a reference
