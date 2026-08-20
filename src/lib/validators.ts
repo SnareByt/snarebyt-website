@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseYouTubeId } from './spotify';
 
 /**
  * Password policy, enforced server-side on creation and change.
@@ -52,6 +53,14 @@ export const releaseSchema = z.object({
       (v) => v === '' || /open\.spotify\.com\/(?:intl-[a-z]{2}\/)?(album|track|playlist)\/[A-Za-z0-9]{22}/.test(v),
       'That is not a Spotify album or track link'
     )
+    .default(''),
+  // Any form of YouTube link, or blank. Validated with the same parser the
+  // page renders with, so the admin can never accept a link that will not play.
+  youtubeUrl: z
+    .string()
+    .trim()
+    .refine((s) => s === '' || parseYouTubeId(s) !== null,
+      'That is not a YouTube video link')
     .default(''),
   live: z.coerce.boolean().default(false),
   featured: z.coerce.boolean().default(false),

@@ -5,7 +5,7 @@ import { saveRelease } from './actions';
 import { parseSpotifyUrl, embedUrl, FULL_PLAYER } from '@/lib/spotify';
 
 type Release = {
-  id: string; title: string; type: string; trackCount: number; releasedAt: string;
+  id: string; title: string; type: string; trackCount: number; releasedAt: string; youtubeUrl?: string | null;
   about: string; credits: string; spotifyUrl: string; live: boolean; featured: boolean;
 };
 
@@ -66,6 +66,20 @@ export default function ReleaseForm({ mode, release }: { mode: 'create' | 'edit'
                     Spotify — <b>you never upload artwork for a release that is already out</b>.
                   </div>
                   {errors.spotifyUrl && <div className="err">{errors.spotifyUrl}</div>}
+                </div>
+
+                <div className={`fg ${errors.youtubeUrl ? 'bad' : ''}`}>
+                  <label className="fl" htmlFor="youtubeUrl">YouTube video</label>
+                  <input
+                    className="in" id="youtubeUrl" name="youtubeUrl"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    defaultValue={release?.youtubeUrl ?? ''}
+                  />
+                  <div className="hint">
+                    When set, the home page shows this video instead of the Spotify player.
+                    Any YouTube link works — watch, share or Shorts.
+                  </div>
+                  {errors.youtubeUrl && <div className="err">{errors.youtubeUrl}</div>}
                 </div>
 
                 {ref && (

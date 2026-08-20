@@ -58,6 +58,7 @@ export async function saveRelease(formData: FormData): Promise<ReleaseResult> {
     title: d.title, type: d.type, trackCount: d.trackCount, releasedAt: d.releasedAt,
     about: d.about, credits: d.credits,
     spotifyUrl: d.spotifyUrl || null,
+    youtubeUrl: d.youtubeUrl || null,
     spotifyEmbedType: ref?.type ?? null,
     spotifyEmbedId: ref?.id ?? null,
     live: d.live, featured: d.featured, published: d.live,

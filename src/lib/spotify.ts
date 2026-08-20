@@ -60,3 +60,28 @@ export async function verifySpotify(ref: SpotifyRef): Promise<{ title: string; t
     return null;
   }
 }
+
+/**
+ * The video id out of any YouTube URL a person is likely to paste — a watch
+ * link, a share link, an embed, or a Shorts URL. Returns null when it is not a
+ * YouTube link at all, which is what the admin validation reports on.
+ *
+ * Lives here beside the Spotify parser so the two embed helpers stay together.
+ */
+export function parseYouTubeId(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const s = input.trim();
+  const patterns = [
+    /youtu\.be\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/watch\?(?:.*&)?v=([A-Za-z0-9_-]{11})/,
+    /youtube(?:-nocookie)?\.com\/embed\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/live\/([A-Za-z0-9_-]{11})/,
+  ];
+  for (const re of patterns) {
+    const m = re.exec(s);
+    if (m) return m[1];
+  }
+  // A bare id, pasted straight from the address bar.
+  return /^[A-Za-z0-9_-]{11}$/.test(s) ? s : null;
+}

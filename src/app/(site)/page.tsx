@@ -54,6 +54,7 @@ export default async function HomePage() {
   const lite = (r: (typeof releases)[number]): ReleaseLite => ({
     id: r.id, title: r.title, type: r.type, year: year(r.releasedAt), about: r.about,
     spotifyUrl: r.spotifyUrl, spotifyEmbedType: r.spotifyEmbedType, spotifyEmbedId: r.spotifyEmbedId,
+    youtubeUrl: r.youtubeUrl,
   });
 
   // Newest by release date; releases with an unknown date cannot claim to be

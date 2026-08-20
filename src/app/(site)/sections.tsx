@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { YouTubeHero } from '@/components/site/YouTubeHero';
+import { parseYouTubeId } from '@/lib/spotify';
 import { getMedia } from '@/lib/content';
 
 /**
@@ -133,6 +135,7 @@ export type ReleaseLite = {
   spotifyUrl: string | null;
   spotifyEmbedType: string | null;
   spotifyEmbedId: string | null;
+  youtubeUrl?: string | null;
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -143,13 +146,18 @@ const TYPE_LABEL: Record<string, string> = {
 /** Newest live release. Falls back to a cover-pending card, never fake art. */
 export function Latest({ v, release }: { v: Values; release: ReleaseLite | null }) {
   if (!release) return null;
+  // The video is the better hero when there is one — it carries the artwork,
+  // the sound and the brand in a single frame. Spotify remains the fallback.
+  const ytId = parseYouTubeId(release.youtubeUrl);
   return (
     <section className="blk">
       <div className="wrap">
         <div className="sec-head rv-l"><div className="eyebrow">{str(v, 'eyebrow')}</div></div>
-        <div className="card latest rv">
+        <div className={ytId ? 'card latest latest-video rv' : 'card latest rv'}>
           <div className="latest-art">
-            {release.spotifyEmbedId && release.spotifyEmbedType ? (
+            {ytId ? (
+              <YouTubeHero id={ytId} title={`${release.title} — official video`} />
+            ) : release.spotifyEmbedId && release.spotifyEmbedType ? (
               <iframe
                 title={`${release.title} on Spotify`}
                 src={`https://open.spotify.com/embed/${release.spotifyEmbedType}/${release.spotifyEmbedId}?utm_source=oembed`}
@@ -169,11 +177,22 @@ export function Latest({ v, release }: { v: Values; release: ReleaseLite | null 
               SnareByt · {TYPE_LABEL[release.type] ?? release.type} · {release.year}
             </div>
             <p className="lead" style={{ fontSize: '.92rem' }}>{str(v, 'body')}</p>
-            {release.spotifyUrl ? (
+            {release.spotifyUrl || ytId ? (
               <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap' }}>
-                <a className="btn btn-red btn-sm" href={release.spotifyUrl} target="_blank" rel="noopener noreferrer">
-                  Open on Spotify ↗
-                </a>
+                {release.spotifyUrl ? (
+                  <a className="btn btn-red btn-sm" href={release.spotifyUrl} target="_blank" rel="noopener noreferrer">
+                    Open on Spotify ↗
+                  </a>
+                ) : null}
+                {ytId ? (
+                  <a
+                    className="btn btn-ghost btn-sm"
+                    href={`https://www.youtube.com/watch?v=${ytId}`}
+                    target="_blank" rel="noopener noreferrer"
+                  >
+                    Watch on YouTube ↗
+                  </a>
+                ) : null}
               </div>
             ) : null}
           </div>

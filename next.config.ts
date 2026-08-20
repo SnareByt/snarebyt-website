@@ -31,9 +31,11 @@ const CSP = [
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  "img-src 'self' data: blob: https://cdn.snarebyt.com https://*.r2.dev https://i.scdn.co https://*.spotifycdn.com",
+  "img-src 'self' data: blob: https://cdn.snarebyt.com https://*.r2.dev https://i.scdn.co https://*.spotifycdn.com https://i.ytimg.com",
   "media-src 'self' blob: https://cdn.snarebyt.com https://*.r2.dev",
-  "frame-src https://open.spotify.com",
+  // youtube-nocookie is the privacy-preserving host; youtube.com is still
+  // needed because the player redirects to it for some content.
+  "frame-src https://open.spotify.com https://www.youtube-nocookie.com https://www.youtube.com",
   "connect-src 'self' https://cdn.snarebyt.com https://*.r2.dev https://*.r2.cloudflarestorage.com",
   'upgrade-insecure-requests',
 ].join('; ');
