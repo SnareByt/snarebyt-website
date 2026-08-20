@@ -1010,3 +1010,33 @@ input.inp:focus-visible,select.sel:focus-visible,textarea.inp:focus-visible{outl
 @media(prefers-reduced-motion:reduce){
   .card::after{display:none}
 }
+
+/* ---------- Cursor glow ----------
+   Big and soft rather than small and bright. A tight bright dot reads as a
+   cursor replacement; a wide low-opacity field reads as the page being lit
+   from wherever you are looking.
+
+   `screen` blending means it can only ADD light: it glows against the
+   near-black page and does almost nothing to white text passing under it,
+   so nothing becomes harder to read. */
+.cursor-glow{
+  position:fixed;top:0;left:0;z-index:60;pointer-events:none;
+  width:520px;height:520px;border-radius:50%;
+  will-change:transform;mix-blend-mode:screen;
+  background:radial-gradient(closest-side,
+    rgba(224,27,54,.20),
+    rgba(224,27,54,.10) 38%,
+    rgba(224,27,54,.035) 62%,
+    transparent 78%);
+  opacity:0;transition:opacity .5s var(--e-out)}
+.cursor-glow[data-on]{opacity:1}
+
+/* A small warm core, so there is a definite point of light at the cursor
+   rather than a vague cloud with no centre. */
+.cursor-glow::after{
+  content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:112px;height:112px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,120,140,.16),transparent 72%)}
+
+@media(hover:none),(pointer:coarse){.cursor-glow{display:none}}
+@media(prefers-reduced-motion:reduce){.cursor-glow{display:none}}
