@@ -9,6 +9,7 @@ import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
 } from '@simplewebauthn/server';
+import { headers } from 'next/headers';
 import { prisma } from './prisma';
 
 /**
@@ -40,16 +41,43 @@ import { prisma } from './prisma';
  * It has to be the registrable domain — "snarebyt.com", not the full URL and
  * not a path. Getting this wrong does not fail loudly at enrolment; it fails
  * later, when a credential minted under one host silently refuses to
- * authenticate under another. So it is derived once, here, from APP_URL,
- * which is the same variable the payment callbacks and emails already use.
+ * authenticate under another.
+ *
+ * WHY THIS READS THE REQUEST RATHER THAN APP_URL.
+ *
+ * The obvious implementation derives it from APP_URL, the way the payment
+ * callbacks and emails do. That is wrong here, and silently so. APP_URL is
+ * deliberately UNSET in production — see siteUrl() in src/lib/seo.ts, which
+ * falls back to the request host precisely because this app answers on
+ * snarebyt.com, www.snarebyt.com and a permanent *.vercel.app address. An
+ * unset APP_URL would make this return "localhost" in production, and every
+ * Face ID enrolment would be minted for a domain the phone will never visit.
+ * Nothing would error; sign-in would just never work.
+ *
+ * So: an explicit WEBAUTHN_RP_ID wins if set, then APP_URL if it is set, then
+ * the actual host of the request. That last case is the one that runs in
+ * production today.
  */
-export function rpId() {
-  const raw = process.env.APP_URL ?? 'http://localhost:3000';
-  try {
-    return new URL(raw).hostname;
-  } catch {
-    return 'localhost';
+async function hostFromRequest(): Promise<{ id: string; origin: string }> {
+  const h = await headers();
+  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000';
+  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
+  return { id: host.split(':')[0], origin: `${proto}://${host}` };
+}
+
+export async function rpId(): Promise<string> {
+  const explicit = process.env.WEBAUTHN_RP_ID?.trim();
+  if (explicit) return explicit;
+
+  const configured = process.env.APP_URL?.trim();
+  if (configured) {
+    try {
+      return new URL(configured).hostname;
+    } catch {
+      /* fall through to the request */
+    }
   }
+  return (await hostFromRequest()).id;
 }
 
 /**
@@ -59,13 +87,16 @@ export function rpId() {
  * "http://localhost:3000" and "http://localhost" are different origins and one
  * will not verify against the other.
  */
-export function rpOrigin() {
-  const raw = process.env.APP_URL ?? 'http://localhost:3000';
-  try {
-    return new URL(raw).origin;
-  } catch {
-    return 'http://localhost:3000';
+export async function rpOrigin(): Promise<string> {
+  const configured = process.env.APP_URL?.trim();
+  if (configured) {
+    try {
+      return new URL(configured).origin;
+    } catch {
+      /* fall through to the request */
+    }
   }
+  return (await hostFromRequest()).origin;
 }
 
 const RP_NAME = 'SnareByt Admin';
@@ -119,7 +150,7 @@ export async function startPasskeyRegistration(user: { id: string; email: string
 
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
-    rpID: rpId(),
+    rpID: await rpId(),
     userName: user.email,
     userDisplayName: user.name ?? 'SnareByt',
     // Passkeys are discoverable so the phone can offer the account before an
@@ -161,8 +192,8 @@ export async function finishPasskeyRegistration(
     verification = await verifyRegistrationResponse({
       response,
       expectedChallenge,
-      expectedOrigin: rpOrigin(),
-      expectedRPID: rpId(),
+      expectedOrigin: await rpOrigin(),
+      expectedRPID: await rpId(),
       requireUserVerification: true,
     });
   } catch {
@@ -204,7 +235,7 @@ export async function finishPasskeyRegistration(
  */
 export async function startPasskeyLogin(handle: string) {
   const options = await generateAuthenticationOptions({
-    rpID: rpId(),
+    rpID: await rpId(),
     userVerification: 'required',
     // No allowCredentials: the passkey is discoverable, so the phone picks the
     // account itself. Listing credentials here would leak which ones exist to
@@ -245,8 +276,8 @@ export async function finishPasskeyLogin(
     verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge,
-      expectedOrigin: rpOrigin(),
-      expectedRPID: rpId(),
+      expectedOrigin: await rpOrigin(),
+      expectedRPID: await rpId(),
       requireUserVerification: true,
       credential: {
         id: cred.credentialId,

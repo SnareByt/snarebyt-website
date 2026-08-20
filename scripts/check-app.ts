@@ -324,6 +324,24 @@ console.log('\n  Headers');
   ok('    Service-Worker-Allowed is set', cfg.includes('Service-Worker-Allowed'));
 }
 
+console.log('\n  Face ID is bound to the right domain');
+{
+  /**
+   * The regression this guards is invisible until someone tries to sign in.
+   * APP_URL is unset in production on purpose, so deriving the relying-party
+   * ID from it alone would mint every credential for "localhost".
+   */
+  const pk = read('src/lib/passkey.ts');
+  ok('    the relying-party ID falls back to the request host',
+    pk.includes('hostFromRequest'));
+  ok('    it never silently defaults to localhost in production',
+    !/return 'localhost';/.test(pk));
+  ok('    an explicit override exists', pk.includes('WEBAUTHN_RP_ID'));
+  ok('    the origin is compared exactly', pk.includes('expectedOrigin'));
+  ok('    a biometric is required, not just an unlocked phone',
+    /userVerification: 'required'/.test(pk));
+}
+
 console.log('\n  Viewport');
 {
   const layout = read('src/app/app/layout.tsx');
