@@ -3,12 +3,30 @@ import { cookies } from 'next/headers';
 import { randomBytes, createHash, timingSafeEqual } from 'crypto';
 import argon2 from 'argon2';
 import { prisma } from './prisma';
-import type { Role } from '@prisma/client';
+import type { Role, SessionKind } from '@prisma/client';
 
 const COOKIE = 'sb_session';
-const TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
 const MAX_FAILED = 5;
 const LOCK_MS = 1000 * 60 * 15;
+
+/**
+ * Two lifetimes, because the two surfaces have different threat models.
+ *
+ * WEB is a browser that might be on a borrowed laptop, so it forgets you after
+ * twelve hours. APP is the dashboard installed on Samir's own phone, which is
+ * already behind the phone's lock screen and, once a passkey is enrolled,
+ * behind Face ID as well. Expiring that every twelve hours would not make it
+ * safer — it would train him to retype his password on a device several times
+ * a day, which is strictly worse. It is held for thirty days and can be
+ * revoked instantly per device from the Account screen.
+ */
+const TTL_MS = 1000 * 60 * 60 * 12; // 12 hours — browser
+const APP_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days — installed phone app
+
+export const ttlFor = (kind: SessionKind) => (kind === 'APP' ? APP_TTL_MS : TTL_MS);
+
+/** Touch lastSeenAt at most this often, so reading a page is not a write. */
+const SEEN_INTERVAL_MS = 1000 * 60;
 
 const sha256 = (v: string) => createHash('sha256').update(v).digest('hex');
 
@@ -27,7 +45,17 @@ export const hashPassword = (pw: string) =>
  * - The error message never distinguishes "no such user" from "wrong
  *   password", so the login form cannot be used to enumerate emails.
  */
-export async function signIn(email: string, password: string, ip?: string, ua?: string, totpToken?: string) {
+export async function signIn(
+  email: string,
+  password: string,
+  ip?: string,
+  ua?: string,
+  totpToken?: string,
+  /** WEB from the desktop dashboard, APP from the installed phone dashboard. */
+  kind: SessionKind = 'WEB',
+  /** Device name for the Account screen, e.g. "iPhone". */
+  label?: string,
+) {
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
   const generic = { ok: false as const, error: 'Email or password is incorrect.' };
 
@@ -65,32 +93,54 @@ export async function signIn(email: string, password: string, ip?: string, ua?: 
     }
   }
 
+  await openSession(user.id, { kind, label, ip, ua });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date(), lastLoginIp: ip ?? null },
+  });
+
+  return { ok: true as const, user };
+}
+
+/**
+ * Mint a session and set the cookie.
+ *
+ * Pulled out of signIn because a passkey login reaches the same finish line by
+ * a different route: Face ID proves possession of a private key instead of
+ * knowledge of a password, but the session it produces must be identical in
+ * every other respect. One implementation means the passkey path cannot
+ * accidentally get a weaker cookie or a longer life than the password path.
+ *
+ * The raw token is returned for callers that need it; nothing stores it.
+ */
+export async function openSession(
+  userId: string,
+  opts: { kind: SessionKind; label?: string; ip?: string; ua?: string },
+) {
   const raw = randomBytes(32).toString('base64url');
-  await prisma.$transaction([
-    prisma.session.create({
-      data: {
-        userId: user.id,
-        token: sha256(raw),
-        ip: ip ?? null,
-        userAgent: ua ?? null,
-        expiresAt: new Date(Date.now() + TTL_MS),
-      },
-    }),
-    prisma.user.update({
-      where: { id: user.id },
-      data: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date(), lastLoginIp: ip ?? null },
-    }),
-  ]);
+  const ttl = ttlFor(opts.kind);
+
+  await prisma.session.create({
+    data: {
+      userId,
+      token: sha256(raw),
+      kind: opts.kind,
+      label: opts.label ?? null,
+      ip: opts.ip ?? null,
+      userAgent: opts.ua ?? null,
+      expiresAt: new Date(Date.now() + ttl),
+    },
+  });
 
   (await cookies()).set(COOKIE, raw, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: TTL_MS / 1000,
+    maxAge: ttl / 1000,
   });
 
-  return { ok: true as const, user };
+  return raw;
 }
 
 export async function signOut() {
@@ -103,6 +153,17 @@ export async function signOut() {
 export type AdminUser = { id: string; email: string; name: string | null; role: Role };
 
 export async function currentAdmin(): Promise<AdminUser | null> {
+  return (await currentSession())?.user ?? null;
+}
+
+/**
+ * The session behind the current request, with its device.
+ *
+ * The phone dashboard needs to know which session it is running as, so the
+ * Account screen can show "this device" next to the right row and refuse to
+ * let you revoke the session you are holding without warning.
+ */
+export async function currentSession() {
   const raw = (await cookies()).get(COOKIE)?.value;
   if (!raw) return null;
 
@@ -112,7 +173,38 @@ export async function currentAdmin(): Promise<AdminUser | null> {
   });
   if (!session || session.expiresAt < new Date()) return null;
   if (session.user.role === 'CUSTOMER') return null;
-  return session.user;
+
+  /* Throttled so a page load is a read, not a write. Failures are swallowed:
+     a lost heartbeat must never sign anybody out. */
+  if (Date.now() - session.lastSeenAt.getTime() > SEEN_INTERVAL_MS) {
+    prisma.session
+      .update({ where: { id: session.id }, data: { lastSeenAt: new Date() } })
+      .catch(() => {});
+  }
+
+  return { id: session.id, kind: session.kind, label: session.label, user: session.user };
+}
+
+/** Every device currently signed in, newest first. Shown on Account. */
+export async function listSessions(userId: string) {
+  return prisma.session.findMany({
+    where: { userId, expiresAt: { gt: new Date() } },
+    orderBy: { lastSeenAt: 'desc' },
+    select: { id: true, kind: true, label: true, ip: true, userAgent: true,
+              lastSeenAt: true, createdAt: true, expiresAt: true },
+  });
+}
+
+/**
+ * Sign one device out.
+ *
+ * Scoped to the owner's own sessions by the where clause rather than by a
+ * check beforehand, so a guessed session id from another account deletes
+ * nothing instead of deleting somebody else's session.
+ */
+export async function revokeSession(userId: string, sessionId: string) {
+  const { count } = await prisma.session.deleteMany({ where: { id: sessionId, userId } });
+  return count > 0;
 }
 
 /** Use at the top of every admin page and server action. */

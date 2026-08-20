@@ -84,32 +84,87 @@ export type NotifyInput = {
   title: string;
   rows: [string, string][];
   action?: { label: string; href: string };
+  /** Where the phone app should open on tap. Defaults to its dashboard. */
+  appUrl?: string;
 };
 
 /**
- * Send one alert. Returns why it did not send rather than throwing, so a
- * caller can log the reason without having to guard the call.
+ * Send one alert, by email and to the phone.
+ *
+ * The two channels are deliberately independent. Email is the durable record —
+ * it survives a lost phone and it is searchable a year later. Push is the
+ * interrupt — it reaches him in a session with his phone face down on the desk.
+ * Neither is allowed to suppress the other, and neither is allowed to throw:
+ * a failed alert must not roll back the verified payment that triggered it.
+ *
+ * Returns why it did not send rather than throwing, so a caller can log the
+ * reason without having to guard the call.
  */
-export async function notifyAdmin(input: NotifyInput): Promise<{ sent: boolean; reason?: string }> {
+export async function notifyAdmin(input: NotifyInput): Promise<{ sent: boolean; reason?: string; pushed?: number }> {
+  // Fired first and awaited alongside the email, so a slow mail API never
+  // delays the buzz in his pocket.
+  const push = sendPush(input).catch(() => ({ sent: 0 }));
+
+  const mail = await (async (): Promise<{ sent: boolean; reason?: string }> => {
+    try {
+      const key = process.env.RESEND_API_KEY;
+      if (!key) return { sent: false, reason: 'no_api_key' };
+
+      const settings = await loadSettings();
+      if (!settings) return { sent: false, reason: 'no_recipient' };
+      if (!wants(settings, input.event)) return { sent: false, reason: 'event_disabled' };
+
+      const accent = input.event === 'order.paid' ? '#2BB673' : '#E01B36';
+      const { error } = await new Resend(key).emails.send({
+        from: process.env.MAIL_FROM || 'SnareByt <onboarding@resend.dev>',
+        to: settings.to,
+        subject: input.subject,
+        html: shell(input.title, accent, input.rows, input.action),
+      });
+      if (error) return { sent: false, reason: String(error.message ?? error) };
+      return { sent: true };
+    } catch (e) {
+      return { sent: false, reason: String(e) };
+    }
+  })();
+
+  const pushed = (await push).sent;
+  // "Sent" is true if EITHER channel got through. Reporting failure because
+  // email bounced, while the alert is sitting on his lock screen, would be a
+  // lie in the audit log.
+  return { sent: mail.sent || pushed > 0, reason: mail.reason, pushed };
+}
+
+/**
+ * The push half.
+ *
+ * The body is built from the same rows the email uses rather than written
+ * twice, so the two channels can never describe the same event differently.
+ * Only the first two rows survive — a lock screen shows about two lines, and
+ * the rest is noise the moment it is truncated.
+ */
+async function sendPush(input: NotifyInput): Promise<{ sent: number }> {
   try {
-    const key = process.env.RESEND_API_KEY;
-    if (!key) return { sent: false, reason: 'no_api_key' };
-
     const settings = await loadSettings();
-    if (!settings) return { sent: false, reason: 'no_recipient' };
-    if (!wants(settings, input.event)) return { sent: false, reason: 'event_disabled' };
+    // The per-event switches on the Settings screen govern both channels. Two
+    // sets of toggles for "tell me about orders" would be a trap.
+    if (settings && !wants(settings, input.event)) return { sent: 0 };
 
-    const accent = input.event === 'order.paid' ? '#2BB673' : '#E01B36';
-    const { error } = await new Resend(key).emails.send({
-      from: process.env.MAIL_FROM || 'SnareByt <onboarding@resend.dev>',
-      to: settings.to,
-      subject: input.subject,
-      html: shell(input.title, accent, input.rows, input.action),
+    const { pushToAdmins, pushConfigured } = await import('./push');
+    if (!pushConfigured()) return { sent: 0 };
+
+    const body = input.rows.slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(' · ');
+    const res = await pushToAdmins({
+      title: input.subject,
+      body: body || input.title,
+      url: input.appUrl ?? '/app',
+      // Tagged by event so three status changes on one order collapse into one
+      // line on the lock screen instead of stacking three deep.
+      tag: input.event,
     });
-    if (error) return { sent: false, reason: String(error.message ?? error) };
-    return { sent: true };
-  } catch (e) {
-    return { sent: false, reason: String(e) };
+    return { sent: res.sent };
+  } catch {
+    return { sent: 0 };
   }
 }
 
