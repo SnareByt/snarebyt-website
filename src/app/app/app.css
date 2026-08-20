@@ -858,3 +858,45 @@ select.in {
 
 /* An icon sized to sit on a line of text rather than in a tab bar. */
 .ic-sm { width: 15px; height: 15px; flex: none; vertical-align: -2px; }
+
+/* ---------- Filter strip ----------
+   A pill row that scrolls horizontally when it outgrows the screen. Sized to
+   the 44px tap-target floor via padding rather than a fixed height, so a long
+   label wraps the pill instead of overflowing it. */
+.chip-btn {
+  flex: none;
+  min-height: 34px;
+  padding: 0 .85rem;
+  border-radius: 999px;
+  border: 1px solid var(--line2);
+  background: rgba(255, 255, 255, .04);
+  font-family: var(--font-archivo), sans-serif;
+  font-size: .74rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: background .2s var(--e), color .2s var(--e), border-color .2s var(--e);
+}
+.chip-btn:active { opacity: .6; }
+.chip-btn[data-on='1'] {
+  background: rgba(224, 27, 54, .16);
+  border-color: rgba(224, 27, 54, .48);
+  color: #ffb3be;
+}
+
+/* ---------- Upload progress ----------
+   A thin determinate bar. On mobile data a stems archive can take minutes,
+   and a spinner cannot distinguish "halfway" from "stalled". */
+.bar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .1);
+  overflow: hidden;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--grad-red);
+  box-shadow: 0 0 10px var(--glow);
+  transition: width .2s linear;
+}

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUploadUrl, confirmUpload, removeBeatFile } from '@/app/admin/(dash)/beats/actions';
 import { ASSET_LABEL, missingFor, missingText, fileSize } from '@/lib/beat-files';
+import { ACCEPT, mimeOf, putToR2, uploadError, isPublicSlot, type SlotKey } from '@/lib/upload-client';
 import type { AssetKind } from '@prisma/client';
 
 /**
@@ -20,7 +21,7 @@ import type { AssetKind } from '@prisma/client';
  * progress, and a four-minute silent upload looks identical to a broken one.
  */
 
-export type SlotKey = 'cover' | 'preview' | AssetKind;
+export type { SlotKey };
 
 export type FileState = { key: string | null; bytes: number; url: string | null };
 
@@ -46,46 +47,6 @@ export type TierInfo = {
 /** Mirrors licencePrice() in money.ts, which cannot be imported here — it pulls Prisma. */
 const price = (base: number, mult: number) => Math.round((base * mult) / 50) * 50;
 const taka = (n: number) => '৳' + n.toLocaleString('en-US');
-
-/**
- * A presigned PUT is signed for one exact Content-Type, so the browser must
- * send back the same string it asked for. Some systems hand over a File with
- * an empty `type` — .wav and .aiff especially — and guessing at PUT time
- * instead of at signing time produces a 403 that looks like a broken bucket.
- */
-const MIME_BY_EXT: Record<string, string> = {
-  mp3: 'audio/mpeg', m4a: 'audio/mp4', wav: 'audio/wav', aiff: 'audio/aiff', aif: 'audio/aiff',
-  zip: 'application/zip', rar: 'application/vnd.rar', '7z': 'application/x-7z-compressed',
-  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', avif: 'image/avif',
-  pdf: 'application/pdf', txt: 'text/plain', rtf: 'application/rtf', md: 'text/markdown',
-  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-};
-
-const extOf = (name: string) => name.split('.').pop()?.toLowerCase() ?? '';
-const mimeOf = (f: File) => f.type || MIME_BY_EXT[extOf(f.name)] || 'application/octet-stream';
-
-function putToR2(url: string, file: File, contentType: string, onProgress: (pct: number) => void) {
-  return new Promise<{ ok: boolean; status: number }>((resolve) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', url);
-    xhr.setRequestHeader('content-type', contentType);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status });
-    xhr.onerror = () => resolve({ ok: false, status: 0 });
-    xhr.send(file);
-  });
-}
-
-const ACCEPT: Record<SlotKey, string> = {
-  cover: 'image/*,.jpg,.jpeg,.png,.webp,.avif',
-  preview: 'audio/*,.mp3,.m4a',
-  MP3_UNTAGGED: 'audio/mpeg,.mp3',
-  WAV: '.wav,.aiff,.aif,audio/*',
-  STEMS_ZIP: '.zip,.rar,.7z',
-  SESSION_NOTES: '.pdf,.txt,.rtf,.md,.docx',
-};
 
 const SLOT_ICON: Record<SlotKey, string> = {
   cover: '🖼', preview: '🔊', MP3_UNTAGGED: '🎵', WAV: '🎚', STEMS_ZIP: '🗂', SESSION_NOTES: '📝',
@@ -142,16 +103,7 @@ export function BeatFiles({ beat, tiers }: { beat: BeatFilesData; tiers: TierInf
       // In practice that is one thing: the bucket has no CORS rule allowing
       // this site, so the browser refused before sending a byte. Worth naming
       // exactly, because "upload failed" sends you looking at the file.
-      setErr((e) => ({
-        ...e,
-        [slot]: put.status === 0
-          ? 'Storage refused the connection. The R2 bucket needs a CORS rule allowing PUT from this site — Cloudflare → R2 → snarebyt-'
-            + (slot === 'cover' || slot === 'preview' ? 'public' : 'private')
-            + ' → Settings → CORS policy. Nothing is wrong with the file.'
-          : put.status === 403
-            ? 'Storage rejected the upload as unauthorised (403). The signed link may have expired — try again.'
-            : `Storage refused the file (HTTP ${put.status}).`,
-      }));
+      setErr((e) => ({ ...e, [slot]: uploadError(put.status, isPublicSlot(slot)) }));
       return;
     }
 
