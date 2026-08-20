@@ -971,3 +971,33 @@ input.inp:focus-visible,select.sel:focus-visible,textarea.inp:focus-visible{outl
   .ythero-poster:hover .ythero-thumb{transform:scale(1.02)}
 }
 @media(max-width:640px){.ythero-play{width:60px;height:60px}}
+
+/* ---------- Pointer sheen ----------
+   A soft light that follows the cursor across a card. White, not red: the
+   card's border gradient is already crimson, and a red-on-red highlight
+   turns into a glow. This should read as a sheen catching a surface —
+   closer to light on brushed metal than to something switched on.
+
+   Kept very low. If it is obvious, it is wrong. */
+.card::after{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:radial-gradient(
+    420px circle at var(--mx,50%) var(--my,50%),
+    rgba(255,255,255,.075),
+    rgba(224,27,54,.05) 38%,
+    transparent 62%);
+  opacity:0;transition:opacity .45s var(--e-out)}
+.card[data-sheen]::after{opacity:1}
+
+/* The site's own content sits above the sheen. Only ::before, the crimson
+   hairline border, is allowed over it. */
+.card > *{position:relative;z-index:1}
+.card::before{z-index:2}
+
+@media(hover:none),(pointer:coarse){
+  /* No cursor to follow, so no cost is paid on a phone. */
+  .card::after{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .card::after{display:none}
+}

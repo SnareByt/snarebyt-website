@@ -4,6 +4,7 @@ import { CurrencyProvider } from '@/components/site/Currency';
 import { PlayerProvider } from '@/components/site/Player';
 import { CartProvider } from '@/components/site/Cart';
 import { Analytics } from '@/components/site/Analytics';
+import { PointerSheen } from '@/components/site/PointerSheen';
 import { getNav, getTheme, themeStyle } from '@/lib/content';
 import { getUsdRate } from '@/lib/money';
 
@@ -31,6 +32,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         {theme.grain ? <div className="grain" aria-hidden="true" /> : null}
 
         <Analytics />
+        <PointerSheen />
 
         <CartProvider>
           <PlayerProvider>
