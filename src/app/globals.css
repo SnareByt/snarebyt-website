@@ -248,11 +248,20 @@ nav.links a.on{color:var(--text)}
 #hero{min-height:100svh;display:flex;align-items:center;position:relative;overflow:hidden;
   padding:calc(var(--nav-h) + 2rem) 0 3rem}
 #particles{position:absolute;inset:0;z-index:1;opacity:.6}
+/* The hero wash is deliberately NOT the brand red.
+   #E01B36 has more blue (54) than green (27), so as it fades toward
+   transparent the blue outlives the green and the tail reads pink rather
+   than red — which is what made the whole hero look washed. These are a
+   deep oxblood with the channels much closer together (hue ~356 instead of
+   ~352), at lower alpha and over a darker base, so the bloom stays red as
+   it falls off and the black keeps carrying the design.
+   `--red` itself is untouched: it is the accent on buttons and links, and
+   it should stay bright where it punctuates. */
 .hero-bg{position:absolute;inset:0;z-index:0;
   background:
-    radial-gradient(circle at 78% 22%,rgba(224,27,54,.3),transparent 46%),
-    radial-gradient(circle at 12% 82%,rgba(138,15,32,.26),transparent 48%),
-    linear-gradient(180deg,#08080a,#040405 62%)}
+    radial-gradient(circle at 80% 20%,rgba(124,14,22,.34),transparent 44%),
+    radial-gradient(circle at 12% 82%,rgba(78,9,17,.24),transparent 46%),
+    linear-gradient(180deg,#060607,#030304 58%)}
 .hero-grid{position:absolute;inset:0;z-index:0;opacity:.35;
   background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
                    linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
@@ -1327,3 +1336,66 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
 .msg.me .msg-b{background:rgba(224,27,54,.14);border:1px solid rgba(224,27,54,.3);
   border-bottom-right-radius:5px}
 .msg-m{font-size:.68rem;color:var(--dim)}
+
+/* ---------- Account button in the top bar ----------
+   Signed out it is the cart's twin so the pair reads as one control group.
+   Signed in it becomes a name chip, because on a shared machine "who is this
+   signed in as" is a more useful question than "is anyone signed in". */
+.acct-btn svg{display:block}
+
+.acct-chip{display:flex;align-items:center;gap:.5rem;height:38px;padding:0 .5rem 0 .3rem;
+  border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.02);
+  transition:.32s var(--e-out);max-width:190px;position:relative;overflow:hidden}
+.acct-chip:hover{border-color:rgba(224,27,54,.55);background:rgba(224,27,54,.08)}
+
+/* A light sweep on hover, the same gesture the primary button uses, so the
+   two feel like they come from one place. */
+.acct-chip::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.13),transparent 80%);
+  transform:translateX(-130%);transition:transform .75s var(--e-out)}
+.acct-chip:hover::after{transform:translateX(130%)}
+
+.acct-ini{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:var(--grad-red);color:#fff;
+  font-family:var(--font-archivo),sans-serif;font-weight:800;font-size:.66rem;letter-spacing:.04em;
+  box-shadow:0 2px 14px -4px var(--glow),inset 0 1px 0 rgba(255,255,255,.28)}
+
+.acct-name{font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.68rem;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .32s}
+.acct-chip:hover .acct-name{color:var(--text)}
+
+@media(prefers-reduced-motion:reduce){
+  .acct-chip::after{display:none}
+}
+
+/* Below the nav breakpoint the bar is already carrying a burger, a cart and
+   the currency switch — the name goes and the avatar stands on its own. */
+@media(max-width:1000px){
+  .acct-name{display:none}
+  .acct-chip{padding:0 .3rem;max-width:none}
+}
+
+/* The top bar was fitting a 390px phone with about four pixels to spare, so
+   adding the account control pushed the burger off the screen entirely. The
+   currency switch is the widest item there and the least used, so below the
+   drawer breakpoint it moves inside the drawer rather than being dropped. */
+@media(max-width:620px){
+  .nav-act .cur-sw{display:none}
+}
+.drawer-foot{display:flex;flex-direction:column;gap:1rem;align-items:flex-start;
+  margin-top:1.4rem;padding-top:1.4rem;border-top:1px solid var(--line);width:100%}
+.drawer-foot .cur-sw{align-self:flex-start}
+.drawer-acct{display:inline-flex;align-items:center;gap:.55rem}
+.drawer-acct::before{content:"";width:7px;height:7px;border-radius:50%;
+  background:var(--red);box-shadow:0 0 10px var(--glow);flex:none}
+
+/* A 320px phone has no spare width once the wordmark is placed, so the
+   controls tighten rather than the account button being dropped. */
+@media(max-width:365px){
+  .nav-act{gap:.3rem}
+  .nav-act .icon-btn{width:34px;height:34px}
+  .acct-chip{height:34px}
+  .acct-ini{width:27px;height:27px;font-size:.6rem}
+  .burger{width:36px;height:36px}
+}

@@ -1,4 +1,5 @@
 import { SiteHeader, type NavLink } from '@/components/site/SiteHeader';
+import { AccountButton } from '@/components/site/AccountButton';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { CurrencyProvider } from '@/components/site/Currency';
 import { getNav, getTheme, themeStyle } from '@/lib/content';
@@ -23,7 +24,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
     <CurrencyProvider rate={rate}>
       <div style={themeStyle(theme)} data-motion={theme.motion ? 'on' : 'off'}>
         {theme.grain ? <div className="grain" aria-hidden="true" /> : null}
-        <SiteHeader links={links} />
+        <SiteHeader links={links} account={<AccountButton />} />
         <main>{children}</main>
         <SiteFooter />
       </div>
