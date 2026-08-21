@@ -15,6 +15,7 @@ import {
   resolveFields, readIntake, validateIntake, intakeName, type IntakeAnswers,
 } from '@/lib/service-intake';
 import { getCheckoutFlow } from '@/lib/checkout-flow';
+import { resolveDiscount } from '@/lib/discount';
 import { goStraightToGateway } from '@/lib/checkout-flow-rules';
 
 export type OrderState = {
@@ -243,6 +244,37 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
 
   const subtotal = items.reduce((n, i) => n + i.priceBdt, 0);
 
+  /* The discount is recomputed here from the database row, never taken from
+     the form. The browser sends a string of characters; the amount it is worth
+     is decided on this side, against the subtotal this side calculated.
+     Otherwise "10% off" typed into a hidden field would be whatever the person
+     typing it wanted.
+
+     A code that has become invalid between the cart and this moment — expired
+     overnight, used up by someone else — refuses the order rather than quietly
+     charging full price. Being charged more than the screen said is the worst
+     outcome available here. */
+  let discount: { id: string; code: string; amountBdt: number } | null = null;
+  const submittedCode = String(raw.discountCode ?? '').trim();
+
+  if (submittedCode) {
+    const res = await resolveDiscount(submittedCode, {
+      subtotalBdt: subtotal,
+      email: parsed.data.email,
+    });
+    if (!res.ok) {
+      return {
+        ok: false, attempt, values,
+        errors: { discountCode: res.reason },
+        message: 'That discount code cannot be used on this order. Remove it or fix it, then place the order again.',
+      };
+    }
+    discount = res.discount;
+  }
+
+  const discountBdt = discount?.amountBdt ?? 0;
+  const total = Math.max(0, subtotal - discountBdt);
+
   const year = new Date().getUTCFullYear();
   const count = await prisma.order.count();
   const number = `SB-${year}-${String(count + 1).padStart(6, '0')}`;
@@ -262,7 +294,9 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
       billingCountry: parsed.data.country || null,
       artistName: parsed.data.artistName || null,
       subtotalBdt: subtotal,
-      totalBdt: subtotal,
+      discountBdt,
+      discountCodeId: discount?.id ?? null,
+      totalBdt: total,
       usdRateAtSale: rate ? Number(rate.value) : null,
       termsAcceptedAt: new Date(),
       customerNote: parsed.data.notes || null,
@@ -376,4 +410,92 @@ export async function startPayment(orderId: string): Promise<
 
   if (!session.ok) return { ok: false, error: session.error };
   return { ok: true, url: session.gatewayUrl };
+}
+
+export type DiscountPreview =
+  | { ok: true; code: string; amountBdt: number; label: string }
+  | { ok: false; error: string };
+
+/**
+ * Check a code and say what it would take off, without placing anything.
+ *
+ * The subtotal is recalculated here from the submitted lines rather than
+ * trusted from the browser, for the same reason placeOrder does it: a preview
+ * that flatters the total and an order that does not match it is how a
+ * customer ends up feeling cheated at the gateway.
+ *
+ * This is a preview only. Nothing is reserved, nothing is counted, and the
+ * code is checked again at the moment the order is placed — between the two,
+ * it can expire or be used up by someone else.
+ */
+export async function previewDiscount(
+  code: string,
+  linesJson: string,
+  email: string,
+): Promise<DiscountPreview> {
+  const h = await headers();
+  const ip = h.get('x-forwarded-for')?.split(',')[0] ?? 'unknown';
+
+  // Guessing codes is the obvious abuse here, so it is rate limited like a
+  // login rather than like a page view.
+  const limited = await rateLimit(`discount:ip:${ip}`, 20, 15 * 60_000);
+  if (!limited.ok) {
+    return { ok: false, error: 'Too many codes tried. Wait a few minutes.' };
+  }
+
+  if (await siteClosedForBusiness()) {
+    return { ok: false, error: closedMessage(await getSiteMode()) };
+  }
+
+  let lines: z.infer<typeof lineSchema>;
+  try {
+    lines = lineSchema.parse(JSON.parse(linesJson));
+  } catch {
+    return { ok: false, error: 'Your cart is empty.' };
+  }
+
+  const beatLines = lines.filter((l) => l.kind !== 'service') as { beatId: string; tierId: string }[];
+  const serviceLines = lines.filter((l) => l.kind === 'service') as { serviceTierId: string }[];
+
+  const [beats, tiers, svcTiers] = await Promise.all([
+    prisma.beat.findMany({
+      where: { id: { in: beatLines.map((l) => l.beatId) }, status: 'PUBLISHED' },
+      select: { id: true, basePriceBdt: true },
+    }),
+    prisma.licenceTier.findMany({
+      where: { id: { in: beatLines.map((l) => l.tierId) }, active: true },
+      select: { id: true, multiplier: true },
+    }),
+    prisma.serviceTier.findMany({
+      where: { id: { in: serviceLines.map((l) => l.serviceTierId) }, service: { active: true } },
+      select: { id: true, priceBdt: true },
+    }),
+  ]);
+
+  const beatById = new Map(beats.map((b) => [b.id, b]));
+  const tierById = new Map(tiers.map((t) => [t.id, t]));
+  const svcById = new Map(svcTiers.map((t) => [t.id, t]));
+
+  let subtotal = 0;
+  for (const l of lines) {
+    if (l.kind === 'service') {
+      subtotal += svcById.get(l.serviceTierId)?.priceBdt ?? 0;
+    } else {
+      const b = beatById.get(l.beatId);
+      const t = tierById.get(l.tierId);
+      if (b && t) subtotal += licencePrice(b.basePriceBdt, t.multiplier);
+    }
+  }
+
+  if (subtotal <= 0) return { ok: false, error: 'Nothing in your cart is still available.' };
+
+  const res = await resolveDiscount(code, { subtotalBdt: subtotal, email });
+  if (!res.ok) return { ok: false, error: res.reason };
+
+  return {
+    ok: true,
+    code: res.discount.code,
+    amountBdt: res.discount.amountBdt,
+    label: res.discount.label,
+  };
 }

@@ -184,6 +184,20 @@ async function handle(req: NextRequest) {
       data: { status: 'PAID', paidAt: new Date() },
     });
 
+    /* A discount code counts as USED here, and only here — when money has
+       actually arrived and been verified. Counting it when the order was
+       placed would let anyone exhaust a limited code by filling a cart and
+       walking away, and would make "used 40 of 50" mean "attempted".
+
+       Inside this transaction, so the count and the payment cannot disagree:
+       if anything below fails, neither happened. */
+    if (payment.order.discountCodeId) {
+      await tx.discountCode.update({
+        where: { id: payment.order.discountCodeId },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+
     // A paid service package has to become a project inside this transaction.
     // If it did not, the money would land with nothing recorded to work on and
     // the booking would exist only in the order line.

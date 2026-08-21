@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useActionState, useEffect, useMemo, useState, useTransition } from 'react';
 import { useCart, lineKey } from './Cart';
 import { Price } from './Currency';
-import { placeOrder, startPayment, type OrderState } from '@/app/(site)/cart/actions';
+import { placeOrder, startPayment, previewDiscount, type OrderState } from '@/app/(site)/cart/actions';
 import { resolveFields, intakeName, type IntakeSpec } from '@/lib/service-intake';
 
 export type CatalogueBeat = { id: string; title: string; basePriceBdt: number; exclusiveAvailable: boolean };
@@ -97,6 +97,51 @@ export function CartView({
 
   const total = rows.reduce((n, r) => n + r.priceBdt, 0);
   const hasService = rows.some((r) => r.isService);
+
+  /* The applied code, as the SERVER evaluated it. Nothing here is calculated
+     in the browser: the amount comes back from previewDiscount, and is worked
+     out again from the database when the order is actually placed. This state
+     is only what to show. */
+  const [discount, setDiscount] = useState<{ code: string; amountBdt: number; label: string } | null>(null);
+  const [promoInput, setPromoInput] = useState('');
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [checking, startChecking] = useTransition();
+
+  const payable_total = Math.max(0, total - (discount?.amountBdt ?? 0));
+
+  /* Re-checked whenever the cart changes, because the amount depends on the
+     subtotal — a percentage is worth less after removing a beat, and a minimum
+     spend can stop being met. Dropping a code that no longer applies is
+     honest; showing a reduction the order will refuse is not. */
+  const lineSignature = JSON.stringify(lines);
+  useEffect(() => {
+    if (!discount) return;
+    let cancelled = false;
+    previewDiscount(discount.code, lineSignature, '').then((res) => {
+      if (cancelled) return;
+      if (res.ok) setDiscount({ code: res.code, amountBdt: res.amountBdt, label: res.label });
+      else { setDiscount(null); setPromoError(res.error); }
+    });
+    return () => { cancelled = true; };
+    // Only when the cart itself changes; `discount` is what this maintains.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lineSignature]);
+
+  function applyPromo() {
+    const code = promoInput.trim();
+    if (!code) return;
+    setPromoError(null);
+    startChecking(async () => {
+      const res = await previewDiscount(code, JSON.stringify(lines), '');
+      if (res.ok) {
+        setDiscount({ code: res.code, amountBdt: res.amountBdt, label: res.label });
+        setPromoInput('');
+      } else {
+        setDiscount(null);
+        setPromoError(res.error);
+      }
+    });
+  }
   const briefRows = rows.filter((r) => r.serviceTierId && r.fields.length);
 
   /* Straight to the gateway.
@@ -231,13 +276,66 @@ export function CartView({
         ))}
 
         <div className="cart-sum">
+          {discount ? (
+            <>
+              <div className="sum-row">
+                <span>Subtotal</span>
+                <span><Price bdt={total} /></span>
+              </div>
+              <div className="sum-row disc">
+                <span>{discount.code} · {discount.label}</span>
+                <span>− <Price bdt={discount.amountBdt} /></span>
+              </div>
+            </>
+          ) : null}
           <div className="sum-row tot">
             <span>Total</span>
-            <span><Price bdt={total} /></span>
+            <span><Price bdt={payable_total} /></span>
           </div>
           <div className="sub" style={{ marginTop: '.5rem' }}>
             Charged in BDT. Any USD figure is a conversion for reference only.
           </div>
+        </div>
+
+        {/* Discount code.
+            Deliberately below the total rather than beside it: someone without
+            a code should not be made to wonder whether they are missing one. */}
+        <div className="promo">
+          {discount ? (
+            <div className="promo-on">
+              <span className="promo-tick" aria-hidden="true">✓</span>
+              <span>
+                <b>{discount.code}</b> applied — {discount.label}
+              </span>
+              <button
+                type="button" className="btn btn-ghost btn-sm"
+                onClick={() => { setDiscount(null); setPromoError(null); setPromoInput(''); }}
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <>
+              <label className="lb" htmlFor="promo">Discount code</label>
+              <div className="promo-row">
+                <input
+                  className="inp" id="promo" value={promoInput}
+                  onChange={(e) => { setPromoInput(e.target.value); setPromoError(null); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyPromo(); } }}
+                  placeholder="Enter a code"
+                  autoComplete="off" autoCapitalize="characters" spellCheck={false}
+                  disabled={checking}
+                />
+                <button
+                  type="button" className="btn btn-ghost" onClick={applyPromo}
+                  disabled={checking || !promoInput.trim()}
+                >
+                  {checking ? 'Checking…' : 'Apply'}
+                </button>
+              </div>
+              {promoError ? <div className="err" style={{ display: 'block' }}>{promoError}</div> : null}
+            </>
+          )}
         </div>
 
         <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: '1rem' }} onClick={clear}>
@@ -251,6 +349,7 @@ export function CartView({
         {state.message ? <div className="err-box" style={{ marginTop: '.8rem' }}>{state.message}</div> : null}
 
         <input type="hidden" name="lines" value={JSON.stringify(lines)} />
+        <input type="hidden" name="discountCode" value={discount?.code ?? ''} />
 
         <div className="form" style={{ marginTop: '1rem' }} key={state.attempt}>
           <div className={`field${e.name ? ' bad' : ''}`}>
@@ -332,7 +431,7 @@ export function CartView({
         <button className="btn btn-red btn-full" type="submit" style={{ marginTop: '1.2rem' }} disabled={pending}>
           {pending
             ? 'Placing order…'
-            : straightToPay ? `Pay ৳${total.toLocaleString('en-US')} & place order →` : 'Place order →'}
+            : straightToPay ? `Pay ৳${payable_total.toLocaleString('en-US')} & place order →` : 'Place order →'}
         </button>
 
         {/* Said plainly, because what happens next differs entirely depending on

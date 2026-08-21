@@ -38,6 +38,7 @@ export const NAV: NavGroup[] = [
     { href: '/admin/orders', label: 'Orders', icon: '₿' },
     { href: '/admin/projects', label: 'Projects', icon: '◈' },
     { href: '/admin/customers', label: 'Artist accounts', short: 'Artists', icon: '☺' },
+    { href: '/admin/discounts', label: 'Discount codes', short: 'Codes', icon: '%' },
   ]},
   { group: 'System', items: [
     { href: '/admin/settings', label: 'Settings', icon: '⚙' },
