@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useMemo, useState, useTransition } from 'react';
+import { useActionState, useEffect, useMemo, useState, useTransition } from 'react';
 import { useCart, lineKey } from './Cart';
 import { Price } from './Currency';
 import { placeOrder, startPayment, type OrderState } from '@/app/(site)/cart/actions';
+import { resolveFields, intakeName, type IntakeSpec } from '@/lib/service-intake';
 
 export type CatalogueBeat = { id: string; title: string; basePriceBdt: number; exclusiveAvailable: boolean };
 export type CatalogueTier = {
@@ -14,6 +15,8 @@ export type CatalogueTier = {
 export type CatalogueService = {
   id: string; name: string; priceBdt: number; descriptionBn: string;
   serviceTitle: string; deliveryDays: string;
+  /** Keys of what must be answered before this package can be ordered. */
+  intakeFields: string[];
 };
 
 const price = (base: number, mult: number) => Math.round((base * mult) / 50) * 50;
@@ -29,15 +32,21 @@ type Row = {
   priceBdt: number;
   /** Services need a brief afterwards; beats do not. */
   isService: boolean;
+  /** Set for services: the tier id, used to name this line's brief fields. */
+  serviceTierId?: string;
+  /** What this line must be told before it can be ordered. Empty for beats. */
+  fields: IntakeSpec[];
 };
 
 export function CartView({
-  beats, tiers, services, payable,
+  beats, tiers, services, payable, straightToPay,
 }: {
   beats: CatalogueBeat[];
   tiers: CatalogueTier[];
   services: CatalogueService[];
   payable: boolean;
+  /** Set from the Checkout setting: does the button end at the gateway? */
+  straightToPay: boolean;
 }) {
   const { lines, remove, clear, ready } = useCart();
   const [state, action, pending] = useActionState(placeOrder, initial);
@@ -65,6 +74,8 @@ export function CartView({
           bn: s.descriptionBn,
           priceBdt: s.priceBdt,
           isService: true,
+          serviceTierId: s.id,
+          fields: resolveFields(s.intakeFields),
         });
       } else {
         const b = beatById.get(l.beatId);
@@ -77,6 +88,7 @@ export function CartView({
           bn: t.nameBn,
           priceBdt: price(b.basePriceBdt, t.multiplier),
           isService: false,
+          fields: [],
         });
       }
     }
@@ -85,9 +97,43 @@ export function CartView({
 
   const total = rows.reduce((n, r) => n + r.priceBdt, 0);
   const hasService = rows.some((r) => r.isService);
+  const briefRows = rows.filter((r) => r.serviceTierId && r.fields.length);
+
+  /* Straight to the gateway.
+     placeOrder opens the SSLCOMMERZ session itself, so the order and the
+     payment screen are one action rather than two — no intermediate page with
+     a second button to press, which is where people were dropping out. The
+     cart is emptied first: the order now holds those lines, and coming back
+     from the gateway to a still-full cart invites paying for them twice. */
+  const payUrl = state.ok ? state.payUrl : undefined;
+  useEffect(() => {
+    if (!state.ok) return;
+    clear();
+    if (payUrl) window.location.href = payUrl;
+  }, [state.ok, payUrl, clear]);
 
   /* ---------------- after a successful order ---------------- */
   if (state.ok) {
+    // The gateway session is already open and the browser is on its way there.
+    // Shown rather than left blank because a cross-origin navigation can take
+    // a second or two on a Dhaka mobile connection, and a blank screen at the
+    // moment of paying is the one place not to leave someone guessing.
+    if (payUrl) {
+      return (
+        <div className="card" style={{ padding: '2rem', maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
+          <div className="eyebrow">Order {state.number} saved</div>
+          <h2 className="display" style={{ margin: '1rem 0' }}>Taking you to secure payment…</h2>
+          <p className="lead">
+            SSLCOMMERZ handles the payment — card, bKash, Nagad or Rocket. SnareByt never sees
+            your card details.
+          </p>
+          <p className="note" style={{ marginTop: '1.2rem' }}>
+            Not moving? <a href={payUrl}>Open the payment page</a>.
+          </p>
+        </div>
+      );
+    }
+
     const wa = state.whatsapp;
     const msg = encodeURIComponent(
       `Hi SnareByt — I've placed order ${state.number} on your site. Ready to arrange payment.`,
@@ -134,8 +180,7 @@ export function CartView({
 
         {state.hasService ? (
           <p className="note" style={{ marginTop: '1.4rem' }}>
-            A service package needs a brief before work can start. SnareByt will ask you for
-            references and details on WhatsApp once the order is confirmed.
+            Your brief is attached to the order, so work can start as soon as the payment clears.
           </p>
         ) : null}
 
@@ -235,10 +280,43 @@ export function CartView({
           </div>
           <div className="field full">
             <label className="lb" htmlFor="notes">
-              {hasService ? 'Your brief — references, deadline, anything I should know' : 'Anything else'}
+              {hasService ? 'Anything else about the job — deadline, anything I should know' : 'Anything else'}
             </label>
-            <textarea className="inp" id="notes" name="notes" rows={hasService ? 5 : 3} defaultValue={v.notes ?? ''} />
+            <textarea className="inp" id="notes" name="notes" rows={3} defaultValue={v.notes ?? ''} />
           </div>
+        </div>
+
+        {/* What each service needs before it can be started. Asked here rather
+            than chased on WhatsApp three days later, which is the single most
+            common way a booking stalls. */}
+        {briefRows.map((r) => (
+          <div className="brief" key={`brief-${r.key}`}>
+            <div className="brief-hd">
+              <span className="eyebrow">Brief for {r.title}</span>
+              <span className="req-chip">Required</span>
+            </div>
+            <div className="form" key={`${r.key}-${state.attempt}`}>
+              {r.fields.map((f) => {
+                const nm = intakeName(r.serviceTierId!, f.key);
+                const err = e[nm];
+                return (
+                  <div className={`field full${err ? ' bad' : ''}`} key={nm}>
+                    <label className="lb" htmlFor={nm}>{f.label} *</label>
+                    <textarea
+                      className="inp" id={nm} name={nm}
+                      rows={f.kind === 'links' ? 2 : 4}
+                      placeholder={f.placeholder}
+                      defaultValue={v[nm] ?? ''}
+                    />
+                    {err ? <div className="err">{err}</div> : <div className="hint">{f.hint}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        <div className="form">
           <div className={`field full${e.terms ? ' bad' : ''}`}>
             <label className="check">
               <input type="checkbox" name="terms" />
@@ -252,17 +330,23 @@ export function CartView({
         </div>
 
         <button className="btn btn-red btn-full" type="submit" style={{ marginTop: '1.2rem' }} disabled={pending}>
-          {pending ? 'Placing order…' : 'Place order →'}
+          {pending
+            ? 'Placing order…'
+            : straightToPay ? `Pay ৳${total.toLocaleString('en-US')} & place order →` : 'Place order →'}
         </button>
 
         {/* Said plainly, because what happens next differs entirely depending on
             whether the gateway is configured, and being vague is a complaint. */}
         <p className="note" style={{ marginTop: '.9rem' }}>
-          {payable
-            ? <><b>Nothing is charged on this screen.</b> Placing the order gives you a payment button
-                for card, bKash, Nagad and Rocket — or you can arrange it on WhatsApp instead.</>
-            : <><b>No payment is taken here.</b> Placing the order sends it to SnareByt, who will message
-                you on WhatsApp to arrange payment and deliver your files.</>}
+          {straightToPay
+            ? <><b>Your order is saved first, then you go straight to SSLCOMMERZ</b> to pay by card,
+                bKash, Nagad or Rocket. Nothing is charged until you complete it there, and if you
+                back out the order is still yours to pay later.</>
+            : payable
+              ? <><b>Nothing is charged on this screen.</b> Placing the order gives you a payment button
+                  for card, bKash, Nagad and Rocket — or you can arrange it on WhatsApp instead.</>
+              : <><b>No payment is taken here.</b> Placing the order sends it to SnareByt, who will message
+                  you on WhatsApp to arrange payment and deliver your files.</>}
         </p>
       </form>
     </div>

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import { paymentsConfigured } from '@/lib/sslcommerz';
+import { getCheckoutFlow } from '@/lib/checkout-flow';
+import { goStraightToGateway } from '@/lib/checkout-flow-rules';
 import { PageHead } from '@/components/site/PageHead';
 import {
   CartView, type CatalogueBeat, type CatalogueTier, type CatalogueService,
@@ -33,7 +35,7 @@ export default async function CartPage() {
       orderBy: { sortOrder: 'asc' },
       select: {
         id: true, name: true, priceBdt: true, descriptionBn: true,
-        service: { select: { title: true, deliveryDays: true } },
+        service: { select: { title: true, deliveryDays: true, intakeFields: true } },
       },
     }),
   ]);
@@ -45,9 +47,13 @@ export default async function CartPage() {
     descriptionBn: t.descriptionBn,
     serviceTitle: t.service.title,
     deliveryDays: t.service.deliveryDays,
+    intakeFields: t.service.intakeFields,
   }));
 
   const payable = paymentsConfigured();
+  // Whether pressing the button ends at the gateway or at a confirmation
+  // screen. The cart says which, so nobody is surprised by where they land.
+  const straightToPay = goStraightToGateway(await getCheckoutFlow(), { payable });
 
   return (
     <>
@@ -55,9 +61,11 @@ export default async function CartPage() {
         eyebrow="Cart"
         h1="Your"
         h2="order"
-        lead={payable
+        lead={straightToPay
           ? 'Review what you are buying, then place the order and pay by card, bKash, Nagad or Rocket.'
-          : 'Review what you are buying, then send the order. Payment and delivery are arranged directly with SnareByt.'}
+          : payable
+            ? 'Review what you are buying, then place the order. You can pay by card, bKash, Nagad or Rocket, or arrange it with SnareByt directly.'
+            : 'Review what you are buying, then send the order. Payment and delivery are arranged directly with SnareByt.'}
       />
       <section className="blk" style={{ paddingTop: 0 }}>
         <div className="wrap">
@@ -66,6 +74,7 @@ export default async function CartPage() {
             tiers={tiers as CatalogueTier[]}
             services={services}
             payable={payable}
+            straightToPay={straightToPay}
           />
         </div>
       </section>

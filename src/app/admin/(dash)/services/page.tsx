@@ -2,7 +2,9 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { bdt, usd, getUsdRate } from '@/lib/money';
 import { PriceField, ToggleButton } from '@/components/admin/PriceField';
-import { setServicePrice, toggleService } from './actions';
+import { setServicePrice, setServiceIntake, toggleService, saveService, saveServiceTier } from './actions';
+import { IntakeEditor } from './IntakeEditor';
+import { ServiceEditor } from './ServiceEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,15 +74,35 @@ export default async function AdminServicesPage() {
                 ))}
               </tbody>
             </table>
+
+            <ServiceEditor
+              service={{
+                id: s.id, slug: s.slug, title: s.title, tagline: s.tagline,
+                audience: s.audience, deliveryDays: s.deliveryDays, revisions: s.revisions,
+                included: s.included, required: s.required,
+              }}
+              tiers={s.tiers.map((t) => ({
+                id: t.id, name: t.name, priceBdt: t.priceBdt,
+                description: t.description, descriptionBn: t.descriptionBn,
+                recommended: t.recommended,
+              }))}
+              saveService={saveService}
+              saveTier={saveServiceTier}
+            />
+
+            <IntakeEditor
+              serviceId={s.id} serviceTitle={s.title}
+              initial={s.intakeFields} action={setServiceIntake}
+            />
           </section>
         ))}
 
         <div className="note" style={{ marginTop: '1.4rem' }}>
           <span>✎</span>
           <span>
-            <b>Prices save immediately and the site updates at once.</b> Orders already placed keep
-            the price they were charged — changing a figure here never rewrites what someone
-            already owes. Package wording is still edited in code.
+            <b>Everything here saves immediately and the site updates at once.</b> Orders already
+            placed keep the wording and the price they were sold at — editing anything on this
+            screen never rewrites what someone already owes or what they were told they bought.
           </span>
         </div>
       </div>

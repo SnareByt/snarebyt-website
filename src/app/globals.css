@@ -622,6 +622,19 @@ select.sel option{background:#111114}
   font-family:var(--font-archivo),sans-serif;font-weight:900;font-size:1.25rem;letter-spacing:-.02em}
 .empty{text-align:center;padding:4rem 1rem;display:flex;flex-direction:column;align-items:center;gap:1.1rem}
 
+/* The brief a service cannot start without. Set apart from the contact fields
+   with its own hairline and a warmer ground, so it reads as a second, separate
+   thing being asked for rather than five more boxes on one long form. */
+.brief{margin-top:1.4rem;padding:1.15rem 1.1rem 1.2rem;border-radius:16px;
+  border:1px solid var(--line-strong);background:linear-gradient(170deg,rgba(224,27,54,.055),rgba(255,255,255,.014))}
+.brief-hd{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.85rem}
+.brief-hd .eyebrow{margin:0}
+.brief .form{gap:.95rem}
+.req-chip{font-family:var(--font-archivo),sans-serif;font-size:.58rem;font-weight:800;
+  letter-spacing:.14em;text-transform:uppercase;padding:.24rem .5rem;border-radius:999px;
+  color:var(--red-bright);border:1px solid rgba(224,27,54,.35);background:rgba(224,27,54,.09)}
+.brief textarea.inp{resize:vertical}
+
 /* ---------- Service / portfolio ---------- */
 .svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.3rem}
 .svc{padding:1.6rem;display:flex;flex-direction:column;gap:.9rem}

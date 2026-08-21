@@ -340,7 +340,13 @@ model Service {
   icon         String?
   audience     String   // "who this is for"
   included     String[]
+  /// Display copy: the list printed on the services page saying what the
+  /// customer will need to supply. Prose, not a field spec.
   required     String[]
+  /// What is actually COLLECTED before this service can be ordered. Keys from
+  /// INTAKE_FIELDS in src/lib/service-intake.ts — an unknown key is ignored
+  /// rather than blocking an order on a field nothing knows how to render.
+  intakeFields String[] @default([])
   deliveryDays String
   revisions    String
   faqJson      Json?
@@ -473,6 +479,12 @@ model OrderItem {
   titleSnapshot String   // what the buyer saw, frozen
   priceBdt      Int      // frozen at add-to-cart
   quantity      Int      @default(1)
+
+  /// The brief, answered at checkout. Kept on the ITEM rather than the order
+  /// because a cart can hold two different services, each needing different
+  /// things — one blob on the order could not say which answer belonged to
+  /// which booking. Copied into the Project when payment clears.
+  intakeJson    Json?
 
   licence       LicenceDocument?
 

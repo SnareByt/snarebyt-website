@@ -31,7 +31,7 @@ export async function saveSettings(_prev: SettingsState, formData: FormData): Pr
 
   const {
     usdRate, whatsapp, businessEmail, youtubeChannel, beatsComingSoon, siteMode,
-    notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry, pointerSheen,
+    checkoutFlow, notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry, pointerSheen,
   } = parsed.data;
   const values: Record<string, string> = {
     usdRate: String(usdRate),
@@ -40,6 +40,7 @@ export async function saveSettings(_prev: SettingsState, formData: FormData): Pr
     youtubeChannel,
     beatsComingSoon: String(beatsComingSoon),
     siteMode,
+    checkoutFlow,
     notifyEmail,
     notifyOnOrder: String(notifyOnOrder),
     notifyOnPaid: String(notifyOnPaid),
@@ -62,6 +63,8 @@ export async function saveSettings(_prev: SettingsState, formData: FormData): Pr
   // Every public page reads these, so they all have to re-render.
   revalidatePath('/', 'layout');
   revalidatePath('/beats');
+  // The cart renders the checkout flow into its own copy, so it has to be told.
+  revalidatePath('/cart');
 
   return { ok: true, message: 'Saved. The site is already using these.' };
 }

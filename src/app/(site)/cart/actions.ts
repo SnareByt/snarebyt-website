@@ -11,6 +11,11 @@ import { beatStoreClosed } from '@/lib/store-state';
 import { siteClosedForBusiness, getSiteMode, closedMessage } from '@/lib/site-mode';
 import { missingFor } from '@/lib/beat-files';
 import { notifyAdmin } from '@/lib/notify';
+import {
+  resolveFields, readIntake, validateIntake, intakeName, type IntakeAnswers,
+} from '@/lib/service-intake';
+import { getCheckoutFlow } from '@/lib/checkout-flow';
+import { goStraightToGateway } from '@/lib/checkout-flow-rules';
 
 export type OrderState = {
   ok: boolean;
@@ -26,6 +31,13 @@ export type OrderState = {
   payable?: boolean;
   /** True when the order contains a service package, which needs a brief. */
   hasService?: boolean;
+  /**
+   * The SSLCOMMERZ page to go to, opened by this action so that placing an
+   * order and paying for it are one step. Absent when payments are not
+   * configured or the gateway refused, in which case the UI falls back to the
+   * order-received screen with its own pay button.
+   */
+  payUrl?: string;
 };
 
 const schema = z.object({
@@ -135,7 +147,7 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
     prisma.licenceTier.findMany({ where: { id: { in: beatLines.map((l) => l.tierId) }, active: true } }),
     prisma.serviceTier.findMany({
       where: { id: { in: serviceLines.map((l) => l.serviceTierId) }, service: { active: true } },
-      include: { service: { select: { id: true, title: true } } },
+      include: { service: { select: { id: true, title: true, intakeFields: true } } },
     }),
   ]);
 
@@ -144,6 +156,9 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
   const svcTierById = new Map(serviceTiers.map((t) => [t.id, t]));
 
   const items = [];
+  // Brief errors, keyed by the same input names the form used, so each message
+  // lands under the box it belongs to.
+  const intakeErrors: Record<string, string> = {};
   // Tiers whose files do not exist on the beat. Selling one means taking
   // ৳7,500 for stems and delivering a single MP3, so the order is refused
   // outright rather than quietly reduced — a smaller total than the cart
@@ -154,12 +169,24 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
     if (line.kind === 'service') {
       const st = svcTierById.get(line.serviceTierId);
       if (!st) continue;
+
+      // What this service cannot start without. Checked here, on the server,
+      // because the form is only a convenience — this action is a public HTTP
+      // endpoint and an order posted straight at it must be held to the same
+      // rule. The fields come from the service row, never from the browser.
+      const fields = resolveFields(st.service.intakeFields);
+      const answers = readIntake(formData, st.id, fields);
+      for (const [key, msg] of Object.entries(validateIntake(fields, answers))) {
+        intakeErrors[intakeName(st.id, key)] = msg;
+      }
+
       items.push({
         kind: 'SERVICE_PACKAGE' as const,
         serviceTierId: st.id,
         titleSnapshot: `${st.service.title} — ${st.name}`,
         priceBdt: st.priceBdt,
         quantity: 1,
+        intakeJson: fields.length ? (answers as IntakeAnswers) : undefined,
       });
       continue;
     }
@@ -186,6 +213,16 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
       priceBdt: licencePrice(beat.basePriceBdt, tier.multiplier),
       quantity: 1,
     });
+  }
+
+  // A missing brief stops the order rather than being collected later. Taking
+  // the money first and chasing the stems afterwards is what leaves a job
+  // stalled and a customer out of pocket with nothing happening.
+  if (Object.keys(intakeErrors).length) {
+    return {
+      ok: false, attempt, values, errors: intakeErrors,
+      message: 'Almost there — each service needs its brief before it can be ordered.',
+    };
   }
 
   if (undeliverable.length) {
@@ -254,6 +291,19 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
 
   const wa = await prisma.setting.findUnique({ where: { key: 'whatsapp' } });
 
+  // Open the gateway now, so ordering and paying are one step — but only if
+  // that is how Samir has the shop set. On `review` the customer gets the
+  // confirmation screen with a pay button and a WhatsApp button instead.
+  //
+  // A failure here is deliberately NOT an order failure: the order is already
+  // saved and is the customer's either way, so a gateway wobble drops them
+  // onto the confirmation screen rather than losing what they asked for.
+  let payUrl: string | undefined;
+  if (goStraightToGateway(await getCheckoutFlow(), { payable: paymentsConfigured() })) {
+    const session = await startPayment(order.id);
+    if (session.ok) payUrl = session.url;
+  }
+
   return {
     ok: true,
     attempt,
@@ -263,6 +313,7 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
     whatsapp: (wa?.value ?? '').replace(/[^0-9]/g, ''),
     payable: paymentsConfigured(),
     hasService: items.some((i) => i.kind === 'SERVICE_PACKAGE'),
+    payUrl,
   };
 }
 

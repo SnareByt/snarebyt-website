@@ -123,6 +123,10 @@ export const settingsSchema = z.object({
   // on at once. Anything unrecognised falls back to live, so a bad value can
   // never take the site offline.
   siteMode: z.enum(['live', 'soon', 'maintenance']).default('live'),
+  // Where "Place order" sends someone. Falls back to going straight to the
+  // gateway, which is the option that cannot strand a customer: the order is
+  // saved before either path is taken, so neither can lose one.
+  checkoutFlow: z.enum(['direct', 'review']).default('direct'),
   pointerSheen: z.coerce.boolean().default(false),
   // Where alerts go. Blank falls back to the business email rather than
   // silently sending nowhere.

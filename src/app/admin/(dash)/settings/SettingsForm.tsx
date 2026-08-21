@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { YouTubeCheck } from './YouTubeCheck';
 import { NotifyCheck } from './NotifyCheck';
 import { saveSettings, type SettingsState } from './actions';
+import { CHECKOUT_FLOWS, FLOW_LABEL, FLOW_DESC, type CheckoutFlow } from '@/lib/checkout-flow-rules';
 
 const initial: SettingsState = { ok: false };
 
@@ -16,15 +17,20 @@ const MODES = [
 export function SettingsForm({
   usdRate, whatsapp, businessEmail, youtubeChannel, beatsComingSoon,
   notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry, pointerSheen, siteMode,
+  checkoutFlow, paymentsConfigured,
 }: {
   usdRate: string; whatsapp: string; businessEmail: string;
   youtubeChannel: string; beatsComingSoon: boolean;
   notifyEmail: string; notifyOnOrder: boolean; notifyOnPaid: boolean; notifyOnEnquiry: boolean;
   pointerSheen: boolean;
   siteMode: 'live' | 'soon' | 'maintenance';
+  checkoutFlow: CheckoutFlow;
+  /** Whether SSLCOMMERZ credentials exist at all. Never the credentials. */
+  paymentsConfigured: boolean;
 }) {
   const [state, action, pending] = useActionState(saveSettings, initial);
   const [mode, setMode] = useState(siteMode);
+  const [flow, setFlow] = useState<CheckoutFlow>(checkoutFlow);
   const e = state.errors ?? {};
 
   return (
@@ -161,6 +167,52 @@ export function SettingsForm({
             </span>
           </div>
         )}
+      </div>
+
+      <div className="fg" style={{ marginTop: '1.8rem' }}>
+        <label className="fl">Checkout</label>
+        <div className="hint" style={{ marginBottom: '.6rem' }}>
+          What happens the moment someone presses Place order. Either way the order is saved
+          first and nothing is charged until they finish at SSLCOMMERZ, so switching this can
+          never lose an order.
+        </div>
+
+        <div className="modes">
+          {CHECKOUT_FLOWS.map((f) => (
+            <label key={f} className={flow === f ? 'mode on' : 'mode'}>
+              <input
+                type="radio" name="checkoutFlow" value={f}
+                checked={flow === f} onChange={() => setFlow(f)}
+              />
+              <span className="mode-t">{FLOW_LABEL[f]}</span>
+              <span className="mode-d">{FLOW_DESC[f]}</span>
+            </label>
+          ))}
+        </div>
+
+        {/* Said plainly, because "straight to payment" with no gateway
+            configured would be a promise the site cannot keep. */}
+        {!paymentsConfigured ? (
+          <div className="note" style={{ marginTop: '.9rem' }}>
+            <span>⚠</span>
+            <span>
+              <b>No SSLCOMMERZ credentials are set, so neither option can take a payment yet.</b>{' '}
+              Until they are, every order lands on the confirmation screen with the WhatsApp
+              button — which is the only thing that still works. Add SSLC_STORE_ID and
+              SSLC_STORE_PASSWORD in Vercel to switch payments on.
+            </span>
+          </div>
+        ) : flow === 'review' ? (
+          <div className="note" style={{ marginTop: '.9rem' }}>
+            <span>💬</span>
+            <span>
+              Customers see their order number, a <b>Pay now</b> button and an{' '}
+              <b>Arrange on WhatsApp</b> button. Use this when you want a word before money
+              moves — a custom job whose price might still change. Expect fewer to pay the same
+              day than with straight to payment.
+            </span>
+          </div>
+        ) : null}
       </div>
 
       <button className="btn b-red" type="submit" style={{ marginTop: '1.4rem' }} disabled={pending}>

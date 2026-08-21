@@ -4,6 +4,7 @@ import { audit } from '@/lib/audit';
 import { issueDownloadGrant } from '@/lib/storage';
 import { generateLicenceDocument } from '@/lib/licence-pdf';
 import { notifyAdmin } from '@/lib/notify';
+import { resolveFields, intakeToBrief, intakeLinks } from '@/lib/service-intake';
 
 /**
  * SSLCOMMERZ IPN listener — the single most security-sensitive file
@@ -190,6 +191,16 @@ async function handle(req: NextRequest) {
     for (const item of payment.order.items) {
       if (item.kind !== 'SERVICE_PACKAGE' || !item.serviceTier) continue;
       seq += 1;
+
+      // The brief the customer filled in at checkout, carried onto the project
+      // so the work arrives with its stems and its concept attached. Orders
+      // placed before intake existed have no answers; those still say the
+      // brief is to be collected rather than showing an empty description.
+      const answers = (item.intakeJson ?? {}) as Record<string, string>;
+      const fields = resolveFields(Object.keys(answers));
+      const brief = intakeToBrief(fields, answers);
+      const links = intakeLinks(answers);
+
       await tx.project.create({
         data: {
           number: `PRJ-${new Date().getFullYear()}-${String(seq).padStart(6, '0')}`,
@@ -201,9 +212,12 @@ async function handle(req: NextRequest) {
           email: payment.order.billingEmail,
           phone: payment.order.billingPhone,
           country: payment.order.billingCountry,
-          // The brief is collected after payment, so this starts as the order
-          // note rather than pretending a full brief was given at checkout.
-          description: `Paid via ${payment.order.number}. Brief to be collected.`,
+          description: brief
+            ? `${brief}\n\n---\nPaid via ${payment.order.number}.${
+                payment.order.customerNote ? `\n\nAlso said:\n${payment.order.customerNote}` : ''
+              }`
+            : `Paid via ${payment.order.number}. Brief to be collected.`,
+          referenceLinks: links,
         },
       });
     }

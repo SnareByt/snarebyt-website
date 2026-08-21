@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { SettingsForm } from './SettingsForm';
+import { normaliseFlow } from '@/lib/checkout-flow-rules';
+import { paymentsConfigured } from '@/lib/sslcommerz';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +36,9 @@ export default async function SettingsPage() {
           notifyOnEnquiry={get('notifyOnEnquiry') !== 'false'}
           pointerSheen={get('pointerSheen') !== 'false'}
           siteMode={(['soon', 'maintenance'] as const).find((m) => m === get('siteMode')) ?? 'live'}
+          checkoutFlow={normaliseFlow(get('checkoutFlow'))}
+          // Whether, not what. The credentials themselves never leave the server.
+          paymentsConfigured={paymentsConfigured()}
           businessEmail={get('businessEmail', 'hello@snarebyt.com')}
         />
 
