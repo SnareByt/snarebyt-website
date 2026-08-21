@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { secretSegment } from '@/lib/admin-path';
 import { LoginForm, FirstRunForm } from './LoginForm';
 // Login sits OUTSIDE the (dash) route group on purpose: that group's layout
 // calls requireAdmin() and redirects when there is no session, so wrapping the
@@ -17,6 +19,11 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: { searchParams: Promise<{ created?: string }> }) {
+  // Defence in depth. The middleware already 404s this path once a secret door
+  // is configured, but middleware can be bypassed by a rewrite rule or a
+  // future matcher change, and a door that only *usually* closes is not shut.
+  if (secretSegment()) notFound();
+
   const sp = await searchParams;
 
   const admin = await prisma.user.findFirst({

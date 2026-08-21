@@ -27,7 +27,9 @@
     "icons": "node -r ./scripts/server-only-shim.cjs -e \"require('tsx/cjs'); require('./scripts/build-icons.ts')\"",
     "check:app": "tsx scripts/check-app.ts",
     "check:intake": "tsx scripts/check-service-intake.ts",
-    "check:checkout": "tsx scripts/check-checkout-flow.ts"
+    "check:checkout": "tsx scripts/check-checkout-flow.ts",
+    "check:markdown": "tsx scripts/check-markdown.ts",
+    "check:adminpath": "tsx scripts/check-admin-path.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.700.0",

@@ -176,11 +176,19 @@ function SaveForm({
   return (
     <form
       className="svc-block"
-      action={(fd) => start(async () => {
-        const res = await action(id, fd);
-        setMsg(res.ok ? { ok: true, text: res.message } : { ok: false, text: res.error });
-        if (res.ok) router.refresh();
-      })}
+      /* onSubmit rather than the `action` prop, deliberately. React resets a
+         form after an action runs, so a refused save — a blank Bangla box, a
+         price with a decimal — would silently discard every other edit made
+         alongside it. */
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        start(async () => {
+          const res = await action(id, fd);
+          setMsg(res.ok ? { ok: true, text: res.message } : { ok: false, text: res.error });
+          if (res.ok) router.refresh();
+        });
+      }}
     >
       <div className="sec-hd" style={{ marginBottom: '.8rem' }}>
         <h3 style={{ margin: 0, fontSize: '.82rem' }}>{title}</h3>

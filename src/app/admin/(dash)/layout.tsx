@@ -1,40 +1,15 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import '../admin.css'; // admin-only styles — see the header of that file
 import { currentAdmin, signOut } from '@/lib/prisma-safe-auth';
 import { prisma } from '@/lib/prisma';
+import { SideNav, MobileNav } from './Nav';
+import { loginPath } from '@/lib/admin-path';
 
 export const dynamic = 'force-dynamic'; // counts must never be cached
 
-const NAV = [
-  { group: 'Overview', items: [
-    { href: '/admin', label: 'Dashboard', icon: '◧' },
-    { href: '/admin/analytics', label: 'Analytics', icon: '◪' },
-  ]},
-  { group: 'Catalogue', items: [
-    { href: '/admin/beats', label: 'Beats', icon: '♫' },
-    { href: '/admin/releases', label: 'Releases', icon: '◉' },
-    { href: '/admin/portfolio', label: 'Portfolio', icon: '▣' },
-    { href: '/admin/services', label: 'Services', icon: '✦' },
-  ]},
-  { group: 'Content', items: [
-    { href: '/admin/site', label: 'Site editor', icon: '✎' },
-    { href: '/admin/media', label: 'Media', icon: '🖼' },
-  ]},
-  { group: 'Business', items: [
-    { href: '/admin/orders', label: 'Orders', icon: '₿' },
-    { href: '/admin/projects', label: 'Projects', icon: '◈' },
-    { href: '/admin/customers', label: 'Artist accounts', icon: '☺' },
-  ]},
-  { group: 'System', items: [
-    { href: '/admin/settings', label: 'Settings', icon: '⚙' },
-    { href: '/admin/account', label: 'Your account', icon: '⚿' },
-  ]},
-];
-
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await currentAdmin();
-  if (!user) redirect('/admin/login');
+  if (!user) redirect(loginPath());
 
   const [pendingOrders, openProjects] = await Promise.all([
     prisma.order.count({ where: { status: 'PENDING_PAYMENT' } }),
@@ -46,25 +21,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="admin-shell">
       <aside>
         <div className="side-hd"><Wordmark /><span className="chip red">Admin</span></div>
-        <nav className="side-nav">
-          {NAV.map((g) => (
-            <div key={g.group}>
-              <div className="grp">{g.group}</div>
-              {g.items.map((i) => (
-                <Link key={i.href} href={i.href}>
-                  <span className="ic">{i.icon}</span>{i.label}
-                  {badge[i.href] ? <span className="ct">{badge[i.href]}</span> : null}
-                </Link>
-              ))}
-            </div>
-          ))}
-        </nav>
-        <form action={async () => { 'use server'; await signOut(); redirect('/admin/login'); }} className="side-ft">
+        <SideNav badge={badge} />
+        <form action={async () => { 'use server'; await signOut(); redirect(loginPath()); }} className="side-ft">
           <span>{user.name ?? user.email}</span>
           <button className="btn b-gh b-sm" type="submit">Sign out</button>
         </form>
       </aside>
       <main>{children}</main>
+      <MobileNav badge={badge} user={user.name ?? user.email} />
     </div>
   );
 }

@@ -357,9 +357,11 @@ div#toasts{position:fixed;bottom:1.1rem;right:1.1rem;z-index:260;display:flex;fl
   aside{transform:translateX(-101%)}
   aside.open{transform:none}
   main{margin-left:0}
-  .burger{display:flex}
   .gsearch{display:none}
   .f.two{grid-template-columns:1fr}
+  /* Clear the tab bar, plus the home indicator underneath it. Without this the
+     last row of every table sits under the glass and cannot be reached. */
+  .wrap{padding-bottom:calc(6rem + env(safe-area-inset-bottom))}
 }
 
 /* ============================================================
@@ -882,3 +884,77 @@ td,.kpi-n,.live-n,.live-k{font-variant-numeric:tabular-nums}
 /* Used by the settings and service forms; there was no base rule for it. */
 .check{display:flex;gap:.6rem;align-items:flex-start;font-size:.82rem;cursor:pointer;line-height:1.5}
 .check input{margin-top:.18rem;flex:none;accent-color:var(--red);width:16px;height:16px}
+
+/* ============================================================
+   PHONE NAVIGATION
+   Below 900px the sidebar is off-screen, so this is the whole
+   navigation, not a convenience. Frosted rather than solid so the
+   content scrolling under it stays visible — the panel should feel
+   like one surface, not a page with a lid on it.
+   ============================================================ */
+.tabbar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:90;
+  padding:.35rem .3rem calc(.35rem + env(safe-area-inset-bottom));
+  background:rgba(6,6,8,.76);
+  -webkit-backdrop-filter:saturate(180%) blur(24px);
+  backdrop-filter:saturate(180%) blur(24px);
+  border-top:1px solid var(--line2);
+  box-shadow:0 -14px 34px -22px #000}
+.tb{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:.18rem;
+  padding:.42rem .2rem .34rem;border-radius:12px;color:var(--dim);
+  font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.58rem;
+  letter-spacing:.1em;text-transform:uppercase;transition:color .22s var(--e),background .22s var(--e);
+  -webkit-tap-highlight-color:transparent}
+.tb-ic{position:relative;font-size:1.02rem;line-height:1;display:block}
+.tb-l{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb:active{background:rgba(255,255,255,.06)}
+.tb.on{color:#fff}
+/* The lit pill sits behind the icon rather than under the label, so the
+   active tab reads at a glance without the row growing taller. */
+.tb.on .tb-ic::before{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:38px;height:26px;border-radius:9px;background:rgba(224,27,54,.18);
+  box-shadow:0 0 16px -2px var(--glow);z-index:-1}
+/* Older Safari in standalone mode has no backdrop-filter; a translucent bar
+   with no blur is unreadable over content, so it goes opaque instead. */
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+  .tabbar{background:rgba(6,6,8,.97)}
+}
+.tb-ct{position:absolute;top:-5px;left:calc(50% + 6px);min-width:15px;height:15px;padding:0 4px;
+  border-radius:20px;background:var(--red);color:#fff;font-size:.55rem;font-weight:800;
+  display:grid;place-items:center;line-height:1;box-shadow:0 0 0 2px rgba(10,10,13,.9)}
+
+/* The rest of the panel, one tap behind More. */
+.sheet-scrim{position:fixed;inset:0;z-index:100;background:rgba(2,2,3,.66);
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+  display:flex;align-items:flex-end;animation:shFade .2s var(--e)}
+.sheet{width:100%;max-height:82vh;display:flex;flex-direction:column;
+  background:linear-gradient(#131317,#0a0a0c);border-top:1px solid var(--line2);
+  border-radius:20px 20px 0 0;box-shadow:0 -24px 60px -20px #000;
+  padding-bottom:env(safe-area-inset-bottom);animation:shUp .28s var(--e)}
+@keyframes shFade{from{opacity:0}to{opacity:1}}
+@keyframes shUp{from{transform:translateY(14px);opacity:.4}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){
+  .sheet-scrim,.sheet{animation:none}
+}
+.sheet-grab{width:36px;height:4px;border-radius:4px;background:var(--line2);margin:.6rem auto .2rem;flex:none}
+.sheet-hd{display:flex;align-items:center;gap:.8rem;padding:.5rem 1.1rem .7rem;border-bottom:1px solid var(--line)}
+.sheet-hd .sp{flex:1}
+.sheet-body{overflow-y:auto;padding:.4rem 1rem 1.1rem;-webkit-overflow-scrolling:touch}
+.sheet-body .grp{font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.56rem;
+  letter-spacing:.22em;text-transform:uppercase;color:var(--dim);padding:.9rem .2rem .45rem}
+.sheet-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.sh-i{display:flex;align-items:center;gap:.6rem;padding:.72rem .8rem;border-radius:12px;
+  border:1px solid var(--line);background:rgba(255,255,255,.028);color:var(--muted);
+  font-family:var(--font-archivo),sans-serif;font-weight:600;font-size:.76rem;transition:.2s}
+.sh-i .ic{width:17px;text-align:center;font-size:.92rem;flex:none}
+.sh-i .sh-l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sh-i .ct{margin-left:auto;font-size:.6rem;font-weight:800;padding:.06rem .4rem;border-radius:20px;
+  background:var(--red);color:#fff;flex:none}
+.sh-i:active{background:rgba(255,255,255,.06)}
+.sh-i.on{border-color:rgba(224,27,54,.45);background:rgba(224,27,54,.12);color:#fff}
+@media(max-width:360px){.sheet-grid{grid-template-columns:1fr}}
+
+/* Last, so it beats the .tabbar base rule above — a media query adds no
+   specificity, so source order is what decides this. */
+@media(max-width:900px){
+  .tabbar{display:flex}
+}
