@@ -1019,3 +1019,144 @@ a.row:active { background: rgba(255, 255, 255, .07); transition: none; }
   .app-main > * { animation: none; }
   .sk { animation: none; background: rgba(255, 255, 255, .06); }
 }
+
+/* ============================================================
+   Pulse — the fourteen-day card on Today
+   ============================================================
+   One accent stroke, one gradient that fades to nothing, a hairline
+   baseline. No gridlines, no axis furniture, no number on every point.
+   The restraint is the design: a chart that shouts is a chart that
+   reads as a template. */
+
+.pulse {
+  padding: 1.05rem 1.1rem 1rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background:
+    /* A single crimson bloom behind the peak of the curve, well under the
+       content. Light in the room, not a graphic on the card. */
+    radial-gradient(ellipse 70% 90% at 78% 100%, rgba(224, 27, 54, .13), transparent 70%),
+    linear-gradient(168deg, var(--char2), var(--panel));
+  position: relative;
+  overflow: hidden;
+}
+
+/* The chrome sheen along the top edge — the same device as the wordmark,
+   at one-tenth the strength. It is what makes the card read as milled
+   rather than drawn. */
+.pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent, rgba(255, 255, 255, .16) 30%, rgba(255, 255, 255, .05) 70%, transparent);
+}
+
+.pulse-hd {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .8rem;
+  margin-bottom: .5rem;
+}
+
+/* The hero figure. Syne, matching the metric tiles directly above it — the
+   general rule is that a hero number wears the interface sans, but here the
+   display face IS the established figure face across every metric in this
+   app, and breaking that would make this one card look imported.
+   Proportional figures, never tabular: at this size equal-width digits make
+   a number like 121 look loose. */
+.pulse-figure {
+  font-family: var(--font-syne), sans-serif;
+  font-weight: 800;
+  font-size: 2.05rem;
+  line-height: 1.05;
+  letter-spacing: -.035em;
+  margin-top: .3rem;
+  font-variant-numeric: proportional-nums;
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  overflow-wrap: anywhere;
+}
+
+.pulse-sub {
+  font-family: var(--font-inter), sans-serif;
+  font-size: .8rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--dim);
+}
+
+.pulse-seg { flex: none; width: 148px; }
+.pulse-seg button { font-size: .68rem; min-height: 30px; }
+
+.pulse-delta {
+  font-size: .74rem;
+  font-weight: 600;
+  margin-bottom: .7rem;
+  letter-spacing: .01em;
+}
+.pulse-delta.up { color: #7ee0ad; }
+.pulse-delta.down { color: #ff9aa8; }
+.pulse-delta .dim { font-weight: 400; }
+
+/* ---------- The plot ----------
+   Height includes everything drawn; the day labels sit outside it, so the
+   card can never end up with a nested scrollbar hiding its own axis. */
+.pulse-plot {
+  position: relative;
+  height: 92px;
+  margin: 0 -.2rem;
+  touch-action: pan-y;   /* vertical page scroll still works while scrubbing */
+  cursor: crosshair;
+}
+.pulse-plot svg { width: 100%; height: 100%; display: block; }
+
+/* A hairline zero baseline. Solid, one shade off the surface — a dashed rule
+   reads as a threshold or a projection when it is only a floor. */
+.pulse-plot::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+/* The single direct marker: the highest day. Labelling every point is chaos
+   and goes unread; labelling the extreme is the one that carries meaning. */
+.pulse-peak {
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  border-radius: 50%;
+  background: var(--red-b);
+  box-shadow: 0 0 0 3px rgba(224, 27, 54, .18), 0 0 14px var(--glow);
+  transform: translateY(-3.5px);
+  pointer-events: none;
+}
+
+.pulse-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: .45rem;
+  font-family: var(--font-archivo), sans-serif;
+  font-size: .6rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.pulse-foot {
+  margin-top: .7rem;
+  font-size: .68rem;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-peak { box-shadow: 0 0 0 3px rgba(224, 27, 54, .18); }
+}

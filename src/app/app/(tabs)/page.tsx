@@ -5,6 +5,8 @@ import { bdt, usd, getUsdRate } from '@/lib/money';
 import { NavBar } from '@/components/app/Ui';
 import { IcNext, IcWarn } from '@/components/app/Icons';
 import { InstallHint } from '@/components/app/InstallHint';
+import { Pulse } from '@/components/app/Pulse';
+import { getPulse } from '@/lib/analytics';
 import { orderChip, humanStatus } from '@/lib/app-format';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +31,7 @@ export default async function TodayPage() {
   const user = await requireAdmin();
   const rate = await getUsdRate();
 
-  const [paid, monthPaid, pending, projectsNeedingWork, unpublishable, missingBangla, recent] =
+  const [paid, monthPaid, pending, projectsNeedingWork, unpublishable, missingBangla, recent, pulse] =
     await Promise.all([
       /* Revenue counts ONLY orders SSLCOMMERZ validated server-side. Anything
          looser would put money on this screen that never arrived — the exact
@@ -57,6 +59,9 @@ export default async function TodayPage() {
         take: 5,
         include: { items: { select: { titleSnapshot: true } } },
       }),
+      /* Two grouped queries. A failure here costs the chart, not the screen —
+         the same rule the More tab learned the hard way. */
+      getPulse(14).catch(() => null),
     ]);
 
   const revenue = paid._sum.totalBdt ?? 0;
@@ -102,24 +107,47 @@ export default async function TodayPage() {
           </div>
         )}
 
-        {/* ---------- Money ---------- */}
-        <div>
-          <div className="sec"><h3>Verified revenue</h3></div>
-          <div className="tiles">
-            <div className="tile" data-accent="1">
-              <div className="tile-k">This month</div>
-              <div className="tile-v">{bdt(monthRevenue)}</div>
-              <div className="tile-s">{usd(monthRevenue, rate)} · {monthPaid._count} order{monthPaid._count === 1 ? '' : 's'}</div>
-            </div>
-            <div className="tile">
-              <div className="tile-k">All time</div>
-              <div className="tile-v">{bdt(revenue)}</div>
-              <div className="tile-s">{usd(revenue, rate)} · {paid._count} order{paid._count === 1 ? '' : 's'}</div>
-            </div>
+        {/* ---------- The pulse ----------
+            Replaces the two static revenue tiles. They answered "how much" and
+            nothing else; this answers "how much, which way is it going, and
+            was that one good day or a steady fortnight" in the same space.
+            All-time stays below as a quiet line, because it is a fact worth
+            having and never a fact worth a tile. */}
+        {pulse ? (
+          <Pulse
+            points={pulse.points}
+            money={pulse.money}
+            visitors={pulse.visitors}
+            usdRate={rate}
+            days={pulse.days}
+          />
+        ) : (
+          <div className="note warn">
+            <b>The fourteen-day summary could not be loaded.</b>
+            <br />
+            Everything below is unaffected.
           </div>
-          <p className="hint" style={{ padding: '0 .3rem' }}>
-            Only payments SSLCOMMERZ confirmed server-side are counted.
-          </p>
+        )}
+
+        <div className="list">
+          <div className="row">
+            <div className="row-main">
+              <div className="row-t">All time</div>
+              <div className="row-s">
+                {paid._count} paid order{paid._count === 1 ? '' : 's'} · {usd(revenue, rate)}
+              </div>
+            </div>
+            <span className="row-v">{bdt(revenue)}</span>
+          </div>
+          <div className="row">
+            <div className="row-main">
+              <div className="row-t">This month</div>
+              <div className="row-s">
+                {monthPaid._count} paid order{monthPaid._count === 1 ? '' : 's'} · {usd(monthRevenue, rate)}
+              </div>
+            </div>
+            <span className="row-v">{bdt(monthRevenue)}</span>
+          </div>
         </div>
 
         {/* ---------- Work ---------- */}
