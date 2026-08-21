@@ -22,6 +22,9 @@ import {
   canSetProjectStatus, nextProjectStatuses, revisionNote,
   PROJECT_FLOW, PROJECT_LABEL, type ProjectFacts,
 } from '../src/lib/project-rules';
+import { codeState, type DiscountRow } from '../src/lib/discount-rules';
+import { normaliseMode } from '../src/lib/site-mode-rules';
+import { normaliseFlow } from '../src/lib/checkout-flow-rules';
 import type { ProjectStatus } from '@prisma/client';
 
 let failures = 0;
@@ -318,7 +321,14 @@ for (const file of ACTION_FILES) {
 
 console.log('\n  The login route is reachable while signed out');
 {
-  const mw = read('middleware.ts');
+  /* Next accepts the middleware at the repo root or inside src/, and the
+     project moved it to src/ when the admin gained its private front door.
+     Looking in one place only meant this whole suite crashed on a file move
+     rather than reporting a failure — so it looks in both and says so if
+     neither is there. */
+  const mwPath = ['src/middleware.ts', 'middleware.ts'].find(has);
+  ok('    the middleware was found', Boolean(mwPath));
+  const mw = mwPath ? read(mwPath) : '';
   ok('    /app is gated by the session cookie', mw.includes("pathname.startsWith('/app')"));
   ok('    /app/login is exempt', mw.includes("pathname !== '/app/login'"));
   ok('    the service worker is exempt', mw.includes("pathname !== '/app/sw.js'"));
@@ -490,6 +500,155 @@ console.log('\n  Inputs cannot trigger the iOS zoom-on-focus');
   ok('    the page itself does not bounce', css.includes('overscroll-behavior-y: none'));
   ok('    no grey tap highlight', css.includes('-webkit-tap-highlight-color: transparent'));
   ok('    reduced motion is respected', css.includes('prefers-reduced-motion'));
+}
+
+/* ============================================================
+   What the phone can switch
+   ============================================================ */
+
+console.log('\nWhat the phone can switch\n');
+
+console.log('  Site mode');
+{
+  /* Every one of these resolves to `live`. The point is that no bad value can
+     take the site offline by accident — a typo, a row written by an older
+     build, or nothing at all all mean "open". The phone screen renders this
+     function's answer, so an unrecognised value shows Live rather than an
+     empty radio group with nothing ticked. */
+  is('    a missing row is live', normaliseMode(undefined), 'live');
+  is('    an empty value is live', normaliseMode(''), 'live');
+  is('    an unrecognised value is live', normaliseMode('offline'), 'live');
+  is('    soon survives', normaliseMode('soon'), 'soon');
+  is('    maintenance survives', normaliseMode('maintenance'), 'maintenance');
+}
+
+console.log('\n  Checkout flow');
+{
+  is('    a missing row goes straight to the gateway', normaliseFlow(undefined), 'direct');
+  is('    an unrecognised value goes straight to the gateway', normaliseFlow('nonsense'), 'direct');
+  is('    review survives', normaliseFlow('review'), 'review');
+}
+
+console.log('\n  Discount code state');
+{
+  const code = (o: Partial<DiscountRow> = {}): DiscountRow => ({
+    code: 'LAUNCH25',
+    percentOff: 25,
+    amountOffBdt: null,
+    minSpendBdt: null,
+    maxUses: null,
+    usedCount: 0,
+    perUserLimit: 1,
+    startsAt: null,
+    endsAt: null,
+    active: true,
+    ...o,
+  });
+  const now = new Date('2026-06-15T12:00:00Z');
+  const d = (iso: string) => new Date(iso);
+
+  is('    a plain active code is live', codeState(code(), now), 'live');
+  is('    switched off reads as off', codeState(code({ active: false }), now), 'off');
+  is('    all uses spent', codeState(code({ maxUses: 5, usedCount: 5 }), now), 'used-up');
+  is('    one use left is still live', codeState(code({ maxUses: 5, usedCount: 4 }), now), 'live');
+  is('    past its end date', codeState(code({ endsAt: d('2026-06-01T00:00:00Z') }), now), 'expired');
+  is('    not started yet', codeState(code({ startsAt: d('2026-07-01T00:00:00Z') }), now), 'scheduled');
+  is('    inside its window is live',
+    codeState(code({ startsAt: d('2026-06-01T00:00:00Z'), endsAt: d('2026-07-01T00:00:00Z') }), now), 'live');
+
+  /* Off wins over expired. Both are true of this code, and "off" is the one
+     an admin can undo with a tap — telling him it is expired would send him
+     to edit a date that is not the reason it stopped working. */
+  is('    off is reported before expired',
+    codeState(code({ active: false, endsAt: d('2026-01-01T00:00:00Z') }), now), 'off');
+  /* No maxUses means unlimited, not zero. A code used 900 times with no cap
+     is still working, and reporting it as spent would take a live promo off
+     the site by mistake. */
+  is('    no cap means unlimited', codeState(code({ maxUses: null, usedCount: 900 }), now), 'live');
+}
+
+/* ============================================================
+   Shared actions: does the phone send everything the schema parses?
+   ============================================================
+
+   The phone reuses the desktop's server actions rather than reimplementing
+   them, which is the right architecture and has one sharp edge.
+
+   A server action parses `Object.fromEntries(formData)` with a zod schema. A
+   field the browser does not render is a field the browser does not submit,
+   and zod fills a missing key with its `.default(...)`. So an incomplete form
+   does not leave those values alone — it OVERWRITES them with defaults, and
+   nothing anywhere reports an error, because from the action's point of view
+   the submission was valid.
+
+   This is not hypothetical. Both of these shipped:
+
+     - Settings had no `siteMode` or `checkoutFlow` control, so changing the
+       USD rate from a phone put a site that was under maintenance back online
+       and reset the checkout flow on the way past.
+     - Portfolio had no `videoUrl` control, so editing a credit's title from a
+       phone erased the video from its card.
+
+   The reverse is checked too. `appleMusicUrl` sat on the phone release form
+   for months looking like a working field; no schema had it and no action read
+   it, so every link typed into it was silently discarded.
+
+   Hence: the set of form field names must equal the set of schema keys.
+   ============================================================ */
+
+console.log('\nShared actions\n');
+{
+  const validators = read('src/lib/validators.ts');
+
+  /** The keys a zod object schema parses, read out of the source. */
+  const schemaKeys = (name: string): string[] => {
+    const m = validators.match(new RegExp(`export const ${name} = z\\.object\\(\\{([\\s\\S]*?)\\n\\}\\)`));
+    if (!m) return [];
+    return [...m[1].matchAll(/^ {2}([A-Za-z0-9_]+):/gm)].map((x) => x[1]);
+  };
+
+  /** The `name="..."` attributes a form renders, plus any it sets by hand. */
+  const formFields = (file: string): Set<string> => {
+    const src = read(file);
+    const rendered = [...src.matchAll(/name="([A-Za-z0-9_]+)"/g)].map((x) => x[1]);
+    // A field the component fills in itself is submitted just the same. The
+    // beat editor does this for `status`, deliberately: the value is not
+    // editable on the phone but must be preserved through a save.
+    const set = [...src.matchAll(/formData\.set\(\s*'([A-Za-z0-9_]+)'/g)].map((x) => x[1]);
+    return new Set([...rendered, ...set]);
+  };
+
+  const CASES: { form: string; schema: string; label: string }[] = [
+    { form: 'src/app/app/(tabs)/account/settings/SettingsForm.tsx', schema: 'settingsSchema', label: 'settings' },
+    { form: 'src/app/app/(tabs)/site/portfolio/PortfolioList.tsx', schema: 'portfolioSchema', label: 'portfolio' },
+    { form: 'src/app/app/(tabs)/site/releases/ReleaseList.tsx', schema: 'releaseSchema', label: 'releases' },
+    { form: 'src/app/app/(tabs)/beats/[id]/BeatEditor.tsx', schema: 'beatSchema', label: 'beats' },
+  ];
+
+  for (const c of CASES) {
+    // `id` distinguishes create from update and is carried separately.
+    const want = schemaKeys(c.schema).filter((k) => k !== 'id');
+    const got = formFields(c.form);
+
+    ok(`  ${c.label}: the schema was found`, want.length > 0);
+
+    const missing = want.filter((k) => !got.has(k));
+    ok(
+      `  ${c.label}: every parsed field is on the phone${missing.length ? ` — missing ${missing.join(', ')}` : ''}`,
+      missing.length === 0,
+    );
+
+    // Only fields belonging to THIS schema are compared. A form legitimately
+    // carries controls for other actions (a price sheet, a toggle), so a name
+    // is only suspect when nothing in the codebase would read it.
+    const stray = [...got].filter(
+      (k) => !want.includes(k) && !validators.includes(`${k}:`) && !read(c.form).includes(`'${k}'`),
+    );
+    ok(
+      `  ${c.label}: no field that nothing reads${stray.length ? ` — stray ${stray.join(', ')}` : ''}`,
+      stray.length === 0,
+    );
+  }
 }
 
 /* ============================================================ */

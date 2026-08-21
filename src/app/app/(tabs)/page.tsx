@@ -7,6 +7,7 @@ import { IcNext, IcWarn } from '@/components/app/Icons';
 import { InstallHint } from '@/components/app/InstallHint';
 import { Pulse } from '@/components/app/Pulse';
 import { getPulse } from '@/lib/analytics';
+import { getSiteMode } from '@/lib/site-mode';
 import { orderChip, humanStatus } from '@/lib/app-format';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,7 @@ export default async function TodayPage() {
   const user = await requireAdmin();
   const rate = await getUsdRate();
 
-  const [paid, monthPaid, pending, projectsNeedingWork, unpublishable, missingBangla, recent, pulse] =
+  const [paid, monthPaid, pending, projectsNeedingWork, unpublishable, missingBangla, recent, pulse, siteMode] =
     await Promise.all([
       /* Revenue counts ONLY orders SSLCOMMERZ validated server-side. Anything
          looser would put money on this screen that never arrived — the exact
@@ -62,6 +63,10 @@ export default async function TodayPage() {
       /* Two grouped queries. A failure here costs the chart, not the screen —
          the same rule the More tab learned the hard way. */
       getPulse(14).catch(() => null),
+      /* Falls back to 'live' on any failure, which is what getSiteMode already
+         does — the banner can therefore only ever fail to appear, never appear
+         wrongly and send him to un-close a site that was open all along. */
+      getSiteMode().catch(() => 'live' as const),
     ]);
 
   const revenue = paid._sum.totalBdt ?? 0;
@@ -79,6 +84,23 @@ export default async function TodayPage() {
 
       <div className="wrap stack-lg">
         {/* ---------- Anything wrong, first ---------- */}
+        {/* Above even the broken-beat alert, because it is broader: a closed
+            site means NOTHING can be bought, so every other warning below is
+            moot while it is on. Coming soon and maintenance are both states
+            somebody switched on deliberately and both easy to forget — a site
+            quietly showing a holding panel for a week costs every visitor in
+            it, and nothing else in the app would say so. */}
+        {siteMode !== 'live' && (
+          <Link href="/app/account/settings" className="note red" style={{ display: 'block' }}>
+            <b style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.2rem' }}>
+              <IcWarn className="ic-sm" />
+              The website is {siteMode === 'soon' ? 'not open yet' : 'under maintenance'}
+            </b>
+            Visitors cannot browse or order. You still see the real site while signed in.
+            Tap to reopen it.
+          </Link>
+        )}
+
         {(unpublishable.length > 0 || pending > 0 || missingBangla > 0) && (
           <div className="stack">
             {unpublishable.length > 0 && (

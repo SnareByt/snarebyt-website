@@ -9,7 +9,7 @@ import { IcPlus, IcSpotify } from '@/components/app/Icons';
 type Release = {
   id: string; title: string; type: string; year: string; releasedAt: string;
   trackCount: number; about: string; credits: string;
-  spotifyUrl: string; youtubeUrl: string; appleMusicUrl: string;
+  spotifyUrl: string; youtubeUrl: string;
   hasSpotifyEmbed: boolean; hasCover: boolean; live: boolean; featured: boolean;
 };
 
@@ -161,15 +161,6 @@ export function ReleaseList({ releases }: { releases: Release[] }) {
               id="r-youtube" name="youtubeUrl" className="in" type="url"
               inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
               defaultValue={current?.youtubeUrl ?? ''}
-            />
-          </div>
-
-          <div className="field">
-            <label className="fl" htmlFor="r-apple">Apple Music link</label>
-            <input
-              id="r-apple" name="appleMusicUrl" className="in" type="url"
-              inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-              defaultValue={current?.appleMusicUrl ?? ''}
             />
           </div>
 

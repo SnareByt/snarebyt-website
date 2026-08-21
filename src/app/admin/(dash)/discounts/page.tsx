@@ -1,32 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { paymentsConfigured } from '@/lib/sslcommerz';
+import { codeState } from '@/lib/discount-rules';
 import { CodeEditor, NewCode, type CodeRow } from './Editor';
 import { createDiscount, updateDiscount, toggleDiscount, deleteDiscount } from './actions';
 
 export const dynamic = 'force-dynamic';
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : '');
-
-/**
- * Why a code would not work right now, decided here rather than in the browser.
- *
- * The public site applies exactly these rules (src/lib/discount-rules.ts), so
- * this label is the same answer a customer would get — which is the point.
- * An admin screen saying "live" for a code the cart refuses is worse than no
- * label at all.
- */
-function stateOf(c: {
-  active: boolean; startsAt: Date | null; endsAt: Date | null;
-  maxUses: number | null; usedCount: number;
-}): CodeRow['state'] {
-  const now = new Date();
-  if (!c.active) return 'off';
-  if (c.maxUses !== null && c.usedCount >= c.maxUses) return 'used-up';
-  if (c.endsAt && now > c.endsAt) return 'expired';
-  if (c.startsAt && now < c.startsAt) return 'scheduled';
-  return 'live';
-}
 
 export default async function AdminDiscountsPage() {
   await requireAdmin();
@@ -49,7 +30,7 @@ export default async function AdminDiscountsPage() {
     endsAt: day(c.endsAt),
     active: c.active,
     orders: c._count.orders,
-    state: stateOf(c),
+    state: codeState(c),
   }));
 
   const working = rows.filter((r) => r.state === 'live').length;

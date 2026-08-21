@@ -1,20 +1,80 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { saveSettings, type SettingsState } from '@/app/admin/(dash)/settings/actions';
+import { CHECKOUT_FLOWS, FLOW_LABEL, FLOW_DESC, type CheckoutFlow } from '@/lib/checkout-flow-rules';
 import { useToast } from '@/components/app/Ui';
+import { IcCheck } from '@/components/app/Icons';
+
+type SiteMode = 'live' | 'soon' | 'maintenance';
+
+/**
+ * The three states of the public site, in the order of least to most closed.
+ *
+ * One setting with three values rather than two switches: "coming soon" and
+ * "under maintenance" say contradictory things, and two booleans could be on
+ * at once — a state with no meaning that some arbitrary precedence rule would
+ * have to resolve. A single mode cannot contradict itself.
+ */
+const MODES: { v: SiteMode; label: string; desc: string }[] = [
+  { v: 'live', label: 'Live', desc: 'Open to everyone. Normal trading.' },
+  { v: 'soon', label: 'Coming soon', desc: 'Pre-launch. Visitors see the holding panel.' },
+  { v: 'maintenance', label: 'Under maintenance', desc: 'Temporarily down. Back shortly.' },
+];
+
+/**
+ * A radio rendered as a list row, which is what iOS does for a choice of one.
+ *
+ * The whole row is the label, so the tap target is the full width rather than
+ * a 20px circle — the difference between a setting you can change one-handed
+ * on a bus and one you mis-tap.
+ */
+function PickRow({
+  name, value, checked, onPick, title, sub,
+}: {
+  name: string; value: string; checked: boolean; onPick: () => void;
+  title: string; sub: string;
+}) {
+  return (
+    <label className="row">
+      <input
+        type="radio" name={name} value={value} checked={checked} onChange={onPick}
+        className="sr-only"
+      />
+      <div className="row-main">
+        <div className="row-t">{title}</div>
+        <div className="row-s">{sub}</div>
+      </div>
+      <span className="row-x" aria-hidden="true">
+        {checked ? <IcCheck className="ic-sm" /> : null}
+      </span>
+    </label>
+  );
+}
 
 type Values = {
   usdRate: string; whatsapp: string; businessEmail: string; youtubeChannel: string;
   notifyEmail: string; beatsComingSoon: boolean; notifyOnOrder: boolean;
   notifyOnPaid: boolean; notifyOnEnquiry: boolean; pointerSheen: boolean;
+  siteMode: SiteMode; checkoutFlow: CheckoutFlow;
 };
 
 const EMPTY: SettingsState = { ok: false };
 
-export function SettingsForm({ values }: { values: Values }) {
+export function SettingsForm({
+  values, paymentsConfigured,
+}: {
+  values: Values;
+  paymentsConfigured: boolean;
+}) {
   const [state, action, pending] = useActionState(saveSettings, EMPTY);
   const toast = useToast();
+
+  /* Controlled, so the ticks move on tap. Uncontrolled radios would still
+     submit correctly but the checkmark would not follow the finger, which
+     reads as the tap not having registered. */
+  const [mode, setMode] = useState<SiteMode>(values.siteMode);
+  const [flow, setFlow] = useState<CheckoutFlow>(values.checkoutFlow);
 
   useEffect(() => {
     if (state.ok && state.message) toast(state.message);
@@ -29,6 +89,40 @@ export function SettingsForm({ values }: { values: Values }) {
       </div>
 
       <form action={action} className="wrap stack-lg">
+        {/* ---------- Website access ----------
+            First, because it is the biggest switch on the screen and the one
+            most likely to be reached for in a hurry — something is wrong with
+            the site and you are not at a desk. */}
+        <div>
+          <div className="sec"><h3>Website access</h3></div>
+          <div className="list">
+            {MODES.map((m) => (
+              <PickRow
+                key={m.v}
+                name="siteMode"
+                value={m.v}
+                checked={mode === m.v}
+                onPick={() => setMode(m.v)}
+                title={m.label}
+                sub={m.desc}
+              />
+            ))}
+          </div>
+          {mode === 'live' ? (
+            <p className="hint">
+              Closing the site does not lock you out of it. Signed in, you still see
+              the real pages with a banner saying why visitors cannot.
+            </p>
+          ) : (
+            <div className="note warn" style={{ marginTop: '.7rem' }}>
+              <b>Not saved until you press Save settings.</b>
+              <br />
+              While closed, orders and enquiries are refused by the server, not merely
+              hidden — a form that is only invisible can still be posted to.
+            </div>
+          )}
+        </div>
+
         {/* ---------- The store ---------- */}
         <div>
           <div className="sec"><h3>The store</h3></div>
@@ -66,6 +160,31 @@ export function SettingsForm({ values }: { values: Values }) {
             </p>
             {state.errors?.usdRate && <p className="err">{state.errors.usdRate}</p>}
           </div>
+        </div>
+
+        {/* ---------- Checkout ---------- */}
+        <div>
+          <div className="sec"><h3>Checkout</h3></div>
+          <div className="list">
+            {CHECKOUT_FLOWS.map((f) => (
+              <PickRow
+                key={f}
+                name="checkoutFlow"
+                value={f}
+                checked={flow === f}
+                onPick={() => setFlow(f)}
+                title={FLOW_LABEL[f]}
+                sub={FLOW_DESC[f]}
+              />
+            ))}
+          </div>
+          {!paymentsConfigured && (
+            <p className="hint">
+              SSLCOMMERZ is not configured on the server, so orders behave as
+              &ldquo;{FLOW_LABEL.review}&rdquo; whichever is picked here — that is the only
+              setting that still reaches a customer. The order is saved either way.
+            </p>
+          )}
         </div>
 
         {/* ---------- Contact ---------- */}

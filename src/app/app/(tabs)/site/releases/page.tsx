@@ -31,7 +31,6 @@ export default async function ReleasesPage() {
           credits: r.credits ?? '',
           spotifyUrl: r.spotifyUrl ?? '',
           youtubeUrl: r.youtubeUrl ?? '',
-          appleMusicUrl: r.appleMusicUrl ?? '',
           hasSpotifyEmbed: Boolean(r.spotifyEmbedId),
           hasCover: Boolean(r.coverKey),
           live: r.live,
