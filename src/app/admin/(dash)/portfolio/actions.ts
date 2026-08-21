@@ -43,6 +43,7 @@ export async function savePortfolioItem(formData: FormData): Promise<Result> {
     category: d.category,
     role: d.role,
     externalUrl: d.externalUrl || null,
+    videoUrl: d.videoUrl || null,
     ctaLabel: d.ctaLabel,
     majorCredit: d.majorCredit,
     summary: d.summary,

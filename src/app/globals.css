@@ -644,9 +644,20 @@ select.sel option{background:#111114}
 .pf{position:relative;border-radius:17px;overflow:hidden;aspect-ratio:4/3;cursor:pointer;border:1px solid var(--line)}
 .pf .bgl{position:absolute;inset:0;transition:transform .8s var(--e-out)}
 .pf:hover .bgl{transform:scale(1.08)}
+/* Four stops, not two. A single transparent-to-black ramp starting at 32%
+   leaves a visible horizontal edge where it begins; easing it in over the
+   whole card reads as light falling off instead of a band laid on top.
+   The faint top stop is what keeps the role label legible over a bright
+   thumbnail without darkening the middle of the image. */
 .pf .ov{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;gap:.35rem;
-  padding:1.1rem;background:linear-gradient(transparent 32%,rgba(4,4,5,.93));
-  transform:translateY(12px);opacity:.92;transition:.5s var(--e-out)}
+  padding:1.15rem;
+  background:linear-gradient(180deg,
+    rgba(4,4,5,.5) 0%,
+    rgba(4,4,5,.16) 24%,
+    rgba(4,4,5,.52) 58%,
+    rgba(4,4,5,.88) 82%,
+    rgba(4,4,5,.96) 100%);
+  transform:translateY(12px);opacity:.96;transition:.5s var(--e-out)}
 .pf:hover .ov{transform:none;opacity:1}
 .pf .cat{font-size:.6rem;letter-spacing:.24em;text-transform:uppercase;color:var(--red);font-family:var(--font-archivo),sans-serif;font-weight:700}
 .pf .nm{font-family:var(--font-archivo),sans-serif;font-weight:900;font-size:1.12rem;letter-spacing:-.02em;line-height:1.15}
@@ -1531,9 +1542,13 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
 @media(prefers-reduced-motion:reduce){
   .pf-play-btn{transition:none}
 }
-/* The overlay text sits above the play target so the link inside it stays
-   clickable — otherwise a full-bleed button would swallow the CTA. */
-.pf .ov{position:relative;z-index:4}
+/* The overlay sits above the play target so the link inside it stays
+   clickable — otherwise a full-bleed button would swallow the CTA.
+   z-index ONLY: .ov is already position:absolute with inset:0, and setting
+   position:relative here dropped it out of that box into normal flow. The
+   text jumped to the top of the card and the scrim became a band across the
+   middle — the "half shade". */
+.pf .ov{z-index:4}
 
 /* ---------- The player ---------- */
 .ytbox{position:fixed;inset:0;z-index:950;display:grid;place-items:center;
@@ -1563,3 +1578,34 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
   font-weight:700;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;
   color:var(--muted);border-top:1px solid var(--line);transition:.25s}
 .ytbox-out:hover{color:#fff;background:rgba(224,27,54,.08)}
+
+/* ---------- Thumbnail focus ----------
+   The artwork sits slightly back at rest and comes forward on hover, so a
+   grid of cards reads as one dark surface rather than eight bright rectangles
+   competing with each other — and the card you are pointing at is the one
+   that lifts. */
+.pf .bgl{filter:brightness(.82) saturate(.95);transition:transform .8s var(--e-out),filter .5s var(--e-out)}
+.pf:hover .bgl{filter:brightness(1.02) saturate(1.05)}
+@media(prefers-reduced-motion:reduce){
+  .pf .bgl,.pf:hover .bgl{transition:filter .5s var(--e-out)}
+  .pf:hover .bgl{transform:none}
+}
+
+/* ---------- View count ----------
+   Only ever rendered from a figure YouTube returned. There is no fallback
+   and no estimate: a card with no sourced number shows nothing at all. */
+.pf-views{position:absolute;top:.7rem;right:.7rem;z-index:5;
+  display:inline-flex;align-items:center;gap:.34rem;
+  padding:.26rem .6rem;border-radius:999px;
+  font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.63rem;
+  letter-spacing:.08em;color:#fff;
+  background:rgba(8,8,10,.62);border:1px solid rgba(255,255,255,.16);
+  backdrop-filter:blur(10px);
+  box-shadow:0 6px 18px -8px #000}
+.pf-views svg{opacity:.85;flex:none}
+.pf-views b{font-weight:900;font-variant-numeric:tabular-nums}
+
+/* Inside the player, next to the credit. */
+.ytbox-views{font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.68rem;
+  color:var(--muted);margin-top:.4rem;font-variant-numeric:tabular-nums}
+.ytbox-views b{color:var(--text);font-weight:900}

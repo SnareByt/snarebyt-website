@@ -83,6 +83,15 @@ export const portfolioSchema = z.object({
   // displayed as a production credit.
   role: z.string().trim().min(1, 'Role is required — a credit cannot be published without it').max(80),
   externalUrl: z.string().trim().url('Must be a full URL').or(z.literal('')).default(''),
+  // A video to play on the card, when the credit should LINK somewhere else —
+  // a press piece, a Wikipedia entry — while still having a video behind it.
+  // Validated with the same parser the card renders with, so the admin cannot
+  // accept a link that will not play.
+  videoUrl: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || parseYouTubeId(v) !== null, 'That is not a YouTube video link')
+    .default(''),
   ctaLabel: z.enum(['Listen', 'Watch', 'Read', 'Open']).default('Listen'),
   majorCredit: z.coerce.boolean().default(false),
   summary: z.string().trim().max(1000).default(''),

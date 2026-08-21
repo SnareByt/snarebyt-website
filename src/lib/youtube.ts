@@ -181,3 +181,59 @@ export function compact(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
   return n.toLocaleString('en-US');
 }
+
+/* ------------------------------------------------------------------ *
+ *  Per-video statistics
+ * ------------------------------------------------------------------ */
+
+export type YtVideoStats = { views: number; published: string | null };
+
+type VideoApiResponse = {
+  items?: { id?: string; statistics?: { viewCount?: string }; snippet?: { publishedAt?: string } }[];
+};
+
+/**
+ * View counts for a set of video ids, from YouTube itself.
+ *
+ * The project's rule is that no statistic appears on this site unless it can
+ * be sourced, so this is the only way a view count is allowed to be shown. A
+ * missing id simply does not appear in the result and its card shows nothing
+ * — an absent number is honest, an invented one is not.
+ *
+ * One request for up to fifty ids rather than one per video: the API takes a
+ * comma-separated list, and a portfolio page would otherwise spend a quota
+ * unit per card on every revalidation.
+ */
+export async function getVideoStats(ids: string[]): Promise<Map<string, YtVideoStats>> {
+  const out = new Map<string, YtVideoStats>();
+
+  const key = process.env.YOUTUBE_API_KEY;
+  const unique = [...new Set(ids.filter(Boolean))].slice(0, 50);
+  if (!key || !unique.length) return out;
+
+  const url = new URL('https://www.googleapis.com/youtube/v3/videos');
+  url.searchParams.set('part', 'statistics,snippet');
+  url.searchParams.set('id', unique.join(','));
+  url.searchParams.set('key', key);
+
+  try {
+    // An hour. View counts move slowly enough that fresher is pointless, and
+    // this runs on a page a search engine may crawl repeatedly.
+    const res = await fetch(url, { next: { revalidate: 3600 } });
+    if (!res.ok) return out;
+
+    const data = (await res.json()) as VideoApiResponse;
+    for (const item of data.items ?? []) {
+      if (!item.id) continue;
+      const views = Number(item.statistics?.viewCount ?? NaN);
+      // A video with statistics disabled reports no viewCount at all. Better
+      // to show nothing than to print a zero that reads as "nobody watched".
+      if (!Number.isFinite(views)) continue;
+      out.set(item.id, { views, published: item.snippet?.publishedAt ?? null });
+    }
+    return out;
+  } catch {
+    // The portfolio must render with or without YouTube being reachable.
+    return out;
+  }
+}

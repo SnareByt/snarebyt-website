@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
+import { parseYouTubeId } from '@/lib/spotify';
+import PortfolioForm from './PortfolioForm';
+import { PublishToggle } from './PublishToggle';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,12 +27,14 @@ export default async function AdminPortfolioPage() {
           <h2>{items.length} credits</h2>
           <span className="chip ok">{items.filter((i) => i.published).length} published</span>
           <span className="chip red">{items.filter((i) => i.majorCredit).length} major</span>
+          <span className="sp" />
+          <PortfolioForm mode="create" />
         </div>
 
         {items.length ? (
           <table>
             <thead>
-              <tr><th>Title</th><th>Role</th><th>Category</th><th>Client</th><th>Link</th><th>Status</th></tr>
+              <tr><th>Title</th><th>Role</th><th>Category</th><th>Client</th><th>Link</th><th>Video</th><th>Status</th><th /></tr>
             </thead>
             <tbody>
               {items.map((p) => (
@@ -49,9 +54,38 @@ export default async function AdminPortfolioPage() {
                       : <span className="chip warn">No link yet</span>}
                   </td>
                   <td>
+                    {/* A credit with a YouTube link needs no artwork upload —
+                        the still, the view count and the player all come from
+                        the id. This column says whether that has happened. */}
+                    {(parseYouTubeId(p.videoUrl) ?? parseYouTubeId(p.externalUrl))
+                      ? <span className="chip ok">Auto artwork</span>
+                      : <span className="sub">—</span>}
+                  </td>
+                  <td>
                     <span className={`chip ${p.published ? 'ok' : 'off'}`}>
                       {p.published ? 'Published' : 'Hidden'}
                     </span>
+                  </td>
+                  <td className="acts">
+                    <div style={{ display: 'inline-flex', gap: '.35rem', alignItems: 'center' }}>
+                      <PortfolioForm
+                        mode="edit"
+                        item={{
+                          id: p.id,
+                          title: p.title,
+                          clientName: p.clientName ?? '',
+                          category: p.category,
+                          role: p.role,
+                          externalUrl: p.externalUrl ?? '',
+                          videoUrl: p.videoUrl ?? '',
+                          ctaLabel: p.ctaLabel ?? 'Listen',
+                          majorCredit: p.majorCredit,
+                          summary: p.summary,
+                          published: p.published,
+                        }}
+                      />
+                      <PublishToggle id={p.id} published={p.published} />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -61,15 +95,6 @@ export default async function AdminPortfolioPage() {
           <div className="note"><span>▣</span><span>No portfolio credits yet.</span></div>
         )}
 
-        <div className="note" style={{ marginTop: '1.4rem' }}>
-          <span>✎</span>
-          <span>
-            <b>This screen is read-only for now.</b> Adding and editing credits from here is not
-            built yet — the public page renders correctly from these rows in the meantime. Every
-            credit states its exact role, which is what stops a mix ever reading as a production
-            credit.
-          </span>
-        </div>
       </div>
     </>
   );

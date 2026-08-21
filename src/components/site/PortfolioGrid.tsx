@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { coverCss } from '@/lib/cover-art';
+import { compact } from '@/lib/format-client';
 
 export type PortfolioView = {
   id: string;
@@ -25,6 +26,13 @@ export type PortfolioView = {
    * player, so the credit brings its own artwork for free.
    */
   youtubeId: string | null;
+  /**
+   * Views, as reported by YouTube. Null when there is no video, no API key,
+   * or the video has statistics disabled — in every one of those cases the
+   * card shows nothing rather than a guess. This project does not print a
+   * figure it cannot source.
+   */
+  views: number | null;
   seed: number;
 };
 
@@ -78,6 +86,9 @@ function VideoLightbox({ item, onClose }: { item: PortfolioView; onClose: () => 
           <div>
             <div className="ytbox-role">{item.role}</div>
             <div className="ytbox-title">{item.title}</div>
+            {item.views !== null ? (
+              <div className="ytbox-views"><b>{item.views.toLocaleString('en-US')}</b> views on YouTube</div>
+            ) : null}
           </div>
           <button type="button" className="ytbox-x" onClick={onClose} aria-label="Close">✕</button>
         </div>
@@ -133,6 +144,17 @@ function Card({ p, onPlay }: { p: PortfolioView; onPlay: (p: PortfolioView) => v
           />
         ) : null}
       </div>
+
+      {/* Only rendered when YouTube actually returned a figure. */}
+      {p.views !== null ? (
+        <span className="pf-views" title={`${p.views.toLocaleString('en-US')} views on YouTube`}>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          <b>{compact(p.views)}</b>
+        </span>
+      ) : null}
 
       {/* The whole card becomes the play control when there is a video, so
           the thumbnail is the target rather than a small button on top of it. */}

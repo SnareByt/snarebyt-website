@@ -5,6 +5,7 @@ import { getPage } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
 import { seedFrom } from '@/lib/cover-art';
 import { parseYouTubeId } from '@/lib/spotify';
+import { getVideoStats } from '@/lib/youtube';
 import { PageHead } from '@/components/site/PageHead';
 import {
   PortfolioGrid,
@@ -36,6 +37,13 @@ export default async function PortfolioPage() {
   const head = sec('head');
   const cta = sec('cta');
 
+  // One request for every video on the page. Nothing is invented: an id the
+  // API does not answer for simply has no number on its card.
+  const ytIds = rows
+    .map((r) => parseYouTubeId(r.videoUrl) ?? parseYouTubeId(r.externalUrl))
+    .filter((id): id is string => Boolean(id));
+  const stats = await getVideoStats(ytIds);
+
   const items: PortfolioView[] = rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -55,6 +63,10 @@ export default async function PortfolioPage() {
     // because a credit can legitimately link somewhere else — a Wikipedia
     // page, a press piece — while still having a video behind it.
     youtubeId: parseYouTubeId(r.videoUrl) ?? parseYouTubeId(r.externalUrl),
+    views: (() => {
+      const id = parseYouTubeId(r.videoUrl) ?? parseYouTubeId(r.externalUrl);
+      return id ? stats.get(id)?.views ?? null : null;
+    })(),
     seed: seedFrom(r.slug),
   }));
 
