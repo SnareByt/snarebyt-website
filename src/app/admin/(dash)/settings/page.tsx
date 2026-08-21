@@ -53,7 +53,7 @@ export default async function SettingsPage() {
           checkoutFlow={normaliseFlow(get('checkoutFlow'))}
           // Whether, not what. The credentials themselves never leave the server.
           paymentsConfigured={paymentsConfigured()}
-          businessEmail={get('businessEmail', 'hello@snarebyt.com')}
+          businessEmail={get('businessEmail', 'snarebyt@gmail.com')}
         />
 
         <section className="sec" style={{ marginTop: '2rem' }}>

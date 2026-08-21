@@ -337,7 +337,7 @@ export const PAGE_CONTENT: PageSeed[] = [
       }),
       S('details', 'Contact details', 'Shown beside the form.', {
         rows: [
-          { k: 'Business', v: 'hello@snarebyt.com' },
+          { k: 'Business', v: 'snarebyt@gmail.com' },
           { k: 'Bookings', v: 'booking@snarebyt.com' },
           { k: 'Support', v: 'support@snarebyt.com' },
           { k: 'WhatsApp', v: 'Instant support, direct from SnareByt' },

@@ -15,7 +15,7 @@ const LISTEN = ['Spotify', 'Apple Music', 'SoundCloud', 'TIDAL', 'Deezer'];
 export async function SiteFooter() {
   // getNav already drops any link with an empty href, so an unfinished
   // profile (YouTube, currently) can never render as a dead icon.
-  const [socials, services, legal] = await Promise.all([
+  const [socials, services, legal, emailSetting] = await Promise.all([
     getNav('SOCIAL'),
     prisma.service.findMany({
       where: { active: true },
@@ -26,7 +26,10 @@ export async function SiteFooter() {
     // Whatever has actually been written. Nothing is hard-coded here, so a
     // link can never point at a page that does not exist.
     prisma.legalPage.findMany({ orderBy: { slug: 'asc' }, select: { slug: true, title: true } }),
+    prisma.setting.findUnique({ where: { key: 'businessEmail' } }),
   ]);
+
+  const businessEmail = (emailSetting?.value ?? '').trim();
 
   const byLabel = new Map(socials.map((s) => [s.label, s.href]));
   const listen = LISTEN.filter((l) => byLabel.has(l));
@@ -90,7 +93,16 @@ export async function SiteFooter() {
         <div className="f-bot">
           <span>© {new Date().getFullYear()} SnareByt — Samir Islam, Dhaka. All rights reserved.</span>
           <nav>
-            <Link href="/contact">hello@snarebyt.com</Link>
+            {/* Read from the Business email setting rather than written here.
+                It was hard-coded, which is why it still said hello@ long after
+                the real address changed — and it is a mailto now, because a
+                footer address that only navigates to the contact form is not
+                an address. */}
+            {businessEmail ? (
+              <a href={`mailto:${businessEmail}`}>{businessEmail}</a>
+            ) : (
+              <Link href="/contact">Contact</Link>
+            )}
             <Link href="/beats">Licensing</Link>
             <Link href="/contact">Support</Link>
           </nav>
