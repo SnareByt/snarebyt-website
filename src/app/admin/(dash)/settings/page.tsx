@@ -48,6 +48,7 @@ export default async function SettingsPage() {
           notifyOnOrder={get('notifyOnOrder') !== 'false'}
           notifyOnPaid={get('notifyOnPaid') !== 'false'}
           notifyOnEnquiry={get('notifyOnEnquiry') !== 'false'}
+          notifyOnAccount={get('notifyOnAccount') !== 'false'}
           pointerSheen={get('pointerSheen') !== 'false'}
           siteMode={(['soon', 'maintenance'] as const).find((m) => m === get('siteMode')) ?? 'live'}
           checkoutFlow={normaliseFlow(get('checkoutFlow'))}

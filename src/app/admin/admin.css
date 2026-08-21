@@ -1099,3 +1099,22 @@ td,.kpi-n,.live-n,.live-k{font-variant-numeric:tabular-nums}
   .soc-icon-acts{grid-column:1/-1;flex-direction:row;flex-wrap:wrap}
   .soc-fields .two{grid-template-columns:1fr}
 }
+
+/* ---------- On the site now ---------- */
+.livelist{display:flex;flex-direction:column;gap:.1rem;margin-top:.9rem}
+.liverow{display:grid;grid-template-columns:auto minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.1fr) auto;
+  gap:.7rem;align-items:center;padding:.5rem .1rem;font-size:.76rem;
+  border-bottom:1px solid rgba(255,255,255,.045)}
+.liverow:last-child{border-bottom:0}
+.live-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ok);
+  box-shadow:0 0 8px rgba(43,182,115,.7)}
+.live-where,.live-path,.live-meta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.live-where{font-weight:600}
+.live-path{color:var(--muted);font-size:.72rem}
+.live-meta{color:var(--dim);font-size:.68rem}
+.live-ago{color:var(--dim);font-size:.66rem;white-space:nowrap;text-align:right}
+@media(max-width:900px){
+  .liverow{grid-template-columns:auto minmax(0,1fr) auto;row-gap:.15rem}
+  .live-path{grid-column:2/-1}
+  .live-meta{grid-column:2/-1}
+}

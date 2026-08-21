@@ -17,12 +17,13 @@ const MODES = [
 
 export function SettingsForm({
   usdRate, whatsapp, businessEmail, youtubeChannel, beatsComingSoon,
-  notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry, pointerSheen, siteMode,
+  notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry, notifyOnAccount, pointerSheen, siteMode,
   checkoutFlow, paymentsConfigured, signature,
 }: {
   usdRate: string; whatsapp: string; businessEmail: string;
   youtubeChannel: string; beatsComingSoon: boolean;
   notifyEmail: string; notifyOnOrder: boolean; notifyOnPaid: boolean; notifyOnEnquiry: boolean;
+  notifyOnAccount: boolean;
   pointerSheen: boolean;
   siteMode: 'live' | 'soon' | 'maintenance';
   checkoutFlow: CheckoutFlow;
@@ -138,6 +139,10 @@ export function SettingsForm({
         <label className="check" style={{ marginTop: '.4rem' }}>
           <input type="checkbox" name="notifyOnEnquiry" defaultChecked={notifyOnEnquiry} />
           <span>New enquiry from the contact form</span>
+        </label>
+        <label className="check" style={{ marginTop: '.4rem' }}>
+          <input type="checkbox" name="notifyOnAccount" defaultChecked={notifyOnAccount} />
+          <span>New artist account — after their email is verified</span>
         </label>
 
         <NotifyCheck />

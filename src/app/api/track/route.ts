@@ -115,6 +115,7 @@ export async function POST(req: NextRequest) {
         country: req.headers.get('x-vercel-ip-country'),
         city: decodeEdge(req.headers.get('x-vercel-ip-city')),
         region: req.headers.get('x-vercel-ip-country-region'),
+        timezone: req.headers.get('x-vercel-ip-timezone'),
         device: deviceFrom(ua),
         visitorId,
       },

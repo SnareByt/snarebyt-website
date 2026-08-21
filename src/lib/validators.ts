@@ -134,6 +134,7 @@ export const settingsSchema = z.object({
   notifyOnOrder: z.coerce.boolean().default(false),
   notifyOnPaid: z.coerce.boolean().default(false),
   notifyOnEnquiry: z.coerce.boolean().default(false),
+  notifyOnAccount: z.coerce.boolean().default(false),
   // "@handle" or the UC… channel id — either form the YouTube API accepts.
   youtubeChannel: z
     .string()

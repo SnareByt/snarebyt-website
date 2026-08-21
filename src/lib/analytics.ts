@@ -1,5 +1,6 @@
 import 'server-only';
 import { prisma } from './prisma';
+import { placeLine } from './place';
 
 /**
  * Reporting queries for the admin analytics screen.
@@ -132,17 +133,16 @@ export async function getReport(r: Range): Promise<Report> {
        on a small site that blank would usually be the tallest bar on the
        chart — telling you nothing while crowding out the cities that are real.
        The screen reports how many were unplaceable instead. */
-    prisma.$queryRaw<{ label: string; views: bigint }[]>`
-      SELECT
-        CASE
-          WHEN "region" IS NULL OR "region" = '' THEN "city"
-          ELSE "city" || ', ' || "region"
-        END AS label,
-        COUNT(*) AS views
+    /* The parts, not a pre-joined label. Naming the division and the country
+       in full is presentation, and SQL is the wrong place to hold a table of
+       subdivision codes — placeLine does it once, for this and for the live
+       list, so the two can never disagree. */
+    prisma.$queryRaw<{ city: string; region: string | null; country: string | null; views: bigint }[]>`
+      SELECT "city", "region", "country", COUNT(*) AS views
       FROM "PageView"
       WHERE "createdAt" >= ${r.from} AND "createdAt" <= ${r.to}
         AND "city" IS NOT NULL AND "city" <> ''
-      GROUP BY 1 ORDER BY 2 DESC LIMIT 10`,
+      GROUP BY 1, 2, 3 ORDER BY 4 DESC LIMIT 10`,
   ]);
 
   const n = (v: bigint | undefined) => Number(v ?? 0);
@@ -158,7 +158,10 @@ export async function getReport(r: Range): Promise<Report> {
     pages: pages.map((x) => ({ label: x.label, views: n(x.views), visitors: n(x.visitors) })),
     referrers: referrers.map((x) => ({ label: x.label, views: n(x.views) })),
     countries: countries.map((x) => ({ label: x.label, views: n(x.views) })),
-    cities: cities.map((x) => ({ label: x.label, views: n(x.views) })),
+    cities: cities.map((x) => ({
+      label: placeLine({ city: x.city, region: x.region, country: x.country }),
+      views: n(x.views),
+    })),
     devices: devices.map((x) => ({ label: x.label, views: n(x.views) })),
     bucket: r.bucket,
   };
@@ -258,4 +261,70 @@ export async function getPulse(days = 14): Promise<Pulse> {
     },
     days,
   };
+}
+
+/* ============================================================
+   Who is on the site right now
+   ============================================================ */
+
+export type LiveVisitor = {
+  /** The rotating daily hash, shortened. Not a person, and not reversible. */
+  ref: string;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  timezone: string | null;
+  device: string | null;
+  /** The page they are on now — their most recent view. */
+  path: string;
+  /** Seconds since that view. */
+  agoSeconds: number;
+  views: number;
+};
+
+/**
+ * Everyone active in the last five minutes, one row each, with where they are.
+ *
+ * DISTINCT ON is what makes this one row per visitor rather than one per view:
+ * Postgres keeps the first row of each visitorId group, and the ORDER BY
+ * decides which one that is — the newest, so the page shown is the page they
+ * are on rather than the one they arrived at.
+ *
+ * Location is city-level at best, and often just a country. See src/lib/place.ts
+ * for why a neighbourhood is not obtainable from an IP.
+ */
+export async function getLiveVisitors(minutes = 5, limit = 40): Promise<LiveVisitor[]> {
+  const since = new Date(Date.now() - minutes * 60_000);
+
+  const rows = await prisma.$queryRaw<{
+    visitorId: string; city: string | null; region: string | null; country: string | null;
+    timezone: string | null; device: string | null; path: string;
+    createdAt: Date; views: bigint;
+  }[]>`
+    SELECT DISTINCT ON ("visitorId")
+      "visitorId", "city", "region", "country", "timezone", "device", "path", "createdAt",
+      COUNT(*) OVER (PARTITION BY "visitorId") AS views
+    FROM "PageView"
+    WHERE "createdAt" >= ${since}
+    ORDER BY "visitorId", "createdAt" DESC
+    LIMIT ${limit}`;
+
+  const now = Date.now();
+  return rows
+    .map((r) => ({
+      // Eight characters is enough to tell two visitors apart on screen and
+      // far too few to be worth anything to anybody else.
+      ref: r.visitorId.slice(0, 8),
+      city: r.city,
+      region: r.region,
+      country: r.country,
+      timezone: r.timezone,
+      device: r.device,
+      path: r.path,
+      agoSeconds: Math.max(0, Math.round((now - new Date(r.createdAt).getTime()) / 1000)),
+      views: Number(r.views ?? 1),
+    }))
+    // Most recently active first: DISTINCT ON has to sort by visitorId, so the
+    // useful order has to be applied afterwards.
+    .sort((a, b) => a.agoSeconds - b.agoSeconds);
 }

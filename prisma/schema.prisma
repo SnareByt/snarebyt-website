@@ -1152,6 +1152,10 @@ model PageView {
   /// them has to treat "unknown" as a normal answer rather than an error.
   city       String?
   region     String?
+  /// The IANA zone the edge resolved, e.g. Asia/Dhaka. Coarser than a city
+  /// but far more reliable, because it follows the country rather than a
+  /// guess at which building an IP sits in.
+  timezone   String?
   device     String?  // mobile | tablet | desktop
   /// Rotating daily hash. Not reversible to a person.
   visitorId  String
