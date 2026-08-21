@@ -311,3 +311,63 @@ export async function removeProjectFile(fileId: string): Promise<Result> {
   revalidatePath('/app/projects');
   return { ok: true, message: 'File detached. The stored copy is kept.' };
 }
+
+/**
+ * Delete a project.
+ *
+ * Two very different things arrive in this table. Most are enquiries from the
+ * contact form — a stranger typed into a box, and some of those are spam that
+ * should be removable without ceremony. The rest are paid work, and those are
+ * a trading record: an invoice, a deliverable and somebody's money.
+ *
+ * So the rule is not "admins may delete". It is that a project attached to a
+ * paid order, or one that has already had files exchanged, cannot be removed
+ * at all — the deliverable has to stay provable. Everything else goes, along
+ * with its messages and events.
+ *
+ * The R2 objects behind any files are deliberately left in place, for the same
+ * reason removeBeatFile leaves them: a live download grant pointing at a
+ * deleted object is a worse outcome than an orphan costing a fraction of a
+ * penny.
+ */
+export async function deleteProject(projectId: string): Promise<Result> {
+  const admin = await requireOwner();
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true, number: true, contactName: true, email: true,
+      order: { select: { status: true, number: true } },
+      _count: { select: { files: true } },
+    },
+  });
+  if (!project) return { ok: false, error: 'That project no longer exists.' };
+
+  if (project.order && project.order.status === 'PAID') {
+    return {
+      ok: false,
+      error: `${project.number} belongs to paid order ${project.order.number}. Paid work cannot be deleted — the record of what was bought has to stay provable.`,
+    };
+  }
+  if (project._count.files > 0) {
+    return {
+      ok: false,
+      error: `${project.number} has ${project._count.files} file(s) attached. Remove them first if you are certain — files usually mean real work happened here.`,
+    };
+  }
+
+  await prisma.$transaction([
+    prisma.projectMessage.deleteMany({ where: { projectId } }),
+    prisma.projectEvent.deleteMany({ where: { projectId } }),
+    prisma.project.delete({ where: { id: projectId } }),
+  ]);
+
+  await audit({
+    actorId: admin.id, action: 'project.deleted', entity: 'Project', entityId: projectId,
+    diff: { number: project.number, contact: project.contactName, email: project.email },
+  });
+
+  revalidatePath('/admin/projects');
+  revalidatePath('/app/projects');
+  return { ok: true, message: `${project.number} deleted.` };
+}

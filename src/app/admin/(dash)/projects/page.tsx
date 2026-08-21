@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { bdt } from '@/lib/money';
@@ -33,7 +34,7 @@ export default async function AdminProjectsPage() {
           <table>
             <thead>
               <tr><th>Ref</th><th>Client</th><th>Service</th><th>Brief</th><th>Budget</th>
-                <th>Status</th><th>Received</th></tr>
+                <th>Status</th><th>Received</th><th /></tr>
             </thead>
             <tbody>
               {projects.map((p) => (
@@ -48,6 +49,9 @@ export default async function AdminProjectsPage() {
                   <td>{p.budgetBdt ? bdt(p.budgetBdt) : '—'}</td>
                   <td><span className={`chip ${CHIP[p.status] ?? 'off'}`}>{p.status.replace(/_/g, ' ')}</span></td>
                   <td className="sub">{p.createdAt.toISOString().slice(0, 10)}</td>
+                  <td className="acts">
+                    <Link href={`/admin/projects/${p.id}`} className="rowgo">Open</Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
