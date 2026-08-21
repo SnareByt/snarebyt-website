@@ -11,7 +11,7 @@
  * they can. The large icons keep the full artwork, rim included.
  */
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { writeFile } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 
 const MASTER = 'src/assets/brand/sb-mark-512.png';
 const TIGHT_CROP_PCT = 12;
@@ -28,6 +28,22 @@ const TIGHT_CROP_PCT = 12;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(src, inset, inset, side, side, 0, 0, size, size);
+    return c.toBuffer('image/png');
+  };
+
+  /**
+   * The same mark, shrunk and centred on the brand black so it survives an
+   * aggressive platform crop. `pad` is the margin left on every side.
+   */
+  const padded = (size: number, pad: number) => {
+    const c = createCanvas(size, size);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#040405';
+    ctx.fillRect(0, 0, size, size);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    const inner = size - pad * 2;
+    ctx.drawImage(src, 0, 0, src.width, src.height, pad, pad, inner, inner);
     return c.toBuffer('image/png');
   };
 
@@ -54,5 +70,23 @@ const TIGHT_CROP_PCT = 12;
   });
   await writeFile('src/app/favicon.ico', Buffer.concat([header, ...dirs, ...entries.map(([, p]) => p)]));
 
-  console.log(`icons rebuilt from ${MASTER}: favicon.ico (16/32/48), icon.png (512), apple-icon.png (180)`);
+  /* ---------- Phone dashboard (PWA) ----------
+     The installed app needs its own set. `render` alone is not enough for the
+     maskable one: a maskable icon is drawn edge to edge and then cropped to
+     whatever shape the platform chooses, so the mark has to sit inside the
+     middle 80% or a circular crop will shave it. Reusing icon-512 as maskable
+     is the standard mistake and it clips the monogram on Android. */
+  await mkdir('public/app', { recursive: true });
+  await writeFile('public/app/icon-192.png', render(192, 0));
+  await writeFile('public/app/icon-512.png', render(512, 0));
+  await writeFile('public/app/icon-maskable-512.png', padded(512, 512 * 0.1));
+  // The monochrome badge iOS and Android put in the status bar next to an
+  // alert. It is rendered as a silhouette, so detail is wasted here.
+  await writeFile('public/app/badge.png', render(96, TIGHT_CROP_PCT));
+
+  console.log(
+    `icons rebuilt from ${MASTER}:\n` +
+    `  site  favicon.ico (16/32/48), icon.png (512), apple-icon.png (180)\n` +
+    `  app   icon-192, icon-512, icon-maskable-512 (10% safe-zone inset), badge (96)`,
+  );
 })();

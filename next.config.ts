@@ -117,6 +117,29 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'private, no-store, max-age=0' },
         ],
       },
+      {
+        // The phone dashboard is as private as /admin and shows the same live
+        // business state, so it gets the same treatment: never indexed, never
+        // held by a proxy or by the browser's back-forward cache.
+        source: '/app/:path*',
+        headers: [
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+          { key: 'Cache-Control', value: 'private, no-store, max-age=0' },
+        ],
+      },
+      {
+        /**
+         * The service worker is the one file under /app that must be cached
+         * for zero seconds and re-checked on every launch. A worker pinned by
+         * a stale cache keeps serving its old push handler after a fix ships,
+         * and there is no way for a user to force it.
+         */
+        source: '/app/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/app/' },
+        ],
+      },
     ];
   },
 };
