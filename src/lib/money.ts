@@ -8,19 +8,13 @@ import { prisma } from './prisma';
  * apart and someone eventually gets charged the wrong figure.
  */
 
-export const bdt = (n: number) => '৳' + Math.round(n).toLocaleString('en-US');
-
-export function usd(n: number, rate: number) {
-  return '$' + (n / rate).toFixed(2);
-}
+/* The pure formatters live in money-client.ts so client components can use
+   them too — this module imports Prisma and cannot cross that line. Re-exported
+   here so every existing import of '@/lib/money' keeps working. */
+export { bdt, usd, licencePrice } from './money-client';
 
 export async function getUsdRate(): Promise<number> {
   const row = await prisma.setting.findUnique({ where: { key: 'usdRate' } });
   const rate = row ? Number(row.value) : NaN;
   return Number.isFinite(rate) && rate > 0 ? rate : 122;
-}
-
-/** Licence price = beat base price x tier multiplier, rounded to ৳50. */
-export function licencePrice(basePriceBdt: number, multiplier: number) {
-  return Math.round((basePriceBdt * multiplier) / 50) * 50;
 }

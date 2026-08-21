@@ -88,6 +88,7 @@ export async function toggleLive(id: string, live: boolean) {
   await audit({ actorId: user.id, action: live ? 'release.publish' : 'release.hide',
     entity: 'Release', entityId: id });
   revalidatePath('/admin/releases');
+  revalidatePath('/app/site/releases');
   revalidatePath('/music');
   revalidatePath('/');
   return { ok: true as const };
@@ -99,6 +100,7 @@ export async function toggleFeatured(id: string, featured: boolean) {
   await audit({ actorId: user.id, action: 'release.featured', entity: 'Release', entityId: id,
     diff: { featured } });
   revalidatePath('/admin/releases');
+  revalidatePath('/app/site/releases');
   revalidatePath('/');
   return { ok: true as const };
 }
@@ -108,6 +110,7 @@ export async function deleteRelease(id: string) {
   await prisma.release.delete({ where: { id } });
   await audit({ actorId: user.id, action: 'release.delete', entity: 'Release', entityId: id });
   revalidatePath('/admin/releases');
+  revalidatePath('/app/site/releases');
   revalidatePath('/music');
   return { ok: true as const };
 }

@@ -64,6 +64,8 @@ model User {
   reviews       Testimonial[]
   sessions      Session[]
   tokens        Token[]
+  passkeys      WebAuthnCredential[]
+  pushDevices   PushDevice[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -79,6 +81,24 @@ model User {
 enum SessionKind {
   ADMIN
   ACCOUNT
+}
+
+/// WHICH CLIENT the session was opened from — a deliberately separate axis
+/// from SessionKind above.
+///
+/// These two very nearly collided: the phone dashboard originally called this
+/// same concept `kind`, with values WEB and APP. Folding them into one enum
+/// would have meant either losing the door check (a security boundary) or
+/// inventing ADMIN_APP / ADMIN_WEB / ACCOUNT_WEB… combinations that multiply
+/// every time either axis gains a value. They answer different questions and
+/// so they get different columns.
+///
+/// This one is not a security boundary. It buys two things: an installed app
+/// holds a longer session than a browser tab, and the security screen can name
+/// each row well enough to recognise the phone in your hand before revoking it.
+enum SessionClient {
+  BROWSER
+  APP
 }
 
 model Session {
@@ -98,8 +118,71 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
+  /// BROWSER is a tab — 12 hours, because a browser on a shared laptop should
+  /// forget you. APP is the installed phone dashboard on Samir's own device,
+  /// held behind Face ID rather than a short clock. See ttlFor() in
+  /// src/lib/auth.ts for why the two differ.
+  client    SessionClient @default(BROWSER)
+  /// Human-readable device name shown on the security screen so a session can
+  /// be recognised before it is revoked. "iPhone" beats a cuid.
+  label     String?
+
   @@index([userId])
   @@index([userId, kind])
+}
+
+/// A passkey — on Samir's iPhone this is Face ID.
+///
+/// The device holds the private key in the Secure Enclave and it never leaves;
+/// only the public key is stored here. That is the point: a database dump
+/// yields nothing that can sign a login, unlike a password hash which can at
+/// least be attacked offline.
+///
+/// `counter` is the authenticator's signature counter. If a replayed assertion
+/// ever arrives with a counter at or below the stored one, the credential has
+/// been cloned and the login is refused.
+model WebAuthnCredential {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// base64url credential ID as sent by the authenticator
+  credentialId String   @unique
+  publicKey    Bytes
+  counter      BigInt   @default(0)
+  /// platform (Face ID, Touch ID) | cross-platform (a hardware key)
+  deviceType   String?
+  backedUp     Boolean  @default(false)
+  transports   String[]
+  label        String
+  lastUsedAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// One installed copy of the phone dashboard that has been granted permission
+/// to receive push alerts.
+///
+/// `endpoint` is issued by Apple's push service and is itself the address, so
+/// it is unique. p256dh and auth are the subscription's own encryption keys —
+/// without them the payload cannot be sealed, and Web Push payloads are
+/// end-to-end encrypted, so Apple relays a blob it cannot read.
+model PushDevice {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  label     String?
+  /// Cleared to a reason string when the push service rejects the endpoint as
+  /// gone (404/410). A dead device is disabled, not deleted, so the Account
+  /// screen can say why alerts stopped arriving.
+  disabledReason String?
+  lastPushAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 enum TokenKind {
@@ -989,6 +1072,20 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([actorId, createdAt])
+}
+
+/// A single-use WebAuthn challenge, alive for about ninety seconds.
+///
+/// Its own table rather than a borrowed Setting row: settings are configuration
+/// Samir can see and edit, and filling that screen with transient crypto
+/// nonces would be a mess. Rows are consumed on use and swept by expiry, so
+/// this table is normally empty.
+model AuthChallenge {
+  id        String   @id           // "webauthn:reg:<userId>" | "webauthn:auth:<handle>"
+  challenge String
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
 
 model RateLimit {
