@@ -1,4 +1,5 @@
 import { SiteHeader, type NavLink } from '@/components/site/SiteHeader';
+import { AccountButton } from '@/components/site/AccountButton';
 import { SiteFooter } from '@/components/site/SiteFooter';
 import { CurrencyProvider } from '@/components/site/Currency';
 import { PlayerProvider } from '@/components/site/Player';
@@ -39,7 +40,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
 
         <CartProvider>
           <PlayerProvider>
-            <SiteHeader links={links} />
+            <SiteHeader links={links} account={<AccountButton />} />
             <main>{children}</main>
             <SiteFooter />
           </PlayerProvider>

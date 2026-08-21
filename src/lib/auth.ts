@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { randomBytes, createHash, timingSafeEqual } from 'crypto';
 import argon2 from 'argon2';
 import { prisma } from './prisma';
-import type { Role, SessionKind } from '@prisma/client';
+import type { Role, SessionClient } from '@prisma/client';
 
 const COOKIE = 'sb_session';
 const MAX_FAILED = 5;
@@ -23,7 +23,7 @@ const LOCK_MS = 1000 * 60 * 15;
 const TTL_MS = 1000 * 60 * 60 * 12; // 12 hours — browser
 const APP_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days — installed phone app
 
-export const ttlFor = (kind: SessionKind) => (kind === 'APP' ? APP_TTL_MS : TTL_MS);
+export const ttlFor = (client: SessionClient) => (client === 'APP' ? APP_TTL_MS : TTL_MS);
 
 /** Touch lastSeenAt at most this often, so reading a page is not a write. */
 const SEEN_INTERVAL_MS = 1000 * 60;
@@ -52,7 +52,7 @@ export async function signIn(
   ua?: string,
   totpToken?: string,
   /** WEB from the desktop dashboard, APP from the installed phone dashboard. */
-  kind: SessionKind = 'WEB',
+  client: SessionClient = 'BROWSER',
   /** Device name for the Account screen, e.g. "iPhone". */
   label?: string,
 ) {
@@ -93,7 +93,7 @@ export async function signIn(
     }
   }
 
-  await openSession(user.id, { kind, label, ip, ua });
+  await openSession(user.id, { client, label, ip, ua });
   await prisma.user.update({
     where: { id: user.id },
     data: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date(), lastLoginIp: ip ?? null },
@@ -115,19 +115,25 @@ export async function signIn(
  */
 export async function openSession(
   userId: string,
-  opts: { kind: SessionKind; label?: string; ip?: string; ua?: string },
+  opts: { client: SessionClient; label?: string; ip?: string; ua?: string },
 ) {
   const raw = randomBytes(32).toString('base64url');
-  const ttl = ttlFor(opts.kind);
+  const ttl = ttlFor(opts.client);
 
   await prisma.session.create({
     data: {
       userId,
       token: sha256(raw),
-      kind: opts.kind,
+      // Stated rather than left to the column default, so the door this token
+      // belongs to is visible at the place it is issued. Every session minted
+      // by THIS module is an admin one; the artist portal has its own opener
+      // in src/lib/account.ts and stamps ACCOUNT.
+      kind: 'ADMIN',
+      client: opts.client,
       label: opts.label ?? null,
       ip: opts.ip ?? null,
       userAgent: opts.ua ?? null,
+      lastSeenAt: new Date(),
       expiresAt: new Date(Date.now() + ttl),
     },
   });
@@ -146,7 +152,15 @@ export async function openSession(
 export async function signOut() {
   const jar = await cookies();
   const raw = jar.get(COOKIE)?.value;
-  if (raw) await prisma.session.deleteMany({ where: { token: sha256(raw) } });
+  // Revoked rather than deleted, for the same reason revokeSession stamps:
+  // "this device signed out at 4pm" is worth keeping, and the row is refused
+  // from that moment on either way.
+  if (raw) {
+    await prisma.session.updateMany({
+      where: { token: sha256(raw), revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
   jar.delete(COOKIE);
 }
 
@@ -172,25 +186,36 @@ export async function currentSession() {
     include: { user: { select: { id: true, email: true, name: true, role: true } } },
   });
   if (!session || session.expiresAt < new Date()) return null;
+  // Minted at the artist portal, presented here. The role check below already
+  // stops a customer, but this stops the case the role check cannot see: a
+  // STAFF or ADMIN who also holds a portal session. Both doors now refuse the
+  // other's tokens, so neither check is the only thing standing there.
+  if (session.kind !== 'ADMIN') return null;
+  if (session.revokedAt) return null;
   if (session.user.role === 'CUSTOMER') return null;
 
   /* Throttled so a page load is a read, not a write. Failures are swallowed:
      a lost heartbeat must never sign anybody out. */
-  if (Date.now() - session.lastSeenAt.getTime() > SEEN_INTERVAL_MS) {
+  // Nullable on the model: a session that has never been used has no last-seen
+  // time, and that reads as "due a touch" rather than as an error.
+  if (!session.lastSeenAt || Date.now() - session.lastSeenAt.getTime() > SEEN_INTERVAL_MS) {
     prisma.session
       .update({ where: { id: session.id }, data: { lastSeenAt: new Date() } })
       .catch(() => {});
   }
 
-  return { id: session.id, kind: session.kind, label: session.label, user: session.user };
+  return { id: session.id, client: session.client, label: session.label, user: session.user };
 }
 
 /** Every device currently signed in, newest first. Shown on Account. */
 export async function listSessions(userId: string) {
   return prisma.session.findMany({
-    where: { userId, expiresAt: { gt: new Date() } },
+    // `kind: 'ADMIN'` matters as much as the expiry: the artist portal issues
+    // sessions against this same table, and without it Samir's security screen
+    // would list his own customers' devices alongside his.
+    where: { userId, kind: 'ADMIN', revokedAt: null, expiresAt: { gt: new Date() } },
     orderBy: { lastSeenAt: 'desc' },
-    select: { id: true, kind: true, label: true, ip: true, userAgent: true,
+    select: { id: true, client: true, label: true, ip: true, userAgent: true,
               lastSeenAt: true, createdAt: true, expiresAt: true },
   });
 }
@@ -203,7 +228,14 @@ export async function listSessions(userId: string) {
  * nothing instead of deleting somebody else's session.
  */
 export async function revokeSession(userId: string, sessionId: string) {
-  const { count } = await prisma.session.deleteMany({ where: { id: sessionId, userId } });
+  /* Stamped, not deleted — main's convention, and the better one: signing a
+     device out leaves a trace, and a revoked row is refused exactly like an
+     expired one by currentAdmin(). Scoped by userId AND kind so a guessed id
+     from another account, or from the artist portal, touches nothing. */
+  const { count } = await prisma.session.updateMany({
+    where: { id: sessionId, userId, kind: 'ADMIN', revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
   return count > 0;
 }
 

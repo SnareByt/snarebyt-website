@@ -34,9 +34,12 @@ export async function Hero({ v }: { v: Values }) {
     <section id="hero">
       <div className="hero-bg" />
       <div className="hero-grid" />
+      {/* The third red source in this hero, and the brightest — 520px blurred
+          to 90px sitting over both background radials. Deepened and dimmed
+          alongside them, or it puts the pink straight back on top. */}
       <div
         className="orb"
-        style={{ width: 520, height: 520, background: 'rgba(224,27,54,.16)', top: '-8%', right: '-6%' }}
+        style={{ width: 460, height: 460, background: 'rgba(132,15,26,.13)', top: '-9%', right: '-7%' }}
       />
       <div className="wrap hero-in">
         <div className="hero-copy">

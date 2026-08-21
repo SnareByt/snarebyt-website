@@ -131,7 +131,7 @@ export async function finishFaceId(
    * phone cannot sign. Demanding a typed code on top of that would add
    * friction without adding a factor.
    */
-  await openSession(res.userId, { kind: 'APP', label: res.label, ip, ua });
+  await openSession(res.userId, { client: 'APP', label: res.label, ip, ua });
   await prisma.user.update({
     where: { id: res.userId },
     data: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date(), lastLoginIp: ip },

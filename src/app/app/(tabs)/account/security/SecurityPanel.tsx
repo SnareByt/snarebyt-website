@@ -9,7 +9,7 @@ import { IcFaceId, IcCheck, IcWarn } from '@/components/app/Icons';
 
 type Passkey = { id: string; label: string; added: string; lastUsed: string };
 type Session = {
-  id: string; label: string; kind: string; ip: string;
+  id: string; label: string; client: string; ip: string;
   lastSeen: string; expires: string; current: boolean;
 };
 
@@ -157,7 +157,7 @@ export function SecurityPanel({
                     {s.current && <span className="chip ok" style={{ marginLeft: '.4rem' }}>this phone</span>}
                   </div>
                   <div className="row-s">
-                    {s.kind === 'APP' ? 'Installed app' : 'Browser'} · {s.ip}
+                    {s.client === 'APP' ? 'Installed app' : 'Browser'} · {s.ip}
                   </div>
                   <div className="row-s dim">
                     Active {s.lastSeen} · expires {s.expires}

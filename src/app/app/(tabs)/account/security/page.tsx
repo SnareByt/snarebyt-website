@@ -43,8 +43,8 @@ export default async function SecurityPage() {
         }))}
         sessions={sessions.map((s) => ({
           id: s.id,
-          label: s.label ?? (s.kind === 'APP' ? 'Phone dashboard' : 'Browser'),
-          kind: s.kind,
+          label: s.label ?? (s.client === 'APP' ? 'Phone dashboard' : 'Browser'),
+          client: s.client,
           ip: s.ip ?? '—',
           lastSeen: ago(s.lastSeenAt ?? s.createdAt),
           expires: shortDate(s.expiresAt),
