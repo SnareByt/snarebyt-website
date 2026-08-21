@@ -19,7 +19,19 @@ export const dynamic = 'force-dynamic';
 export default async function MorePage() {
   const user = await requireAdmin();
 
-  const [openProjects, customers, services, devices, passkeys, sessions] = await Promise.all([
+  /**
+   * Every number on this screen is a subtitle under a link that works without
+   * it. They are decoration, and decoration must never be why a screen fails
+   * to load — but that is exactly what happened: the whole tab returned a 500
+   * because `WebAuthnCredential` and `PushDevice` did not exist yet, while
+   * `/app/login` stayed up purely because its identical count was wrapped.
+   *
+   * `Promise.all` made it worse by design: one rejection discards five
+   * successful queries. `allSettled` keeps what worked and shows a dash for
+   * what did not, so a missing table costs one subtitle rather than the only
+   * route to Settings, Security and Alerts.
+   */
+  const results = await Promise.allSettled([
     prisma.project.count({ where: { status: { not: 'DELIVERED' } } }),
     prisma.user.count({ where: { role: 'CUSTOMER' } }),
     prisma.service.count({ where: { active: true } }),
@@ -27,6 +39,14 @@ export default async function MorePage() {
     prisma.webAuthnCredential.count({ where: { userId: user.id } }),
     prisma.session.count({ where: { userId: user.id, expiresAt: { gt: new Date() } } }),
   ]);
+
+  /* null, not 0. "0 passkeys" is a claim; a dash admits the number could not
+     be fetched, which is the truth and points at the real problem. */
+  const [openProjects, customers, services, devices, passkeys, sessions] = results.map(
+    (r) => (r.status === 'fulfilled' ? r.value : null),
+  );
+
+  const n = (v: number | null) => (v === null ? '—' : String(v));
 
   return (
     <>
@@ -42,11 +62,11 @@ export default async function MorePage() {
           <div className="sec"><h3>Work</h3></div>
           <div className="list">
             <Row href="/app/projects" Icon={IcProject} title="Bookings"
-                 sub={`${openProjects} open`} />
+                 sub={`${n(openProjects)} open`} />
             <Row href="/app/customers" Icon={IcCustomer} title="Customers"
-                 sub={`${customers} account${customers === 1 ? '' : 's'}`} />
+                 sub={`${n(customers)} account${customers === 1 ? '' : 's'}`} />
             <Row href="/app/services" Icon={IcService} title="Services and pricing"
-                 sub={`${services} on the site`} />
+                 sub={`${n(services)} on the site`} />
             <Row href="/app/analytics" Icon={IcAnalytics} title="Analytics"
                  sub="Traffic, plays and what sells" />
           </div>
@@ -55,11 +75,16 @@ export default async function MorePage() {
         <div>
           <div className="sec"><h3>This app</h3></div>
           <div className="list">
+            {/* A count that could not be fetched is not "off" — saying so
+                would send him to fix alerts that may be working fine. The
+                chip only appears when the number is known to be zero. */}
             <Row href="/app/account/alerts" Icon={IcBell} title="Alerts"
-                 sub={devices ? `${devices} device${devices === 1 ? '' : 's'} receiving` : 'Off on this device'}
-                 chip={devices ? undefined : { text: 'off', tone: 'warn' }} />
+                 sub={devices === null ? 'Could not check'
+                   : devices ? `${devices} device${devices === 1 ? '' : 's'} receiving`
+                   : 'Off on this device'}
+                 chip={devices === 0 ? { text: 'off', tone: 'warn' } : undefined} />
             <Row href="/app/account/security" Icon={IcLock} title="Security"
-                 sub={`${passkeys} passkey${passkeys === 1 ? '' : 's'} · ${sessions} signed-in device${sessions === 1 ? '' : 's'}`} />
+                 sub={`${n(passkeys)} passkey${passkeys === 1 ? '' : 's'} · ${n(sessions)} signed-in device${sessions === 1 ? '' : 's'}`} />
             <Row href="/app/account/settings" Icon={IcSettings} title="Settings"
                  sub="Store, currency and where alerts go" />
           </div>
