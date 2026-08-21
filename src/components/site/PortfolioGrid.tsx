@@ -214,11 +214,24 @@ function Card({ p, onPlay }: { p: PortfolioView; onPlay: (p: PortfolioView) => v
   );
 }
 
-export function PortfolioGrid({ items }: { items: PortfolioView[] }) {
+export function PortfolioGrid({
+  items, order,
+}: {
+  items: PortfolioView[];
+  /**
+   * Section order, already resolved server-side. Passed in rather than
+   * imported so this component has no opinion about it — the order is a
+   * setting Samir controls, and resolving it needs the database.
+   */
+  order?: readonly string[];
+}) {
   const [cat, setCat] = useState<string>('All');
   const [playing, setPlaying] = useState<PortfolioView | null>(null);
 
-  const present = CATEGORY_ORDER.filter((c) => items.some((i) => i.category === c));
+  // A section with no credits is skipped entirely, so an empty one can sit
+  // anywhere in the saved order without rendering a bare heading.
+  const sequence = order?.length ? order : CATEGORY_ORDER;
+  const present = sequence.filter((c) => items.some((i) => i.category === c));
   const groups = cat === 'All' ? present : present.filter((c) => c === cat);
 
   return (

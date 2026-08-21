@@ -21,6 +21,7 @@
     "check:beatfiles": "tsx scripts/check-beat-files.ts",
     "check:account": "tsx scripts/check-account.ts",
     "check:sitemode": "tsx scripts/check-site-mode.ts",
+    "check:pforder": "tsx scripts/check-portfolio-order.ts",
     "check:licence": "node -r ./scripts/server-only-shim.cjs -e \"require('tsx/cjs'); require('./scripts/check-licence.ts')\"",
     "licence:samples": "node -r ./scripts/server-only-shim.cjs -e \"require('tsx/cjs'); require('./scripts/render-licence-samples.ts')\"",
     "icons": "node -r ./scripts/server-only-shim.cjs -e \"require('tsx/cjs'); require('./scripts/build-icons.ts')\"",

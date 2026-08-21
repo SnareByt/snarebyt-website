@@ -3,6 +3,8 @@ import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { parseYouTubeId } from '@/lib/spotify';
 import PortfolioForm from './PortfolioForm';
 import { PublishToggle } from './PublishToggle';
+import { SectionOrder } from './SectionOrder';
+import { resolveOrder } from '@/lib/portfolio-order';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,9 +17,15 @@ const LABEL: Record<string, string> = {
 
 export default async function AdminPortfolioPage() {
   await requireAdmin();
-  const items = await prisma.portfolioItem.findMany({
-    orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
-  });
+  const [items, orderRow] = await Promise.all([
+    prisma.portfolioItem.findMany({ orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }] }),
+    prisma.setting.findUnique({ where: { key: 'portfolioOrder' } }),
+  ]);
+
+  // Counts drive the "no credits, hidden on the site" note, so an empty
+  // section can be positioned without wondering why it never appears.
+  const counts: Record<string, number> = {};
+  for (const i of items) if (i.published) counts[i.category] = (counts[i.category] ?? 0) + 1;
 
   return (
     <>
@@ -29,6 +37,10 @@ export default async function AdminPortfolioPage() {
           <span className="chip red">{items.filter((i) => i.majorCredit).length} major</span>
           <span className="sp" />
           <PortfolioForm mode="create" />
+        </div>
+
+        <div style={{ marginBottom: '1.4rem' }}>
+          <SectionOrder initial={resolveOrder(orderRow?.value)} counts={counts} />
         </div>
 
         {items.length ? (

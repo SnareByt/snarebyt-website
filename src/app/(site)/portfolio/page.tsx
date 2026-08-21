@@ -5,6 +5,7 @@ import { getPage } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
 import { seedFrom } from '@/lib/cover-art';
 import { parseYouTubeId } from '@/lib/spotify';
+import { resolveOrder } from '@/lib/portfolio-order';
 import { getVideoStats } from '@/lib/youtube';
 import { PageHead } from '@/components/site/PageHead';
 import {
@@ -22,12 +23,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PortfolioPage() {
-  const [page, rows] = await Promise.all([
+  const [page, rows, orderRow] = await Promise.all([
     getPage('portfolio'),
     prisma.portfolioItem.findMany({
       where: { published: true },
       orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
     }),
+    prisma.setting.findUnique({ where: { key: 'portfolioOrder' } }),
   ]);
   if (!page) return null;
 
@@ -81,7 +83,7 @@ export default async function PortfolioPage() {
 
       <section className="blk" style={{ paddingTop: 0 }}>
         <div className="wrap">
-          <PortfolioGrid items={items} />
+          <PortfolioGrid items={items} order={resolveOrder(orderRow?.value)} />
 
           {str(cta, 'h1') ? (
             <div className="cta rv" style={{ marginTop: '2.6rem' }}>

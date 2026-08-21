@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin, requireOwner } from '@/lib/prisma-safe-auth';
 import { audit } from '@/lib/audit';
 import { portfolioSchema } from '@/lib/validators';
+import { serialiseOrder } from '@/lib/portfolio-order';
 
 /**
  * Production credits.
@@ -137,4 +138,37 @@ export async function deletePortfolioItem(id: string): Promise<ToggleResult> {
   revalidatePath('/app/portfolio');
   revalidatePath('/portfolio');
   return { ok: true, message: `${item.title} deleted.` };
+}
+
+/**
+ * The order the portfolio's sections appear in on the public page.
+ *
+ * Stored as one Setting row rather than a column on each category, because
+ * the categories are an enum — there is no row to hang a sortOrder on. The
+ * value is normalised through serialiseOrder before it is written, so what
+ * lands in the database is always a complete, deduplicated list even if the
+ * browser sent something odd.
+ */
+export async function setPortfolioOrder(order: string[]): Promise<ToggleResult> {
+  const admin = await requireAdmin();
+
+  if (!Array.isArray(order)) return { ok: false, error: 'That order could not be read.' };
+
+  const value = serialiseOrder(order);
+
+  await prisma.setting.upsert({
+    where: { key: 'portfolioOrder' },
+    update: { value },
+    create: { key: 'portfolioOrder', value },
+  });
+
+  await audit({
+    actorId: admin.id, action: 'portfolio.reordered', entity: 'Setting', entityId: 'portfolioOrder',
+    diff: { order: value },
+  });
+
+  revalidatePath('/admin/portfolio');
+  revalidatePath('/portfolio');
+  revalidatePath('/');
+  return { ok: true, message: 'Order saved.' };
 }
