@@ -186,6 +186,37 @@ console.log('\n  Every screen paints instantly on tap');
     missing === 0);
 }
 
+console.log('\n  A decorative count never takes out a screen');
+{
+  /**
+   * Three 500s in a row came from the same shape of mistake: an unguarded
+   * count on a render path, where the number was only ever a subtitle.
+   *
+   * /app/more was the worst of them — Promise.all discards five successful
+   * queries when the sixth rejects, so a missing WebAuthnCredential table
+   * removed the only route to Settings, Security and Alerts. Meanwhile
+   * /app/login stayed up through the identical failure purely because its
+   * count was wrapped.
+   */
+  const more = read('src/app/app/(tabs)/more/page.tsx');
+  ok('    /app/more keeps the counts that worked',
+    more.includes('Promise.allSettled'));
+  ok('    and does not claim zero for a count it could not fetch',
+    /=== null \? '—'/.test(more));
+
+  const tabs = read('src/app/app/(tabs)/layout.tsx');
+  ok('    the tab badge falls back rather than throwing',
+    /\.catch\(\(\) => 0\)/.test(tabs));
+
+  const login = read('src/app/app/login/page.tsx');
+  ok('    the login screen still guards its passkey count',
+    /webAuthnCredential\.count\(\)\.catch\(/.test(login));
+
+  // The one that would have told him which screen broke, two rounds sooner.
+  ok('    a failed screen shows the real message, not just a digest',
+    has('src/app/app/error.tsx') && read('src/app/app/error.tsx').includes('error.message'));
+}
+
 console.log('\n  The tab bar commits to the press immediately');
 {
   const tabs = read('src/components/app/TabBar.tsx');
