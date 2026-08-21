@@ -88,6 +88,23 @@ const REPAIR = [
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "suspendedAt" TIMESTAMP(3)`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "suspendedReason" TEXT`,
   `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "adminNote" TEXT`,
+
+  /* The artist portal's email codes. Missed on the first pass because that
+     pass compared model names and the Session/User columns, and these are a
+     column and an enum VALUE on a model whose name never changed — the same
+     shape of oversight, one table across. `attempts` is what stops someone
+     walking a six-digit space while the code is still alive, so its absence
+     is not cosmetic. */
+  `ALTER TABLE "Token" ADD COLUMN IF NOT EXISTS "attempts" INTEGER NOT NULL DEFAULT 0`,
+];
+
+/**
+ * ALTER TYPE ... ADD VALUE cannot run inside a transaction block, so this one
+ * sits outside the batch above rather than in it. IF NOT EXISTS makes it a
+ * no-op on every rerun.
+ */
+const ADD_ENUM_VALUES = [
+  `ALTER TYPE "TokenKind" ADD VALUE IF NOT EXISTS 'EMAIL_OTP'`,
 ];
 
 /** Enum values actually present, so the log states fact rather than intent. */
@@ -120,27 +137,62 @@ async function columnExists(table: string, column: string): Promise<boolean> {
     const before = await enumValues('SessionKind');
     console.log(`[repair-schema] SessionKind is currently: ${before.join(' | ') || '(missing)'}`);
 
-    /* Already correct — the common case on every redeploy after the first.
-       Checked rather than assumed, so a redeploy does not clear live sessions
-       for no reason. */
+    /* The destructive half — clearing sessions and rebuilding SessionKind —
+       only runs while SessionKind is still wrong. Everything else below is
+       additive and safe to attempt on every deploy. */
     if (before.includes('ADMIN') && (await columnExists('Session', 'client'))) {
-      console.log('[repair-schema] nothing to do — repair complete already');
-      console.log('[repair-schema] this script can now be removed from the build\n');
-      return;
+      console.log('[repair-schema] sessions and SessionKind already correct — skipping that part');
+    } else {
+      console.log('[repair-schema] repairing; every signed-in device will need to sign in again');
+      /* The array form, so the statements run in order inside one transaction.
+         It takes no timeout option — that belongs to the interactive form — and
+         does not need one: these are DDL statements against a table with a
+         handful of rows. */
+      await prisma.$transaction(REPAIR.map((sql) => prisma.$executeRawUnsafe(sql)));
+      const after = await enumValues('SessionKind');
+      console.log(`[repair-schema] SessionKind is now: ${after.join(' | ')}`);
     }
 
-    console.log('[repair-schema] repairing; every signed-in device will need to sign in again');
+    // Outside any transaction, by requirement of ALTER TYPE ... ADD VALUE.
+    for (const sql of ADD_ENUM_VALUES) await prisma.$executeRawUnsafe(sql);
+    console.log(`[repair-schema] TokenKind: ${(await enumValues('TokenKind')).join(' | ')}`);
 
-    /* The array form, so the statements run in order inside one transaction.
-       It takes no timeout option — that belongs to the interactive form — and
-       does not need one: these are DDL statements against a table with a
-       handful of rows. */
-    await prisma.$transaction(REPAIR.map((sql) => prisma.$executeRawUnsafe(sql)));
+    /**
+     * THE SAFETY NET, and the reason this script is no longer a hand-written
+     * list I have to get right.
+     *
+     * The statements above are an enumeration, and an enumeration is only as
+     * complete as whoever wrote it. This one missed Token.attempts and
+     * TokenKind.EMAIL_OTP on its first pass, for exactly the reason the
+     * original accident happened: a human comparing two schemas by eye.
+     *
+     * `prisma db push` compares them properly. Deliberately WITHOUT
+     * --accept-data-loss, so it can only add what is missing; anything that
+     * would require destroying data fails here and is reported rather than
+     * done. That is the correct asymmetry — the destructive work is the
+     * explicit SQL above, where every statement was chosen on purpose, and
+     * everything additive is left to a tool that will not miss a column.
+     */
+    console.log('[repair-schema] reconciling anything still missing…');
+    const { execFileSync } = await import('child_process');
+    try {
+      const out = execFileSync(
+        'npx',
+        ['prisma', 'db', 'push', '--skip-generate'],
+        { encoding: 'utf8', stdio: 'pipe' },
+      );
+      const summary = out.split('\n').filter((l) => l.trim()).slice(-2).join(' ');
+      console.log(`[repair-schema] ${summary}`);
+    } catch (pushErr) {
+      const e = pushErr as { stdout?: string; stderr?: string };
+      console.error('[repair-schema] reconcile refused — it would have destroyed data:');
+      console.error((e.stdout ?? '') + (e.stderr ?? ''));
+      console.error('[repair-schema] nothing was dropped. Fix this by hand.');
+    }
 
-    const after = await enumValues('SessionKind');
-    console.log(`[repair-schema] SessionKind is now: ${after.join(' | ')}`);
     console.log(`[repair-schema] Session.client present: ${await columnExists('Session', 'client')}`);
     console.log(`[repair-schema] User.adminNote present: ${await columnExists('User', 'adminNote')}`);
+    console.log(`[repair-schema] Token.attempts present: ${await columnExists('Token', 'attempts')}`);
     console.log('[repair-schema] repair complete\n');
   } catch (err) {
     /* Loud, but never fatal. A build that dies here would replace a broken
