@@ -230,6 +230,35 @@ console.log('\n  The login route is reachable while signed out');
   ok('    the matcher covers /app', mw.includes("'/app/:path*'"));
 }
 
+console.log('\n  The way back in survives a broken database');
+{
+  /**
+   * The login screen is how you recover when everything else is down, so it
+   * must never be the thing that is down. A database that is unreachable,
+   * mid-migration, or holding a schema the deployed code does not expect has
+   * to degrade to "you are signed out, here is the form".
+   *
+   * This is not hypothetical: a schema pushed from the wrong branch once made
+   * /app/login throw on both of its database calls while the public site
+   * stayed up, because the public header already wrapped its session read and
+   * this screen did not.
+   */
+  const login = read('src/app/app/login/page.tsx');
+  ok('    a session that cannot be read means signed out, not a 500',
+    /currentAdmin\(\)\.catch\(/.test(login));
+  ok('    a missing passkey table hides the button rather than the screen',
+    /webAuthnCredential\.count\(\)\.catch\(/.test(login));
+  ok('    redirect() stays outside the catch — it works by throwing',
+    /const signedIn = await currentAdmin\(\)\.catch/.test(login)
+    && /if \(signedIn\) redirect/.test(login));
+
+  const tabs = read('src/app/app/(tabs)/layout.tsx');
+  ok('    a stale cookie reaches the login screen, not an error page',
+    /currentAdmin\(\)\.catch\(/.test(tabs));
+  ok('    a failed badge count costs the badge, not the dashboard',
+    /\.catch\(\(\) => 0\)/.test(tabs));
+}
+
 console.log('\n  Open redirect is closed');
 {
   const login = read('src/app/app/login/page.tsx');

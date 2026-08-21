@@ -16,12 +16,21 @@ import { TabBar } from '@/components/app/TabBar';
 export const dynamic = 'force-dynamic'; // live counts must never be cached
 
 export default async function TabsLayout({ children }: { children: React.ReactNode }) {
-  const user = await currentAdmin();
+  /* A session that cannot be read is not an authenticated one. Falling back to
+     null sends a stale or unreadable cookie to the login screen, which is
+     recoverable, instead of to a 500, which is not — the middleware only
+     checks that a cookie EXISTS, so a cookie left over from a previous schema
+     gets this far and must not end the journey here. */
+  const user = await currentAdmin().catch(() => null);
   if (!user) redirect('/app/login');
 
-  // The only badge that earns a red dot: orders that have been placed but not
-  // paid. Anything else would train him to ignore it.
-  const pendingOrders = await prisma.order.count({ where: { status: 'PENDING_PAYMENT' } });
+  /* The only badge that earns a red dot: orders that have been placed but not
+     paid. Anything else would train him to ignore it. A badge is decoration,
+     though — it must never be the reason the whole dashboard fails to load, so
+     a failure here shows no badge rather than no app. */
+  const pendingOrders = await prisma.order
+    .count({ where: { status: 'PENDING_PAYMENT' } })
+    .catch(() => 0);
 
   return (
     <>
