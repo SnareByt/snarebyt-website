@@ -109,6 +109,11 @@ export const settingsSchema = z.object({
   // An unticked checkbox is absent from FormData, so the default is what
   // makes "off" mean off rather than throwing.
   beatsComingSoon: z.coerce.boolean().default(false),
+  // One mode rather than two switches: 'coming soon' and 'under maintenance'
+  // say contradictory things, and two booleans make it possible to turn both
+  // on at once. Anything unrecognised falls back to live, so a bad value can
+  // never take the site offline.
+  siteMode: z.enum(['live', 'soon', 'maintenance']).default('live'),
   pointerSheen: z.coerce.boolean().default(false),
   // Where alerts go. Blank falls back to the business email rather than
   // silently sending nowhere.

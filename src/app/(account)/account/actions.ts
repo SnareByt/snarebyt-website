@@ -11,6 +11,7 @@ import { passwordProblems, isObviousPassword } from '@/lib/account-rules';
 import { sendOtpEmail, sendResetEmail } from '@/lib/account-mail';
 import { siteUrl } from '@/lib/seo';
 import { prisma } from '@/lib/prisma';
+import { siteClosedForBusiness, getSiteMode, closedMessage } from '@/lib/site-mode';
 import type { FormState } from './form-state';
 
 /**
@@ -69,6 +70,13 @@ export async function registerAction(_prev: FormState, fd: FormData): Promise<Fo
   const raw = Object.fromEntries(fd) as Record<string, string>;
   const values = { ...raw };
   delete values.password;
+
+  // No new accounts while the site is closed. Signing IN still works, so an
+  // existing artist can always reach the licences and files they paid for —
+  // shutting the shop is not the same as locking customers out of it.
+  if (await siteClosedForBusiness()) {
+    return { ok: false, message: closedMessage(await getSiteMode()), values };
+  }
 
   const parsed = registerSchema.safeParse(raw);
   if (!parsed.success) {

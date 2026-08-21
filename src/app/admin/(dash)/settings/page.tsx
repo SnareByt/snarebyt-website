@@ -33,6 +33,7 @@ export default async function SettingsPage() {
           notifyOnPaid={get('notifyOnPaid') !== 'false'}
           notifyOnEnquiry={get('notifyOnEnquiry') !== 'false'}
           pointerSheen={get('pointerSheen') !== 'false'}
+          siteMode={(['soon', 'maintenance'] as const).find((m) => m === get('siteMode')) ?? 'live'}
           businessEmail={get('businessEmail', 'hello@snarebyt.com')}
         />
 

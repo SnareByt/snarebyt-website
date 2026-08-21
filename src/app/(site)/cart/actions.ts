@@ -8,6 +8,7 @@ import { licencePrice } from '@/lib/money';
 import { createPaymentSession, isSandbox, paymentsConfigured } from '@/lib/sslcommerz';
 import { siteUrl } from '@/lib/seo';
 import { beatStoreClosed } from '@/lib/store-state';
+import { siteClosedForBusiness, getSiteMode, closedMessage } from '@/lib/site-mode';
 import { missingFor } from '@/lib/beat-files';
 import { notifyAdmin } from '@/lib/notify';
 
@@ -83,6 +84,13 @@ export async function placeOrder(prev: OrderState, formData: FormData): Promise<
   const values = Object.fromEntries(
     Object.entries(raw).filter(([k]) => k !== 'lines').map(([k, v]) => [k, typeof v === 'string' ? v : '']),
   );
+
+  // The gate a visitor sees is a rendering decision, and rendering is not
+  // security — a blurred page has still been sent to the browser and this
+  // action is a public HTTP endpoint. So it refuses on its own account.
+  if (await siteClosedForBusiness()) {
+    return { ok: false, attempt, values, message: closedMessage(await getSiteMode()) };
+  }
 
   const limited = await rateLimit(`order:ip:${ip}`, 8, 60 * 60_000);
   if (!limited.ok) {

@@ -1,22 +1,30 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { YouTubeCheck } from './YouTubeCheck';
 import { NotifyCheck } from './NotifyCheck';
 import { saveSettings, type SettingsState } from './actions';
 
 const initial: SettingsState = { ok: false };
 
+const MODES = [
+  { v: 'live' as const, label: 'Live', desc: 'Open to everyone. Normal trading.' },
+  { v: 'soon' as const, label: 'Coming soon', desc: 'Pre-launch. Site blurred behind the panel.' },
+  { v: 'maintenance' as const, label: 'Under maintenance', desc: 'Temporarily down. Nothing shown behind.' },
+];
+
 export function SettingsForm({
   usdRate, whatsapp, businessEmail, youtubeChannel, beatsComingSoon,
-  notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry, pointerSheen,
+  notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry, pointerSheen, siteMode,
 }: {
   usdRate: string; whatsapp: string; businessEmail: string;
   youtubeChannel: string; beatsComingSoon: boolean;
   notifyEmail: string; notifyOnOrder: boolean; notifyOnPaid: boolean; notifyOnEnquiry: boolean;
   pointerSheen: boolean;
+  siteMode: 'live' | 'soon' | 'maintenance';
 }) {
   const [state, action, pending] = useActionState(saveSettings, initial);
+  const [mode, setMode] = useState(siteMode);
   const e = state.errors ?? {};
 
   return (
@@ -117,6 +125,42 @@ export function SettingsForm({
           Hides the beat grid and licence pricing from visitors and stops beat orders being
           placed. Your catalogue and prices are untouched — untick this to reopen.
         </div>
+      </div>
+
+      <div className="fg" style={{ marginTop: '1.8rem' }}>
+        <label className="fl">Website access</label>
+        <div className="hint" style={{ marginBottom: '.6rem' }}>
+          Controls the whole public site — every page, the cart, enquiries and new
+          sign-ups. You can still browse it yourself while signed in here.
+        </div>
+
+        {/* Radios, not two checkboxes. "Coming soon" and "under maintenance"
+            contradict each other, and separate switches would let both be on
+            at once — a state with no meaning that something would then have to
+            resolve arbitrarily. */}
+        <div className="modes">
+          {MODES.map((m) => (
+            <label key={m.v} className={mode === m.v ? 'mode on' : 'mode'}>
+              <input
+                type="radio" name="siteMode" value={m.v}
+                checked={mode === m.v} onChange={() => setMode(m.v)}
+              />
+              <span className="mode-t">{m.label}</span>
+              <span className="mode-d">{m.desc}</span>
+            </label>
+          ))}
+        </div>
+
+        {mode !== 'live' && (
+          <div className="note" style={{ marginTop: '.9rem' }}>
+            <span>⚠</span>
+            <span>
+              {mode === 'soon'
+                ? <>Visitors see a <b>Coming soon</b> panel with the site blurred behind it. Nothing can be ordered and no new artist accounts can be created. Existing artists can still sign in for their files.</>
+                : <>Visitors see an <b>Under maintenance</b> panel with nothing behind it. Nothing can be ordered and no new artist accounts can be created. Existing artists can still sign in for their files.</>}
+            </span>
+          </div>
+        )}
       </div>
 
       <button className="btn b-red" type="submit" style={{ marginTop: '1.4rem' }} disabled={pending}>

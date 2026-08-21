@@ -1399,3 +1399,95 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
   .acct-ini{width:27px;height:27px;font-size:.6rem}
   .burger{width:36px;height:36px}
 }
+
+/* ============================================================
+   SITE GATE — coming soon / under maintenance
+   ============================================================ */
+
+/* The real site, behind the coming-soon panel.
+   `pointer-events:none` and inert markup are what make it decorative rather
+   than merely hard to read — without it a determined finger still reaches the
+   links through the blur. `user-select:none` stops text being dragged out of
+   a page that is supposed to be closed. */
+.gated-behind{
+  filter:blur(14px) saturate(.72) brightness(.5);
+  pointer-events:none;user-select:none;
+  transform:scale(1.03);          /* hides the soft edge the blur leaves */
+  transform-origin:center top;
+  height:100svh;overflow:hidden}
+
+@media(prefers-reduced-motion:reduce){
+  .gated-behind{filter:blur(14px) saturate(.72) brightness(.42)}
+}
+
+.gate{position:fixed;inset:0;z-index:900;display:grid;place-items:center;
+  padding:clamp(1.1rem,4vw,2.4rem);overflow-y:auto}
+/* Maintenance paints its own ground; coming soon lets the blurred site show. */
+.gate-maintenance{background:radial-gradient(ellipse 90% 70% at 50% -10%,rgba(124,14,22,.28),transparent 62%),var(--ink)}
+.gate-soon{background:rgba(4,4,5,.55)}
+
+.gate-aura{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 70% 55% at 50% 40%,rgba(124,14,22,.22),transparent 66%)}
+
+.gate-panel{position:relative;width:100%;max-width:620px;text-align:center;
+  padding:clamp(2.2rem,6vw,3.6rem) clamp(1.4rem,5vw,3rem);border-radius:26px;
+  border:1px solid var(--line-strong);
+  background:linear-gradient(168deg,rgba(20,20,24,.92),rgba(8,8,10,.94));
+  backdrop-filter:blur(26px) saturate(1.2);
+  box-shadow:0 60px 140px -50px #000,inset 0 1px 0 rgba(255,255,255,.06);
+  overflow:hidden}
+
+/* One slow pass of light, the same gesture the wordmark and primary button
+   use. It runs once on load rather than looping — a panel that pulses forever
+   reads as a loading state, which is the opposite of the message. */
+.gate-sheen{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.07),transparent 70%);
+  transform:translateX(-120%);
+  animation:gateSheen 2.6s var(--e-out) .5s 1 forwards}
+@keyframes gateSheen{to{transform:translateX(120%)}}
+@media(prefers-reduced-motion:reduce){.gate-sheen{animation:none;opacity:0}}
+
+.gate-mark{display:flex;justify-content:center;margin-bottom:1.6rem}
+.gate-mark .wm{height:26px}
+
+.gate-eyebrow{display:inline-flex;align-items:center;gap:.5rem;
+  font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.62rem;
+  letter-spacing:.26em;text-transform:uppercase;color:var(--red);
+  padding:.32rem .8rem;border-radius:999px;
+  border:1px solid rgba(224,27,54,.32);background:rgba(224,27,54,.08)}
+.gate-dot{width:6px;height:6px;border-radius:50%;background:var(--red);
+  box-shadow:0 0 10px var(--glow);animation:gatePulse 2.4s ease-in-out infinite}
+@keyframes gatePulse{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.gate-dot{animation:none}}
+
+.gate-title{font-family:var(--font-syne),sans-serif;font-weight:800;
+  letter-spacing:-.035em;line-height:1.02;margin:1.2rem 0 1.1rem;
+  font-size:clamp(2.3rem,9vw,4rem)}
+/* Chrome on the headline, red only where it punctuates — the site's rule. */
+.gate-text{background:var(--chrome);-webkit-background-clip:text;background-clip:text;
+  color:transparent;display:inline-block}
+
+.gate-lead{color:var(--muted);font-size:clamp(.9rem,2.4vw,1rem);line-height:1.75;
+  max-width:46ch;margin:0 auto}
+.gate-bn{color:var(--dim);font-size:.86rem;line-height:1.9;margin:.9rem auto 0;max-width:44ch}
+
+.gate-cta{display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap;margin-top:1.9rem}
+.gate-foot{margin-top:1.9rem;padding-top:1.3rem;border-top:1px solid var(--line);
+  font-family:var(--font-archivo),sans-serif;font-weight:600;font-size:.6rem;
+  letter-spacing:.24em;text-transform:uppercase;color:var(--dim)}
+
+/* ---------- Admin preview bar ---------- */
+.gate-bar{position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);z-index:940;
+  display:flex;align-items:center;gap:.7rem;max-width:calc(100vw - 2rem);
+  padding:.7rem 1.1rem;border-radius:999px;font-size:.78rem;line-height:1.4;
+  border:1px solid rgba(224,27,54,.4);background:rgba(18,18,22,.94);
+  backdrop-filter:blur(16px);box-shadow:0 20px 50px -18px #000;color:var(--muted)}
+.gate-bar b{color:var(--text);font-family:var(--font-archivo),sans-serif;font-weight:800}
+.gate-bar-dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex:none;
+  box-shadow:0 0 10px var(--glow)}
+.gate-bar a{color:var(--red-bright);border-bottom:1px solid rgba(255,45,74,.4);
+  padding-bottom:1px;white-space:nowrap;flex:none}
+.gate-bar a:hover{color:#fff;border-bottom-color:#fff}
+@media(max-width:620px){
+  .gate-bar{font-size:.72rem;padding:.6rem .85rem;border-radius:16px}
+}

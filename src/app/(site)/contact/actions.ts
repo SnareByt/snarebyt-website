@@ -1,5 +1,6 @@
 ﻿'use server';
 
+import { siteClosedForBusiness, getSiteMode, closedMessage } from '@/lib/site-mode';
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { notifyAdmin } from '@/lib/notify';
@@ -45,6 +46,13 @@ export async function submitBrief(prev: BriefState, formData: FormData): Promise
   const values = Object.fromEntries(
     Object.entries(raw).map(([k, v]) => [k, typeof v === 'string' ? v : '']),
   );
+
+  // Same reasoning as placeOrder: the gate is a rendering decision and this
+  // action is a public HTTP endpoint, so it refuses for itself rather than
+  // trusting that the form was never shown.
+  if (await siteClosedForBusiness()) {
+    return { ok: false, attempt, values, message: closedMessage(await getSiteMode()) };
+  }
 
   // Five briefs per IP per hour. Enough for a genuine person who makes a
   // mistake, not enough to be worth automating.
