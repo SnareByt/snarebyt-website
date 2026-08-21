@@ -186,6 +186,40 @@ console.log('\n  Every screen paints instantly on tap');
     missing === 0);
 }
 
+console.log('\n  The home pulse chart');
+{
+  /**
+   * The one non-negotiable in charting: never two y-scales on one plot.
+   * Revenue is thousands of taka, visitors are tens of people, and where two
+   * axes get pinned relative to each other is arbitrary — the chart would
+   * invent a correlation that is a property of the axis alignment rather than
+   * of the business. The toggle is what makes one honest axis possible.
+   */
+  const pulse = read('src/components/app/Pulse.tsx');
+  ok('    shows one measure at a time, never two y-scales',
+    /useState<Metric>/.test(pulse) && !/y2Scale|rightAxis|secondaryAxis/.test(pulse));
+  ok('    the baseline is zero, not the minimum',
+    /Math\.max\(\.\.\.series, 1\)/.test(pulse));
+  ok('    growth from nothing is not reported as a percentage',
+    /prev > 0 \? Math\.round/.test(pulse));
+  ok('    every value is reachable as text, not colour alone',
+    /<table className="sr-only">/.test(pulse));
+  ok('    no charting library on the first screen of the app',
+    !/recharts|chart\.js|d3|victory|nivo/i.test(pulse));
+
+  const analytics = read('src/lib/analytics.ts');
+  ok('    money counts only SSLCOMMERZ-validated orders',
+    /getPulse[\s\S]{0,1400}"status" = 'PAID'/.test(analytics));
+  ok('    and counts them on the day the money arrived',
+    /getPulse[\s\S]{0,1400}date_trunc\('day', "paidAt"\)/.test(analytics));
+  ok('    a day with no sales is drawn as zero, not skipped',
+    /moneyBy\.get\(k\) \?\? 0/.test(analytics));
+
+  const today = read('src/app/app/(tabs)/page.tsx');
+  ok('    a failed chart costs the chart, not the home screen',
+    /getPulse\(14\)\.catch\(\(\) => null\)/.test(today));
+}
+
 console.log('\n  A decorative count never takes out a screen');
 {
   /**

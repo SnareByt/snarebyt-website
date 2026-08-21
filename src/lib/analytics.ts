@@ -144,3 +144,99 @@ export async function getReport(r: Range): Promise<Report> {
     bucket: r.bucket,
   };
 }
+
+/* ============================================================
+   The home-screen pulse
+   ============================================================ */
+
+export type PulsePoint = { day: string; money: number; visitors: number };
+
+export type Pulse = {
+  points: PulsePoint[];
+  money: { total: number; prev: number };
+  visitors: { total: number; prev: number };
+  days: number;
+};
+
+/**
+ * Fourteen days of money and visitors, for the card on Today.
+ *
+ * Deliberately NOT `getReport`. That runs eight queries — top pages, referrers,
+ * countries, devices, a live count — because the analytics screen shows all of
+ * it. Putting that behind the home screen would make the first thing Samir
+ * opens the slowest thing in the app, to draw two lines.
+ *
+ * Two queries, both hitting an index, both grouped in SQL. A busy month is
+ * hundreds of thousands of PageView rows and none of them need to reach Node.
+ *
+ * WHY THE TWO SERIES ARE NEVER DRAWN TOGETHER
+ *
+ * Revenue is thousands of taka; visitors are tens of people. Plotting both on
+ * one chart needs two y-axes, and the alignment between two y-scales is
+ * arbitrary — it invents a correlation that is not in the data ("look, traffic
+ * spikes when sales do") purely from where the axes happen to be pinned. So
+ * the card shows one series at a time and a control switches between them.
+ * That is the reason for the toggle; it is not decoration.
+ */
+export async function getPulse(days = 14): Promise<Pulse> {
+  const to = new Date();
+  const from = new Date(to.getTime() - days * 86_400_000);
+  const prevFrom = new Date(from.getTime() - days * 86_400_000);
+
+  const [moneyRows, visitorRows, prevMoney, prevVisitors] = await Promise.all([
+    /* Only orders SSLCOMMERZ validated server-side, keyed on paidAt rather
+       than createdAt: an order placed on Monday and paid on Wednesday is
+       Wednesday's revenue, because that is the day the money arrived. */
+    prisma.$queryRaw<{ day: Date; total: bigint }[]>`
+      SELECT date_trunc('day', "paidAt") AS day, SUM("totalBdt")::bigint AS total
+      FROM "Order"
+      WHERE "status" = 'PAID' AND "paidAt" >= ${from} AND "paidAt" <= ${to}
+      GROUP BY 1 ORDER BY 1`,
+    prisma.$queryRaw<{ day: Date; visitors: bigint }[]>`
+      SELECT date_trunc('day', "createdAt") AS day,
+             COUNT(DISTINCT "visitorId") AS visitors
+      FROM "PageView"
+      WHERE "createdAt" >= ${from} AND "createdAt" <= ${to}
+      GROUP BY 1 ORDER BY 1`,
+    prisma.$queryRaw<{ total: bigint }[]>`
+      SELECT COALESCE(SUM("totalBdt"), 0)::bigint AS total FROM "Order"
+      WHERE "status" = 'PAID' AND "paidAt" >= ${prevFrom} AND "paidAt" < ${from}`,
+    prisma.$queryRaw<{ visitors: bigint }[]>`
+      SELECT COUNT(DISTINCT "visitorId") AS visitors FROM "PageView"
+      WHERE "createdAt" >= ${prevFrom} AND "createdAt" < ${from}`,
+  ]);
+
+  const num = (v: bigint | null | undefined) => Number(v ?? 0);
+  const key = (d: Date) => d.toISOString().slice(0, 10);
+
+  const moneyBy = new Map(moneyRows.map((r) => [key(r.day), num(r.total)]));
+  const visitorsBy = new Map(visitorRows.map((r) => [key(r.day), num(r.visitors)]));
+
+  /**
+   * Every day gets a point, including the empty ones.
+   *
+   * SQL returns no row for a day with no orders. Plotting only the rows that
+   * came back would draw a straight line between two sales a week apart and
+   * make a quiet week look like steady trade — the chart would be lying about
+   * the shape of the business. A zero is a fact and has to be drawn.
+   */
+  const points: PulsePoint[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(to.getTime() - i * 86_400_000);
+    const k = key(d);
+    points.push({ day: k, money: moneyBy.get(k) ?? 0, visitors: visitorsBy.get(k) ?? 0 });
+  }
+
+  return {
+    points,
+    money: {
+      total: points.reduce((n, p) => n + p.money, 0),
+      prev: num(prevMoney[0]?.total),
+    },
+    visitors: {
+      total: points.reduce((n, p) => n + p.visitors, 0),
+      prev: num(prevVisitors[0]?.visitors),
+    },
+    days,
+  };
+}
