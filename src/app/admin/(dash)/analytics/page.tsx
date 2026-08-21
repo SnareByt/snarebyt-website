@@ -1,11 +1,12 @@
 import { Suspense } from 'react';
 import { requireAdmin } from '@/lib/prisma-safe-auth';
-import { getReport, rangeFor } from '@/lib/analytics';
+import { getReport, rangeFor, getLiveVisitors, type LiveVisitor } from '@/lib/analytics';
 import { getPulse } from './actions';
 import { TrafficChart } from './TrafficChart';
 import { LivePulse } from './LivePulse';
 import { RangePicker } from './RangePicker';
 import { Figure } from '@/components/admin/Figure';
+import { countryName, placeLine, localTime } from '@/lib/place';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +59,9 @@ export default async function AnalyticsPage({
   const sp = await searchParams;
   const range = rangeFor(sp.range ?? '7d', sp.from, sp.to);
 
-  const [report, pulse] = await Promise.all([getReport(range), getPulse()]);
+  const [report, pulse, liveVisitors] = await Promise.all([
+    getReport(range), getPulse(), getLiveVisitors(),
+  ]);
 
   const perVisitor = report.visitors ? (report.views / report.visitors).toFixed(1) : '0.0';
 
@@ -97,6 +100,8 @@ export default async function AnalyticsPage({
           <LivePulse initial={pulse} />
         </div>
 
+        <LiveNow visitors={liveVisitors} />
+
         <TrafficChart
           points={report.series} bucket={report.bucket}
           totalViews={report.views} totalVisitors={report.visitors}
@@ -113,7 +118,28 @@ export default async function AnalyticsPage({
           </div>
           <div className="glass panel">
             <div className="lb">Countries</div>
-            <Bars rows={report.countries} empty="No country data yet." />
+            {/* Full names, not codes. 'BD' is not something to have to decode
+                at a glance on your own dashboard. */}
+            <Bars
+              rows={report.countries.map((r) => ({ ...r, label: countryName(r.label) }))}
+              empty="No country data yet."
+            />
+          </div>
+          <div className="glass panel">
+            <div className="lb">Cities</div>
+            <Bars
+              rows={report.cities}
+              empty="No city could be resolved for any visit yet."
+            />
+            {/* Said on the screen, not just in the code: a city that is
+                confidently wrong is worse than no city, and this one is often
+                wrong. It is where the connection appears to be, not where a
+                person is. */}
+            <div className="hint" style={{ marginTop: '.7rem' }}>
+              Worked out from the network the visit came through, so a VPN or a mobile carrier
+              can place someone in the wrong city. Treat it as roughly where interest is coming
+              from, never as anybody&rsquo;s location.
+            </div>
           </div>
           <div className="glass panel">
             <div className="lb">Devices</div>
@@ -135,5 +161,62 @@ export default async function AnalyticsPage({
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Who is on the site right now, one row each.
+ *
+ * The closest thing to the "area name per visitor" that IP data can honestly
+ * give: a city where one resolved, the division, the country in full, their
+ * local time, and the page they are on. Nothing finer exists — see
+ * src/lib/place.ts for why a neighbourhood cannot be derived from an IP.
+ */
+function LiveNow({ visitors }: { visitors: LiveVisitor[] }) {
+  const ago = (s: number) =>
+    s < 10 ? 'now' : s < 60 ? `${s}s ago` : `${Math.round(s / 60)}m ago`;
+
+  return (
+    <div className="glass panel" style={{ marginTop: '1rem' }}>
+      <div className="lb">
+        On the site now
+        <span className={visitors.length ? 'chip ok' : 'chip off'} style={{ marginLeft: '.6rem' }}>
+          {visitors.length}
+        </span>
+      </div>
+
+      {visitors.length ? (
+        <div className="livelist">
+          {visitors.map((v) => {
+            const clock = localTime(v.timezone);
+            return (
+              <div className="liverow" key={v.ref}>
+                <span className="live-dot" aria-hidden="true" />
+                <span className="live-where" title={v.timezone ?? undefined}>
+                  {placeLine(v)}
+                </span>
+                <span className="live-path mono" title={v.path}>{v.path}</span>
+                <span className="live-meta">
+                  {v.device ?? 'unknown'}
+                  {clock ? ` · ${clock} local` : ''}
+                  {v.views > 1 ? ` · ${v.views} pages` : ''}
+                </span>
+                <span className="live-ago">{ago(v.agoSeconds)}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="feed-empty">Nobody on the site in the last five minutes.</div>
+      )}
+
+      <div className="hint" style={{ marginTop: '.8rem' }}>
+        <b>City is the finest detail an IP can give — there is no way to see a neighbourhood.</b>{' '}
+        Mirpur, Banani, Uttara and Rampura all resolve to &ldquo;Dhaka&rdquo;, and on Grameenphone
+        or Robi a visitor can appear in a different district entirely, because the address belongs
+        to the carrier&rsquo;s gateway rather than to them. Each visitor is a daily rotating hash,
+        not a person, and no IP address is stored.
+      </div>
+    </div>
   );
 }

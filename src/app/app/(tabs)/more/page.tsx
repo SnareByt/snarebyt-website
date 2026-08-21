@@ -98,15 +98,21 @@ export default async function MorePage() {
         <div>
           <div className="sec"><h3>The full dashboard</h3></div>
           <div className="list">
-            <a className="row" href="/admin" target="_blank" rel="noreferrer">
+            {/* NOT target="_blank". Installed on the home screen, iOS opens a
+                new tab in an in-app browser view with its OWN cookie store, so
+                the session does not travel with it — and since signed-out
+                admin URLs now answer 404 rather than redirecting to a login
+                page, that looked exactly like being locked out. Navigating in
+                place keeps the session and stays inside the app. */}
+            <Link className="row" href="/admin">
               <div className="row-main">
-                <div className="row-t">Open /admin</div>
+                <div className="row-t">Open the full dashboard</div>
                 <div className="row-s">
-                  Section layout, licence terms, email templates, history
+                  Portfolio, site editor, media, legal pages, discount codes
                 </div>
               </div>
               <span className="row-x"><IcNext /></span>
-            </a>
+            </Link>
             <a className="row" href="/" target="_blank" rel="noreferrer">
               <div className="row-main">
                 <div className="row-t">View the public site</div>

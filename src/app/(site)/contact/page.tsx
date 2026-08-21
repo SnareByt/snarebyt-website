@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { PageHead } from '@/components/site/PageHead';
 import { Faq, type FaqItem } from '@/components/site/Faq';
 import { BriefForm } from '@/components/site/BriefForm';
+import { SocialIcon } from '@/components/site/SocialIcon';
 
 type Values = Record<string, unknown>;
 const str = (v: Values, k: string, fallback = '') =>
@@ -89,11 +90,20 @@ export default async function ContactPage() {
                   </div>
                 )}
 
+                {/* The same marks as the footer. This row used to render
+                    initials — "I S S AM T D F Y" — because it never called
+                    SocialIcon, so the one page where somebody is deciding
+                    whether to get in touch showed eight letters where the rest
+                    of the site shows logos. */}
                 {socials.length ? (
                   <div className="socials">
                     {socials.map((s) => (
-                      <a key={s.id} className="soc" href={s.href} target="_blank" rel="noopener noreferrer" title={s.label}>
-                        {initials(s.label)}
+                      <a
+                        key={s.id} className="soc" href={s.href}
+                        target="_blank" rel="noopener noreferrer"
+                        title={s.label} aria-label={s.label}
+                      >
+                        <SocialIcon label={s.label} src={s.iconUrl} />
                       </a>
                     ))}
                   </div>

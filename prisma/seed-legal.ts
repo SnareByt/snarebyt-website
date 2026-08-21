@@ -20,7 +20,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const BUSINESS = 'SnareByt (Samir Islam), Dhaka, Bangladesh';
-const EMAIL = 'hello@snarebyt.com';
+const EMAIL = 'snarebyt@gmail.com';
 
 type Draft = { slug: string; title: string; body: string };
 

@@ -33,6 +33,13 @@ export async function ArtistSchema() {
     description:
       'Music producer, recording artist and mixing and mastering engineer from Dhaka, Bangladesh. Member of the Wrong Side collective.',
     genre: ['Hip hop', 'Trap', 'Drill'],
+    /* The mark, stated as data rather than left to be guessed from the page.
+       This is what a knowledge panel draws — it is NOT the small icon beside a
+       search result, which comes from <link rel="icon"> and is already served
+       at 512x512. Absolute URLs, because a crawler reading this JSON has no
+       page to resolve a relative path against. */
+    logo: `${base}/icon.png`,
+    image: `${base}/icon.png`,
     foundingLocation: { '@type': 'Place', name: 'Dhaka, Bangladesh' },
     // Only profiles with a real URL. getNav already drops empty ones.
     sameAs: socials.map((s) => s.href),

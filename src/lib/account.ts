@@ -337,6 +337,43 @@ export async function verifyOtp(userId: string, code: string): Promise<AuthResul
   if (!user.emailVerified) {
     await prisma.user.update({ where: { id: user.id }, data: { emailVerified: new Date() } });
     await attachGuestHistory(user.id, user.email);
+
+    /* Tell Samir a real artist account now exists.
+     *
+     * HERE, on verification, and deliberately not at registration. An
+     * unverified row proves only that somebody typed an address — it may not
+     * even be theirs. Alerting on that would hand anyone a button that makes
+     * his phone buzz as fast as they can submit a form, which is the exact
+     * spam vector this OTP step exists to close.
+     *
+     * Fire-and-forget, and imported here rather than at the top of the file:
+     * notify pulls in the mail and push clients, and none of that belongs in
+     * the module that decides whether a sign-in succeeds. An alert must never
+     * be able to fail a verification. */
+    void (async () => {
+      try {
+        const { notifyAdmin } = await import('./notify');
+        const full = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { name: true, artistName: true, country: true, phone: true, createdAt: true },
+        });
+        await notifyAdmin({
+          event: 'account.created',
+          subject: `New artist account — ${full?.name ?? user.email}`,
+          title: 'Artist account verified',
+          rows: [
+            ['Name', full?.name ?? '—'],
+            ['Email', user.email],
+            ...(full?.artistName ? [['Artist name', full.artistName] as [string, string]] : []),
+            ...(full?.country ? [['Country', full.country] as [string, string]] : []),
+            ...(full?.phone ? [['WhatsApp', full.phone] as [string, string]] : []),
+          ],
+          appUrl: '/app/customers',
+        });
+      } catch {
+        /* An account that verified is worth more than an alert about it. */
+      }
+    })();
   }
 
   await startSession(user.id);

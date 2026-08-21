@@ -26,9 +26,6 @@ export async function generateMetadata(
   };
 }
 
-const day = (d: Date) =>
-  d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-
 export default async function LegalPageRoute({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const page = await prisma.legalPage.findUnique({ where: { slug } });
@@ -44,10 +41,6 @@ export default async function LegalPageRoute({ params }: { params: Promise<{ slu
                 markup, and writes only the tags it generates itself. */}
             <div dangerouslySetInnerHTML={{ __html: renderMarkdown(page.bodyMarkdown) }} />
           </article>
-          <p className="note" style={{ marginTop: '2rem' }}>
-            Version {page.version} · in effect from {day(page.effectiveFrom)} · last updated{' '}
-            {day(page.updatedAt)}
-          </p>
         </div>
       </section>
     </>

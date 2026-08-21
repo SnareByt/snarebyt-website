@@ -299,7 +299,7 @@ async function main() {
   const settings: Record<string, string> = {
     usdRate: '122',
     whatsapp: '',                       // Samir to supply; contact button stays hidden until then
-    businessEmail: 'hello@snarebyt.com',
+    businessEmail: 'snarebyt@gmail.com',
     sslcommerzMode: 'sandbox',          // never flip to live before a sandbox run passes
     downloadExpiryHours: '72',
     downloadMaxAttempts: '5',

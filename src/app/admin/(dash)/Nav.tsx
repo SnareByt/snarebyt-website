@@ -116,6 +116,10 @@ export function MobileNav({ badge, user }: { badge: Record<string, number>; user
             <div className="sheet-hd">
               <span className="sub">{user}</span>
               <span className="sp" />
+              {/* The way back. Reached from the installed phone app, the full
+                  dashboard is otherwise a one-way trip — there is no browser
+                  chrome to go back with in standalone mode. */}
+              <a className="btn b-gh b-sm" href="/app">Phone app</a>
               <button type="button" className="btn b-gh b-sm" onClick={() => setOpen(false)}>Close</button>
             </div>
 

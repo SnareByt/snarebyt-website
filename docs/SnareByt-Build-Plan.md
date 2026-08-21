@@ -151,7 +151,7 @@ I researched your public footprint and rebuilt the copy, discography, credits an
 3. **MANTRA's full tracklist.**
 4. **WRONG TAPE (2023)** appeared in one search result but I could not confirm it's yours, so I left it out.
 5. **Your YouTube channel URL** — I only found individual video links.
-6. **Your real business email.** Currently `hello@snarebyt.com` as a placeholder.
+6. **Your real business email.** Currently `snarebyt@gmail.com` as a placeholder.
 7. **Whether you still want "Artist. Producer. Creative Visionary."** as the headline — your public identity reads more as *producer and engineer* than *artist*, though TOO TOXIC changes that.
 
 **Two things I deliberately did not do:**

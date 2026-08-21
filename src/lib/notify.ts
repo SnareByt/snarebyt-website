@@ -17,18 +17,19 @@ import { prisma } from './prisma';
  *     know whether it matters.
  */
 
-export type NotifyEvent = 'order.placed' | 'order.paid' | 'enquiry.received';
+export type NotifyEvent = 'order.placed' | 'order.paid' | 'enquiry.received' | 'account.created';
 
 type Settings = {
   to: string;
   onOrder: boolean;
   onPaid: boolean;
   onEnquiry: boolean;
+  onAccount: boolean;
 };
 
 async function loadSettings(): Promise<Settings | null> {
   const rows = await prisma.setting.findMany({
-    where: { key: { in: ['notifyEmail', 'notifyOnOrder', 'notifyOnPaid', 'notifyOnEnquiry', 'businessEmail'] } },
+    where: { key: { in: ['notifyEmail', 'notifyOnOrder', 'notifyOnPaid', 'notifyOnEnquiry', 'notifyOnAccount', 'businessEmail'] } },
   });
   const get = (k: string) => rows.find((r) => r.key === k)?.value ?? '';
   // Falls back to the business email, so alerts work the moment a key exists
@@ -42,11 +43,15 @@ async function loadSettings(): Promise<Settings | null> {
     onOrder: get('notifyOnOrder') !== 'false',
     onPaid: get('notifyOnPaid') !== 'false',
     onEnquiry: get('notifyOnEnquiry') !== 'false',
+    onAccount: get('notifyOnAccount') !== 'false',
   };
 }
 
 const wants = (s: Settings, e: NotifyEvent) =>
-  e === 'order.placed' ? s.onOrder : e === 'order.paid' ? s.onPaid : s.onEnquiry;
+  e === 'order.placed' ? s.onOrder
+    : e === 'order.paid' ? s.onPaid
+      : e === 'account.created' ? s.onAccount
+        : s.onEnquiry;
 
 /** Minimal, dark, and readable in a notification preview. */
 function shell(title: string, accent: string, rows: [string, string][], action?: { label: string; href: string }) {

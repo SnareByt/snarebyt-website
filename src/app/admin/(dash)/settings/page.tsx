@@ -21,11 +21,25 @@ export default async function SettingsPage() {
   const rows = await prisma.setting.findMany();
   const get = (k: string, fallback = '') => rows.find((r) => r.key === k)?.value ?? fallback;
 
+  /** Changes whenever any stored setting changes. See the note on the form. */
+  const signature = rows
+    .map((r) => `${r.key}=${r.value}`)
+    .sort()
+    .join('|');
+
   return (
     <>
       <header><div><div className="crumb">System</div><h1>Settings</h1></div></header>
       <div className="wrap">
+        {/* Keyed on the stored values. Text boxes and tick boxes here are
+            uncontrolled — defaultValue and defaultChecked are read once, at
+            mount — so a refresh alone would leave them showing what they were
+            when the tab opened. Changing the key remounts the form, which is
+            what makes every field show what is actually saved. It only changes
+            when the SERVER values do, so it never interrupts typing. */}
         <SettingsForm
+          key={signature}
+          signature={signature}
           usdRate={get('usdRate', '122')}
           whatsapp={get('whatsapp')}
           youtubeChannel={get('youtubeChannel')}
@@ -34,12 +48,13 @@ export default async function SettingsPage() {
           notifyOnOrder={get('notifyOnOrder') !== 'false'}
           notifyOnPaid={get('notifyOnPaid') !== 'false'}
           notifyOnEnquiry={get('notifyOnEnquiry') !== 'false'}
+          notifyOnAccount={get('notifyOnAccount') !== 'false'}
           pointerSheen={get('pointerSheen') !== 'false'}
           siteMode={(['soon', 'maintenance'] as const).find((m) => m === get('siteMode')) ?? 'live'}
           checkoutFlow={normaliseFlow(get('checkoutFlow'))}
           // Whether, not what. The credentials themselves never leave the server.
           paymentsConfigured={paymentsConfigured()}
-          businessEmail={get('businessEmail', 'hello@snarebyt.com')}
+          businessEmail={get('businessEmail', 'snarebyt@gmail.com')}
         />
 
         <section className="sec" style={{ marginTop: '2rem' }}>
