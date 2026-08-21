@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { saveSettings, type SettingsState } from '@/app/admin/(dash)/settings/actions';
 import { CHECKOUT_FLOWS, FLOW_LABEL, FLOW_DESC, type CheckoutFlow } from '@/lib/checkout-flow-rules';
 import { useToast } from '@/components/app/Ui';
@@ -55,20 +56,23 @@ function PickRow({
 type Values = {
   usdRate: string; whatsapp: string; businessEmail: string; youtubeChannel: string;
   notifyEmail: string; beatsComingSoon: boolean; notifyOnOrder: boolean;
-  notifyOnPaid: boolean; notifyOnEnquiry: boolean; pointerSheen: boolean;
-  siteMode: SiteMode; checkoutFlow: CheckoutFlow;
+  notifyOnPaid: boolean; notifyOnEnquiry: boolean; notifyOnAccount: boolean;
+  pointerSheen: boolean; siteMode: SiteMode; checkoutFlow: CheckoutFlow;
 };
 
 const EMPTY: SettingsState = { ok: false };
 
 export function SettingsForm({
-  values, paymentsConfigured,
+  values, paymentsConfigured, signature,
 }: {
   values: Values;
   paymentsConfigured: boolean;
+  /** Fingerprint of the stored settings this form was rendered from. */
+  signature: string;
 }) {
   const [state, action, pending] = useActionState(saveSettings, EMPTY);
   const toast = useToast();
+  const router = useRouter();
 
   /* Controlled, so the ticks move on tap. Uncontrolled radios would still
      submit correctly but the checkmark would not follow the finger, which
@@ -76,10 +80,26 @@ export function SettingsForm({
   const [mode, setMode] = useState<SiteMode>(values.siteMode);
   const [flow, setFlow] = useState<CheckoutFlow>(values.checkoutFlow);
 
+  /* Follow the props when the server sends new ones. These two are the only
+     controlled fields on the screen, and holding a value read once at mount is
+     exactly how a stale form ends up writing an old site mode back. */
+  useEffect(() => { setMode(values.siteMode); }, [values.siteMode]);
+  useEffect(() => { setFlow(values.checkoutFlow); }, [values.checkoutFlow]);
+
   useEffect(() => {
     if (state.ok && state.message) toast(state.message);
+    // A stale refusal gets its own panel below rather than a toast that
+    // disappears — nothing was saved, and that has to stay on screen.
+    else if (state.stale) return;
     else if (state.errors) toast(Object.values(state.errors)[0] ?? 'Check the form.', 'bad');
   }, [state, toast]);
+
+  /* Refetch after a save, so what is on screen is what is stored rather than
+     what was submitted. Keyed on the result object, which is new for every run
+     of the action, so this fires once per save and never loops. */
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [state, router]);
 
   return (
     <>
@@ -88,7 +108,30 @@ export function SettingsForm({
         <p>Live on the site the moment they save</p>
       </div>
 
+      {state.stale && (
+        <div className="wrap" style={{ paddingBottom: '1rem' }}>
+          <div className="note red">
+            <b>Nothing was saved.</b>
+            <br />
+            {state.message}
+            <button
+              type="button"
+              className="btn gh btn-full"
+              style={{ marginTop: '.7rem' }}
+              onClick={() => router.refresh()}
+            >
+              Show what is saved
+            </button>
+          </div>
+        </div>
+      )}
+
       <form action={action} className="wrap stack-lg">
+        {/* The fingerprint this screen was rendered from. The server compares
+            it against the stored values and refuses to write if they have
+            moved on, so a settings screen left open on this phone can never
+            silently undo a change made at the desk. */}
+        <input type="hidden" name="_signature" value={signature} />
         {/* ---------- Website access ----------
             First, because it is the biggest switch on the screen and the one
             most likely to be reached for in a hurry — something is wrong with
@@ -266,6 +309,17 @@ export function SettingsForm({
               <span className="sw">
                 <input type="checkbox" name="notifyOnEnquiry" value="true"
                        defaultChecked={values.notifyOnEnquiry} aria-label="Alert on enquiry" />
+                <i />
+              </span>
+            </label>
+            <label className="row">
+              <div className="row-main">
+                <div className="row-t">A new artist account</div>
+                <div className="row-s">After their email is verified</div>
+              </div>
+              <span className="sw">
+                <input type="checkbox" name="notifyOnAccount" value="true"
+                       defaultChecked={values.notifyOnAccount} aria-label="Alert on new artist account" />
                 <i />
               </span>
             </label>

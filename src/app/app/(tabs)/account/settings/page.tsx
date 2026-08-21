@@ -34,24 +34,39 @@ export const dynamic = 'force-dynamic';
 export default async function AppSettingsPage() {
   await requireAdmin();
 
-  const rows = await prisma.setting.findMany({
-    where: {
-      key: {
-        in: [
-          'usdRate', 'whatsapp', 'businessEmail', 'youtubeChannel',
-          'beatsComingSoon', 'notifyEmail', 'notifyOnOrder', 'notifyOnPaid',
-          'notifyOnEnquiry', 'pointerSheen', 'siteMode', 'checkoutFlow',
-        ],
-      },
-    },
-  });
+  /* Every row, not the subset this screen edits. The fingerprint below is
+     compared against one the server computes from the whole table, so a
+     filtered query here would never match and every save would be refused as
+     stale. */
+  const rows = await prisma.setting.findMany();
   const get = (k: string) => rows.find((r) => r.key === k)?.value ?? '';
+
+  /**
+   * The same fingerprint the desktop computes, built the same way.
+   *
+   * The form submits it and `saveSettings` refuses to write if the stored
+   * values have moved on since. That guard exists because this form saves
+   * every field at once: a screen left open does not merely look stale, it
+   * RESTORES its old state over anything changed elsewhere — and the docblock
+   * on the action names this phone as one side of the collision that produced
+   * it. Sending no signature would skip the check entirely and make the phone
+   * the one surface that can still overwrite the desktop silently.
+   */
+  const signature = rows
+    .map((r) => `${r.key}=${r.value}`)
+    .sort()
+    .join('|');
 
   return (
     <>
       <NavBar title="Settings" back="/app/more" />
 
       <SettingsForm
+        /* Keyed on the stored values, so a save remounts the form and every
+           uncontrolled field shows what is really saved rather than what was
+           last typed. */
+        key={signature}
+        signature={signature}
         // Whether, not what. The credentials themselves never leave the server.
         paymentsConfigured={paymentsConfigured()}
         values={{
@@ -72,6 +87,7 @@ export default async function AppSettingsPage() {
           notifyOnOrder: get('notifyOnOrder') !== 'false',
           notifyOnPaid: get('notifyOnPaid') !== 'false',
           notifyOnEnquiry: get('notifyOnEnquiry') !== 'false',
+          notifyOnAccount: get('notifyOnAccount') !== 'false',
           pointerSheen: get('pointerSheen') !== 'false',
         }}
       />

@@ -678,11 +678,15 @@ console.log('\nShared actions\n');
     return new Set([...rendered, ...set]);
   };
 
-  const CASES: { form: string; schema: string; label: string }[] = [
-    { form: 'src/app/app/(tabs)/account/settings/SettingsForm.tsx', schema: 'settingsSchema', label: 'settings' },
-    { form: 'src/app/app/(tabs)/site/portfolio/PortfolioList.tsx', schema: 'portfolioSchema', label: 'portfolio' },
-    { form: 'src/app/app/(tabs)/site/releases/ReleaseList.tsx', schema: 'releaseSchema', label: 'releases' },
-    { form: 'src/app/app/(tabs)/beats/[id]/BeatEditor.tsx', schema: 'beatSchema', label: 'beats' },
+  const CASES: { form: string; schema: string; actions: string; label: string }[] = [
+    { form: 'src/app/app/(tabs)/account/settings/SettingsForm.tsx', schema: 'settingsSchema',
+      actions: 'src/app/admin/(dash)/settings/actions.ts', label: 'settings' },
+    { form: 'src/app/app/(tabs)/site/portfolio/PortfolioList.tsx', schema: 'portfolioSchema',
+      actions: 'src/app/admin/(dash)/portfolio/actions.ts', label: 'portfolio' },
+    { form: 'src/app/app/(tabs)/site/releases/ReleaseList.tsx', schema: 'releaseSchema',
+      actions: 'src/app/admin/(dash)/releases/actions.ts', label: 'releases' },
+    { form: 'src/app/app/(tabs)/beats/[id]/BeatEditor.tsx', schema: 'beatSchema',
+      actions: 'src/app/admin/(dash)/beats/actions.ts', label: 'beats' },
   ];
 
   for (const c of CASES) {
@@ -698,11 +702,26 @@ console.log('\nShared actions\n');
       missing.length === 0,
     );
 
-    // Only fields belonging to THIS schema are compared. A form legitimately
-    // carries controls for other actions (a price sheet, a toggle), so a name
-    // is only suspect when nothing in the codebase would read it.
+    /**
+     * A field nothing reads.
+     *
+     * A name is legitimate if the schema parses it, OR the action reads it
+     * off the FormData directly — `_signature` is the second kind: it is the
+     * stale-write guard, deliberately outside the schema. A form also
+     * legitimately carries controls for OTHER actions (a price sheet, a
+     * toggle), so a name mentioned anywhere in validators or in the form's
+     * own code is left alone too.
+     *
+     * What is left is the case this exists for: appleMusicUrl, which sat on
+     * the release form for months, was parsed by no schema, read by no
+     * action, and silently discarded every link typed into it.
+     */
+    const actionSrc = has(c.actions) ? read(c.actions) : '';
     const stray = [...got].filter(
-      (k) => !want.includes(k) && !validators.includes(`${k}:`) && !read(c.form).includes(`'${k}'`),
+      (k) => !want.includes(k)
+        && !actionSrc.includes(`get('${k}')`)
+        && !validators.includes(`${k}:`)
+        && !read(c.form).includes(`'${k}'`),
     );
     ok(
       `  ${c.label}: no field that nothing reads${stray.length ? ` — stray ${stray.join(', ')}` : ''}`,
