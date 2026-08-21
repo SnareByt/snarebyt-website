@@ -1065,3 +1065,16 @@ td,.kpi-n,.live-n,.live-k{font-variant-numeric:tabular-nums}
 .bb-draft{font-style:normal;margin-left:.45rem;font-size:.55rem;letter-spacing:.12em;
   text-transform:uppercase;color:var(--dim);border:1px solid var(--line2);
   padding:.05rem .3rem;border-radius:20px;vertical-align:middle}
+
+/* ---------- Devices signed in ---------- */
+.devices{display:flex;flex-direction:column;gap:.6rem}
+.device{display:flex;align-items:center;gap:1rem;padding:.9rem 1rem;border-radius:14px;
+  border:1px solid var(--line);background:rgba(255,255,255,.025)}
+.device.is-current{border-color:rgba(43,182,115,.35);background:rgba(43,182,115,.06)}
+.dev-main{flex:1;min-width:0}
+.dev-t{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-weight:700;font-size:.85rem}
+.dev-meta{font-size:.66rem;margin-top:.15rem}
+@media(max-width:560px){
+  .device{flex-wrap:wrap}
+  .device .btn{margin-left:auto}
+}

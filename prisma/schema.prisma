@@ -1135,6 +1135,12 @@ model PageView {
   /// and private query strings.
   referrer   String?
   country    String?
+  /// City and region as the edge resolved them from the IP — never the IP
+  /// itself, which is not stored anywhere. Both are coarse and often absent
+  /// (a VPN, a mobile carrier's gateway, a datacentre), so anything reading
+  /// them has to treat "unknown" as a normal answer rather than an error.
+  city       String?
+  region     String?
   device     String?  // mobile | tablet | desktop
   /// Rotating daily hash. Not reversible to a person.
   visitorId  String

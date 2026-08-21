@@ -60,7 +60,7 @@ export function SocialIcon({ label }: { label: string }) {
     );
   }
   return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true" focusable="false">
       <path d={mark.d} transform={mark.transform} />
     </svg>
   );

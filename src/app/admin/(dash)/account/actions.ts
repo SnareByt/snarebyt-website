@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { requireAdmin, hashPassword } from '@/lib/prisma-safe-auth';
+import {
+  requireAdmin, hashPassword, currentSession, revokeSession,
+} from '@/lib/prisma-safe-auth';
 import { audit } from '@/lib/audit';
 import { passwordSchema } from '@/lib/validators';
 import { generateTotpSecret, verifyTotp, otpauthUrl } from '@/lib/totp';
@@ -125,4 +127,70 @@ export async function disableTotp(prev: TotpState, formData: FormData): Promise<
   revalidatePath('/admin/account');
 
   return { ok: true, attempt, message: 'Two-factor is off. Your password alone now opens the dashboard.' };
+}
+
+export type DeviceResult = { ok: true; message: string } | { ok: false; error: string };
+
+/**
+ * Sign one device out.
+ *
+ * revokeSession is scoped to the caller's own ADMIN sessions inside its where
+ * clause, so a guessed id belonging to another account — or to a customer in
+ * the artist portal — matches nothing rather than signing someone else out.
+ */
+export async function signOutDevice(sessionId: string): Promise<DeviceResult> {
+  const admin = await requireAdmin();
+
+  // Refusing to revoke the session making the request. Doing it would log him
+  // out mid-click, which is indistinguishable from being locked out.
+  const here = await currentSession();
+  if (here?.id === sessionId) {
+    return { ok: false, error: 'That is the device you are using. Use Sign out at the bottom of the sidebar instead.' };
+  }
+
+  const done = await revokeSession(admin.id, sessionId);
+  if (!done) return { ok: false, error: 'That device is already signed out.' };
+
+  await audit({
+    actorId: admin.id, action: 'session.revoked', entity: 'Session', entityId: sessionId,
+    diff: { by: 'admin device list' },
+  });
+
+  revalidatePath('/admin/account');
+  return { ok: true, message: 'Signed out. That device needs the password again.' };
+}
+
+/**
+ * Sign out everything except the device asking.
+ *
+ * The thing to reach for when a laptop is lost or a phone is sold: one action,
+ * and every other session stops working immediately, because currentAdmin()
+ * refuses a revoked row exactly as it refuses an expired one.
+ */
+export async function signOutOtherDevices(): Promise<DeviceResult> {
+  const admin = await requireAdmin();
+  const here = await currentSession();
+
+  const { count } = await prisma.session.updateMany({
+    where: {
+      userId: admin.id,
+      kind: 'ADMIN',
+      revokedAt: null,
+      ...(here ? { id: { not: here.id } } : {}),
+    },
+    data: { revokedAt: new Date() },
+  });
+
+  await audit({
+    actorId: admin.id, action: 'session.revoked.all', entity: 'User', entityId: admin.id,
+    diff: { count },
+  });
+
+  revalidatePath('/admin/account');
+  return {
+    ok: true,
+    message: count
+      ? `Signed out ${count} device${count === 1 ? '' : 's'}. Each needs the password again.`
+      : 'Nothing else was signed in.',
+  };
 }

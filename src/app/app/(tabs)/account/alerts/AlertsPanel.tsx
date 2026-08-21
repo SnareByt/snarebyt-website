@@ -28,7 +28,11 @@ export function AlertsPanel({
 
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<'checking' | 'on' | 'off' | 'blocked' | 'unsupported'>('checking');
-  const [standalone, setStandalone] = useState(true);
+  /* Whether push needs the app INSTALLED before it will work. That is an
+     iOS rule, not a web one: desktop Chrome, Edge and Firefox deliver push to
+     an ordinary tab. Requiring standalone everywhere is what stopped this
+     working on a Mac or a PC. */
+  const [needsInstall, setNeedsInstall] = useState(false);
 
   /**
    * Work out what this device can actually do, once, on mount.
@@ -42,7 +46,15 @@ export function AlertsPanel({
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (navigator as { standalone?: boolean }).standalone === true;
-    setStandalone(isStandalone);
+
+    /* iPadOS reports itself as Macintosh, so the touch count is what separates
+       a real Mac from an iPad pretending to be one. Getting this wrong tells a
+       Mac user to add the app to a Home Screen it does not have. */
+    const ua = navigator.userAgent;
+    const isIOS = /iP(hone|ad|od)/.test(ua)
+      || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+
+    setNeedsInstall(isIOS && !isStandalone);
 
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
       setState('unsupported');
@@ -159,18 +171,21 @@ export function AlertsPanel({
               VAPID_PRIVATE_KEY and VAPID_SUBJECT in the hosting environment, then redeploy.
               Email alerts work regardless.
             </div>
-          ) : !standalone ? (
+          ) : needsInstall ? (
             <div className="note warn">
               <b>Add the app to your Home Screen first.</b>
               <br />
-              iOS only delivers push to an installed web app. In Safari, tap Share, then
-              Add to Home Screen, then open it from the icon and come back here.
+              iPhone and iPad only deliver alerts to an installed web app. In Safari, tap
+              Share, then Add to Home Screen, open it from the icon and come back here.
+              On a Mac or a PC nothing needs installing — just switch them on.
             </div>
           ) : state === 'unsupported' ? (
             <div className="note warn">
               <b>This browser cannot receive alerts.</b>
               <br />
-              Open the app from its Home Screen icon on iOS 16.4 or newer.
+              On iPhone or iPad, open the app from its Home Screen icon on iOS 16.4 or newer.
+              On a computer use Chrome, Edge or Firefox — Safari on macOS needs the site added
+              to the Dock first.
             </div>
           ) : state === 'blocked' ? (
             <div className="note red">

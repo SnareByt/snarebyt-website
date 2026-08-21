@@ -116,6 +116,22 @@ export default async function AnalyticsPage({
             <Bars rows={report.countries} empty="No country data yet." />
           </div>
           <div className="glass panel">
+            <div className="lb">Cities</div>
+            <Bars
+              rows={report.cities}
+              empty="No city could be resolved for any visit yet."
+            />
+            {/* Said on the screen, not just in the code: a city that is
+                confidently wrong is worse than no city, and this one is often
+                wrong. It is where the connection appears to be, not where a
+                person is. */}
+            <div className="hint" style={{ marginTop: '.7rem' }}>
+              Worked out from the network the visit came through, so a VPN or a mobile carrier
+              can place someone in the wrong city. Treat it as roughly where interest is coming
+              from, never as anybody&rsquo;s location.
+            </div>
+          </div>
+          <div className="glass panel">
             <div className="lb">Devices</div>
             <Bars rows={report.devices} empty="No device data yet." />
           </div>

@@ -46,6 +46,8 @@ export type Report = {
   pages: Row[];
   referrers: Row[];
   countries: Row[];
+  /** City-level, where the edge could resolve one. Coarse and often absent. */
+  cities: Row[];
   devices: Row[];
   /** Distinct visitors seen in the last five minutes. */
   live: number;
@@ -99,7 +101,7 @@ export async function getReport(r: Range): Promise<Report> {
         WHERE "createdAt" >= ${r.from} AND "createdAt" <= ${r.to}
         GROUP BY 1 ORDER BY 1`;
 
-  const [totals, prev, live, pages, referrers, countries, devices] = await Promise.all([
+  const [totals, prev, live, pages, referrers, countries, devices, cities] = await Promise.all([
     prisma.$queryRaw<{ views: bigint; visitors: bigint }[]>`
       SELECT COUNT(*) AS views, COUNT(DISTINCT "visitorId") AS visitors
       FROM "PageView" WHERE "createdAt" >= ${r.from} AND "createdAt" <= ${r.to}`,
@@ -125,6 +127,22 @@ export async function getReport(r: Range): Promise<Report> {
       SELECT COALESCE("device", 'unknown') AS label, COUNT(*) AS views
       FROM "PageView" WHERE "createdAt" >= ${r.from} AND "createdAt" <= ${r.to}
       GROUP BY 1 ORDER BY 2 DESC`,
+    /* Rows with no city are excluded rather than gathered into an "unknown"
+       bar. A VPN, a mobile carrier or a corporate gateway leaves it blank, and
+       on a small site that blank would usually be the tallest bar on the
+       chart — telling you nothing while crowding out the cities that are real.
+       The screen reports how many were unplaceable instead. */
+    prisma.$queryRaw<{ label: string; views: bigint }[]>`
+      SELECT
+        CASE
+          WHEN "region" IS NULL OR "region" = '' THEN "city"
+          ELSE "city" || ', ' || "region"
+        END AS label,
+        COUNT(*) AS views
+      FROM "PageView"
+      WHERE "createdAt" >= ${r.from} AND "createdAt" <= ${r.to}
+        AND "city" IS NOT NULL AND "city" <> ''
+      GROUP BY 1 ORDER BY 2 DESC LIMIT 10`,
   ]);
 
   const n = (v: bigint | undefined) => Number(v ?? 0);
@@ -140,6 +158,7 @@ export async function getReport(r: Range): Promise<Report> {
     pages: pages.map((x) => ({ label: x.label, views: n(x.views), visitors: n(x.visitors) })),
     referrers: referrers.map((x) => ({ label: x.label, views: n(x.views) })),
     countries: countries.map((x) => ({ label: x.label, views: n(x.views) })),
+    cities: cities.map((x) => ({ label: x.label, views: n(x.views) })),
     devices: devices.map((x) => ({ label: x.label, views: n(x.views) })),
     bucket: r.bucket,
   };

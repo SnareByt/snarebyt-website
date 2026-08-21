@@ -41,6 +41,22 @@ function deviceFrom(ua: string): string {
   return 'desktop';
 }
 
+/**
+ * Vercel percent-encodes the city header, because a header cannot carry a
+ * non-ASCII byte. Without this, Dhaka's neighbours arrive as "Chattogram" but
+ * anywhere with an accent arrives as "S%C3%A3o%20Paulo".
+ */
+function decodeEdge(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const value = decodeURIComponent(raw).trim();
+    return value ? value.slice(0, 80) : null;
+  } catch {
+    // A malformed sequence is not worth losing the whole page view over.
+    return raw.slice(0, 80);
+  }
+}
+
 function hostnameOf(ref: string | null): string | null {
   if (!ref) return null;
   try {
@@ -88,8 +104,17 @@ export async function POST(req: NextRequest) {
       data: {
         path,
         referrer: externalReferrer,
-        // Vercel resolves this at the edge; it is country-level only.
+        /* Vercel resolves these at the edge from the IP, before the request
+           reaches this code. The IP itself is used for one thing — the daily
+           visitor hash above — and is never stored.
+
+           City is often missing or wrong: a VPN, a mobile carrier routing
+           through Dhaka, or a corporate gateway all place someone somewhere
+           they are not. It is a rough picture of where interest is coming
+           from, not a location for any individual, and the admin says so. */
         country: req.headers.get('x-vercel-ip-country'),
+        city: decodeEdge(req.headers.get('x-vercel-ip-city')),
+        region: req.headers.get('x-vercel-ip-country-region'),
         device: deviceFrom(ua),
         visitorId,
       },

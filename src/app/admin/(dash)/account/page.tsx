@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/lib/prisma-safe-auth';
+import { requireAdmin, listSessions, currentSession } from '@/lib/prisma-safe-auth';
 import { PasswordForm, TotpSetup } from './AccountForms';
+import { Devices, type DeviceRow } from './Devices';
+import { signOutDevice, signOutOtherDevices } from './actions';
+import { deviceName, ago, until } from '@/lib/device-name';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +13,23 @@ export default async function AccountPage() {
     where: { id: admin.id },
     select: { email: true, name: true, twoFactorEnabled: true, lastLoginAt: true, lastLoginIp: true },
   });
-  const sessions = await prisma.session.count({ where: { userId: admin.id } });
+  const [live, here] = await Promise.all([listSessions(admin.id), currentSession()]);
+  const sessions = live.length;
+
+  const devices: DeviceRow[] = live.map((s) => {
+    const { name, detail } = deviceName(s.userAgent, s.label);
+    return {
+      id: s.id,
+      name,
+      detail,
+      client: s.client,
+      ip: s.ip,
+      lastSeen: ago(s.lastSeenAt),
+      signedIn: ago(s.createdAt),
+      expires: until(s.expiresAt),
+      current: here?.id === s.id,
+    };
+  });
 
   return (
     <>
@@ -26,6 +45,20 @@ export default async function AccountPage() {
         </div>
 
         <section className="sec">
+          <Devices rows={devices} signOutOne={signOutDevice} signOutOthers={signOutOtherDevices} />
+          <div className="note" style={{ marginTop: '1.1rem' }}>
+            <span>🔑</span>
+            <span>
+              <b>To add a device, sign in on it.</b> Open{' '}
+              <span className="mono">snarebyt.com/admin/login</span> on the phone or the Mac and
+              sign in — it appears in this list. There is no invite to send and no code to type,
+              because access belongs to whoever knows the password, not to a device. What matters
+              is this list: if something here is not yours, sign it out and change the password.
+            </span>
+          </div>
+        </section>
+
+        <section className="sec" style={{ marginTop: '2rem' }}>
           <div className="sec-hd"><h2>Two-factor authentication</h2></div>
           <TotpSetup enabled={user.twoFactorEnabled} />
         </section>
