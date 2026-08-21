@@ -49,8 +49,38 @@ const PATHS: Record<string, { d: string; label: string; transform?: string }> = 
   },
 };
 
-/** Falls back to initials so a profile added later still renders sensibly. */
-export function SocialIcon({ label }: { label: string }) {
+/**
+ * The mark for one profile link.
+ *
+ * Three steps down, in order of how much someone chose them:
+ *
+ *  1. `src` — an icon uploaded in the admin. Explicitly chosen, so it wins.
+ *  2. The built-in SVG for a known platform.
+ *  3. Initials, for a platform nothing here has a glyph for.
+ *
+ * An uploaded icon is NOT recoloured on hover the way the SVGs are: those are
+ * monochrome paths inheriting currentColor, while an upload is somebody's
+ * artwork and tinting it red would wreck it.
+ */
+export function SocialIcon({ label, src }: { label: string; src?: string | null }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- one small square
+      // from our own R2 bucket at a fixed 20px; next/image's wrapper and
+      // srcset machinery buy nothing here and complicate the CSP.
+      <img
+        className="soc-img"
+        src={src}
+        alt=""
+        width={20}
+        height={20}
+        loading="lazy"
+        decoding="async"
+        aria-hidden="true"
+      />
+    );
+  }
+
   const mark = PATHS[label];
   if (!mark) {
     return (
@@ -64,4 +94,10 @@ export function SocialIcon({ label }: { label: string }) {
       <path d={mark.d} transform={mark.transform} />
     </svg>
   );
+}
+
+/** Whether a built-in mark exists for this label. Used by the admin to say
+ *  whether uploading an icon would be overriding one or supplying the first. */
+export function hasBuiltInMark(label: string): boolean {
+  return label in PATHS;
 }

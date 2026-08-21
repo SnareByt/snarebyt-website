@@ -968,6 +968,10 @@ model MediaAsset {
   credit    String?
 
   pages     Page[]
+  /// Social links using this file as their icon. onDelete: SetNull on the
+  /// other side, so removing an image from the library falls the link back to
+  /// its built-in mark rather than leaving a broken picture.
+  navIcons  NavItem[]
   createdAt DateTime  @default(now())
 
   @@index([kind, createdAt])
@@ -996,6 +1000,13 @@ model NavItem {
   /// A link with an empty href is force-hidden, so an unfinished
   /// profile can never render as a dead icon.
   visible   Boolean  @default(true)
+
+  /// An uploaded icon, replacing the built-in mark for this link. Stores the
+  /// MediaAsset id rather than a URL, so replacing the file updates every
+  /// place the icon appears. Null means "use the built-in one", which is why
+  /// nothing breaks when no icon has been uploaded.
+  iconMediaId String?
+  icon        MediaAsset? @relation(fields: [iconMediaId], references: [id], onDelete: SetNull)
 
   @@index([group, sortOrder])
 }

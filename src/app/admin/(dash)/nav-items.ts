@@ -33,6 +33,7 @@ export const NAV: NavGroup[] = [
     { href: '/admin/site', label: 'Site editor', short: 'Site', icon: '✎' },
     { href: '/admin/media', label: 'Media', icon: '🖼' },
     { href: '/admin/legal', label: 'Legal pages', short: 'Legal', icon: '§' },
+    { href: '/admin/social', label: 'Social links', short: 'Social', icon: '◎' },
   ]},
   { group: 'Business', items: [
     { href: '/admin/orders', label: 'Orders', icon: '₿' },

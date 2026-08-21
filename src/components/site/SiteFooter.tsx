@@ -57,7 +57,7 @@ export async function SiteFooter() {
                   title={s.label}
                   aria-label={s.label}
                 >
-                  <SocialIcon label={s.label} />
+                  <SocialIcon label={s.label} src={s.iconUrl} />
                 </a>
               ))}
             </div>

@@ -1,6 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { prisma } from './prisma';
+import { publicUrl } from './storage';
 
 /**
  * Public-site content readers.
@@ -66,8 +67,16 @@ export const getNav = cache(async (group: 'MENU' | 'SOCIAL' | 'FOOTER') => {
   const items = await prisma.navItem.findMany({
     where: { group, visible: true },
     orderBy: { sortOrder: 'asc' },
+    include: { icon: { select: { objectKey: true } } },
   });
   // An empty href is force-hidden so an unfinished profile never
   // renders as a dead icon.
-  return items.filter((i) => i.href.trim() !== '');
+  return items
+    .filter((i) => i.href.trim() !== '')
+    .map((i) => ({
+      ...i,
+      // Resolved here rather than at each call site, so the footer and the
+      // contact page cannot disagree about where an icon lives.
+      iconUrl: i.icon ? publicUrl(i.icon.objectKey) : null,
+    }));
 });

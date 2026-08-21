@@ -1767,3 +1767,9 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
   .promo-row{flex-wrap:wrap}
   .promo-row .btn{width:100%}
 }
+
+/* An uploaded icon inside a .soc circle. object-fit so a non-square upload is
+   letterboxed rather than stretched, and no colour filter — the SVG marks
+   inherit currentColor, but someone's artwork must not be tinted red. */
+.soc-img{width:20px;height:20px;object-fit:contain;display:block}
+.soc:hover .soc-img{filter:drop-shadow(0 0 6px rgba(255,45,74,.45))}
