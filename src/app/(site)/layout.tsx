@@ -55,15 +55,14 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   return (
     <CurrencyProvider rate={rate}>
       <div style={themeStyle(theme)} data-motion={theme.motion ? 'on' : 'off'}>
-        {/* Coming soon keeps the real site behind the panel, blurred and
-            inert, so there is visibly something being built. Maintenance does
-            not: the page may be mid-deploy, and blurring a half-rendered site
-            looks like a fault rather than a decision. */}
+        {/* Both closed modes keep the real site behind the panel, blurred and
+            inert — it reads as a site that exists and is briefly out of reach
+            rather than a dead end. The `inert` attribute is what makes it
+            genuinely decorative: without it the links behind the blur are
+            still focusable and still reachable by a determined finger. */}
         {gate.gated ? (
           <>
-            {gate.mode === 'soon' ? (
-              <div className="gated-behind" aria-hidden="true" inert>{shell}</div>
-            ) : null}
+            <div className="gated-behind" aria-hidden="true" inert>{shell}</div>
             <SiteGate mode={gate.mode} whatsapp={whatsapp} />
           </>
         ) : (

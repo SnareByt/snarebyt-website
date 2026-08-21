@@ -43,8 +43,8 @@ console.log('\nWhat a visitor sees\n');
 eq('live site renders normally', decideGate('live', visitor), { show: 'site' });
 eq('coming soon shows the gate WITH the site blurred behind',
   decideGate('soon', visitor), { show: 'gate', blurBehind: true });
-eq('maintenance shows the gate with NOTHING behind',
-  decideGate('maintenance', visitor), { show: 'gate', blurBehind: false });
+eq('maintenance also shows the gate with the site blurred behind',
+  decideGate('maintenance', visitor), { show: 'gate', blurBehind: true });
 
 console.log('\nWhat an admin sees\n');
 

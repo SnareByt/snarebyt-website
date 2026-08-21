@@ -18,6 +18,10 @@ import type { SiteMode } from '@/lib/site-mode';
  * sent to the browser and CSS can be turned off, so the actual refusal to
  * take orders lives in the server actions, not here.
  */
+/** Characters in the longest word — the line the headline has to fit. */
+const longestWord = (s: string) =>
+  s.split(/\s+/).reduce((n, w) => Math.max(n, w.length), 1);
+
 export function SiteGate({
   mode, whatsapp, message,
 }: {
@@ -26,6 +30,7 @@ export function SiteGate({
   message?: string;
 }) {
   const soon = mode === 'soon';
+  const title = soon ? 'Coming soon' : 'Under maintenance';
 
   return (
     <div className={`gate gate-${mode}`} role="dialog" aria-modal="true" aria-label={soon ? 'Coming soon' : 'Under maintenance'}>
@@ -43,8 +48,12 @@ export function SiteGate({
           {soon ? 'Launching soon' : 'Back shortly'}
         </div>
 
-        <h1 className="gate-title">
-          <span className="gate-text">{soon ? 'Coming soon' : 'Under maintenance'}</span>
+        {/* --len is the longest word, because that is what actually has to fit
+            on one line. "maintenance" is eleven characters and nearly as wide
+            as the whole of "Coming soon", so sizing the two titles the same
+            way is what pushed this one out of the panel. */}
+        <h1 className="gate-title" style={{ '--len': longestWord(title) } as React.CSSProperties}>
+          <span className="gate-text">{title}</span>
         </h1>
 
         <p className="gate-lead">

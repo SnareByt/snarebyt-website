@@ -31,10 +31,11 @@ export type GateDecision =
 export function decideGate(mode: SiteMode, who: Audience): GateDecision {
   if (mode === 'live') return { show: 'site' };
   if (who.isAdmin) return { show: 'site', preview: true };
-  // Coming soon keeps the real site behind it, blurred, so there is visibly
-  // something being built. Maintenance does not: the page may be mid-deploy,
-  // and a blurred half-rendered site reads as a fault rather than a decision.
-  return { show: 'gate', blurBehind: mode === 'soon' };
+  // Both closed modes keep the real site behind the panel, blurred and inert.
+  // The blur is what makes it read as a site that exists and is temporarily
+  // out of reach, rather than a dead end — and that is as true of an hour of
+  // maintenance as it is of a launch.
+  return { show: 'gate', blurBehind: true };
 }
 
 /**

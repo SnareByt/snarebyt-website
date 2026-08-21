@@ -1409,12 +1409,17 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
    than merely hard to read — without it a determined finger still reaches the
    links through the blur. `user-select:none` stops text being dragged out of
    a page that is supposed to be closed. */
+/* Fixed, not in flow. The 1.03 scale that hides the blur's soft edge also
+   makes this 3% wider than the viewport, and in normal flow that leaked as
+   horizontal page scroll on a narrow phone — the backdrop dragging the page
+   sideways behind a panel that is not supposed to move at all. */
 .gated-behind{
+  position:fixed;inset:0;z-index:0;
   filter:blur(14px) saturate(.72) brightness(.5);
   pointer-events:none;user-select:none;
-  transform:scale(1.03);          /* hides the soft edge the blur leaves */
-  transform-origin:center top;
-  height:100svh;overflow:hidden}
+  transform:scale(1.03);
+  transform-origin:center center;
+  overflow:hidden}
 
 @media(prefers-reduced-motion:reduce){
   .gated-behind{filter:blur(14px) saturate(.72) brightness(.42)}
@@ -1422,14 +1427,15 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
 
 .gate{position:fixed;inset:0;z-index:900;display:grid;place-items:center;
   padding:clamp(1.1rem,4vw,2.4rem);overflow-y:auto}
-/* Maintenance paints its own ground; coming soon lets the blurred site show. */
-.gate-maintenance{background:radial-gradient(ellipse 90% 70% at 50% -10%,rgba(124,14,22,.28),transparent 62%),var(--ink)}
-.gate-soon{background:rgba(4,4,5,.55)}
+/* Both modes sit over the blurred site now, so neither paints its own ground.
+   A translucent scrim only: the blur behind is doing the work, and an opaque
+   fill would hide the thing it exists to show. */
+.gate-soon,.gate-maintenance{background:rgba(4,4,5,.55)}
 
 .gate-aura{position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(ellipse 70% 55% at 50% 40%,rgba(124,14,22,.22),transparent 66%)}
 
-.gate-panel{position:relative;width:100%;max-width:620px;text-align:center;
+.gate-panel{position:relative;width:100%;max-width:620px;text-align:center;container-type:inline-size;
   padding:clamp(2.2rem,6vw,3.6rem) clamp(1.4rem,5vw,3rem);border-radius:26px;
   border:1px solid var(--line-strong);
   background:linear-gradient(168deg,rgba(20,20,24,.92),rgba(8,8,10,.94));
@@ -1460,9 +1466,17 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
 @keyframes gatePulse{50%{opacity:.35}}
 @media(prefers-reduced-motion:reduce){.gate-dot{animation:none}}
 
+/* Sized against the longest WORD in the title, not the viewport.
+   "maintenance" measures 10.75em in Syne at weight 800 — as wide as the whole
+   of "Coming soon" — so a clamp that suited one title overflowed the other
+   and the panel's overflow:hidden simply cut it off. --len is the longest
+   word's character count, published by the component, and the cap is whatever
+   width lets that word sit on one line inside this panel. */
 .gate-title{font-family:var(--font-syne),sans-serif;font-weight:800;
-  letter-spacing:-.035em;line-height:1.02;margin:1.2rem 0 1.1rem;
-  font-size:clamp(2.3rem,9vw,4rem)}
+  --len:11;
+  letter-spacing:-.035em;line-height:1.06;margin:1.2rem 0 1.1rem;
+  font-size:min(clamp(1.9rem,9cqi,4rem),calc(100cqi / (var(--len) * 1.02)));
+  overflow-wrap:break-word}
 /* Chrome on the headline, red only where it punctuates — the site's rule. */
 .gate-text{background:var(--chrome);-webkit-background-clip:text;background-clip:text;
   color:transparent;display:inline-block}

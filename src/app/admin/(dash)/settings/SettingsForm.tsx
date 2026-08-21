@@ -10,7 +10,7 @@ const initial: SettingsState = { ok: false };
 const MODES = [
   { v: 'live' as const, label: 'Live', desc: 'Open to everyone. Normal trading.' },
   { v: 'soon' as const, label: 'Coming soon', desc: 'Pre-launch. Site blurred behind the panel.' },
-  { v: 'maintenance' as const, label: 'Under maintenance', desc: 'Temporarily down. Nothing shown behind.' },
+  { v: 'maintenance' as const, label: 'Under maintenance', desc: 'Temporarily down. Site blurred behind the panel.' },
 ];
 
 export function SettingsForm({
@@ -157,7 +157,7 @@ export function SettingsForm({
             <span>
               {mode === 'soon'
                 ? <>Visitors see a <b>Coming soon</b> panel with the site blurred behind it. Nothing can be ordered and no new artist accounts can be created. Existing artists can still sign in for their files.</>
-                : <>Visitors see an <b>Under maintenance</b> panel with nothing behind it. Nothing can be ordered and no new artist accounts can be created. Existing artists can still sign in for their files.</>}
+                : <>Visitors see an <b>Under maintenance</b> panel with the site blurred behind it. Nothing can be ordered and no new artist accounts can be created. Existing artists can still sign in for their files.</>}
             </span>
           </div>
         )}
