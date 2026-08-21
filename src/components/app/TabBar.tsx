@@ -52,17 +52,45 @@ export function TabBar({ badges }: { badges: { orders: number } }) {
      the optimistic guess having to give way to it. */
   useEffect(() => setPending(null), [path]);
 
-  const isActive = (href: string) => {
-    // "/app" would otherwise match every path in the app, lighting up Today
-    // on every screen. Every other tab owns its whole subtree.
-    const target = pending ?? path;
-    return href === '/app' ? target === '/app' : target.startsWith(href);
-  };
+  /**
+   * Which tab owns the current screen.
+   *
+   * An index rather than a per-tab boolean, because the bar now slides one
+   * lozenge between positions instead of lighting five independent tabs, and
+   * a slide needs to know where to slide TO.
+   *
+   * "/app" is matched exactly — as a prefix it would claim every screen in the
+   * app and leave Today lit everywhere. The other three own their subtrees, so
+   * a beat's detail page keeps Beats selected, which is what a native tab bar
+   * does when you drill into one.
+   *
+   * More is the fallback, and deliberately so. Settings, Security, Alerts,
+   * Discount codes, Customers, Analytics and Services all live behind More and
+   * none of their URLs begin with /app/more. Without this they would light
+   * nothing at all, and the lozenge would sit under Today claiming to be
+   * somewhere the screen is not.
+   */
+  const target = pending ?? path;
+  const activeIndex = (() => {
+    if (target === '/app') return 0;
+    const owned = TABS.findIndex(
+      (t) => t.href !== '/app' && t.href !== '/app/more' && target.startsWith(t.href),
+    );
+    if (owned !== -1) return owned;
+    // Anything else under /app is part of the long tail.
+    return TABS.length - 1;
+  })();
 
   return (
-    <nav className="tabbar" aria-label="Sections">
-      {TABS.map(({ href, label, Icon, ...rest }) => {
-        const on = isActive(href);
+    <nav
+      className="tabbar"
+      aria-label="Sections"
+      /* The lozenge's position and width are pure CSS arithmetic over these
+         two numbers, so adding or removing a tab needs no stylesheet change. */
+      style={{ '--active': activeIndex, '--count': TABS.length } as React.CSSProperties}
+    >
+      {TABS.map(({ href, label, Icon, ...rest }, i) => {
+        const on = i === activeIndex;
         const count = 'badgeKey' in rest ? badges[rest.badgeKey as 'orders'] : 0;
 
         return (

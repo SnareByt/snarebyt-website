@@ -49,8 +49,13 @@
 
   /* The chrome heights, declared once so content padding can never drift out
      of step with the bars that overlap it. */
-  --tabbar: 54px;
+  --tabbar: 58px;
   --navbar: 48px;
+  /* The floating bar's margins. Inset from the edges and lifted clear of the
+     home indicator, so it reads as a control hovering over the page rather
+     than a strip welded to the bottom of the screen. */
+  --tabbar-inset: .7rem;
+  --tabbar-lift: .45rem;
 
   /* Safe areas. Zero on a desktop browser, ~34px bottom and ~59px top on a
      notched iPhone in standalone mode. Reading them into variables means the
@@ -171,9 +176,12 @@ a { color: inherit; text-decoration: none; -webkit-touch-callout: none; }
 }
 
 /* Safari before 16.4 has no backdrop-filter in standalone mode on some
-   devices; without this the bar would be transparent and text would collide. */
+   devices; without this the bar would be transparent and text would collide.
+   The tab bar's own fallback is further down, AFTER its rules — listing it
+   here as well would have been overridden on source order and quietly do
+   nothing, which is what was happening before. */
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .navbar, .tabbar { background: rgba(6, 6, 8, .97); }
+  .navbar { background: rgba(6, 6, 8, .97); }
 }
 
 .navbar h1 {
@@ -232,7 +240,7 @@ a { color: inherit; text-decoration: none; -webkit-touch-callout: none; }
      the momentum feel — but the bounce must not propagate to the document. */
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(var(--tabbar) + var(--sa-bottom) + 1.4rem);
+  padding-bottom: calc(var(--tabbar) + var(--sa-bottom) + var(--tabbar-lift) + 1.4rem);
   padding-left: max(0px, var(--sa-left));
   padding-right: max(0px, var(--sa-right));
 }
@@ -241,26 +249,105 @@ a { color: inherit; text-decoration: none; -webkit-touch-callout: none; }
 .stack { display: flex; flex-direction: column; gap: .7rem; }
 .stack-lg { display: flex; flex-direction: column; gap: 1.5rem; }
 
-/* ---------- Tab bar ---------- */
+/* ---------- Tab bar — liquid glass ----------
+   The bar floats: inset from both edges, lifted clear of the home indicator,
+   and rounded into a capsule. That is the whole difference between the iOS 26
+   material and the flat translucent strip that came before it — the older one
+   is a wall at the bottom of the screen, this one is an object on top of the
+   page, and the page visibly passes underneath it.
+
+   Real glass needs three things, and skipping any one of them is what makes a
+   "glass" bar look like grey plastic:
+
+     1. REFRACTION — a heavy blur with saturation and brightness pushed up, so
+        colour from whatever is scrolling underneath bleeds through and tints
+        the bar. Blur alone desaturates and reads as fog.
+     2. A SPECULAR RIM — a bright hairline along the top inside edge, dimmer
+        along the bottom. This is light catching a curved edge, and it is the
+        single cue that says "thick transparent object" rather than "semi-
+        transparent rectangle".
+     3. A CAST SHADOW — wide and soft beneath, so the bar is lifted off the
+        content rather than printed on it.
+
+   Everything else stays as it was. Red still only punctuates: one accent on
+   the active icon, one on the badge, and nothing else. */
 
 .tabbar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: max(var(--tabbar-inset), var(--sa-left));
+  right: max(var(--tabbar-inset), var(--sa-right));
+  bottom: calc(var(--sa-bottom) + var(--tabbar-lift));
   z-index: 50;
+
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  /* The bar's own height, then the home-indicator strip below it. Padding
-     rather than margin so the material extends behind the indicator, which is
-     what iOS does — a gap under the bar looks broken. */
-  height: calc(var(--tabbar) + var(--sa-bottom));
-  padding-bottom: var(--sa-bottom);
-  background: rgba(6, 6, 8, .76);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  backdrop-filter: saturate(180%) blur(24px);
-  border-top: 1px solid var(--line);
+  height: var(--tabbar);
+  padding: 4px;
+  border-radius: calc(var(--tabbar) / 2);
+
+  /* Two layers, in one declaration: a top-down sheen over the tinted body.
+     The sheen is what a curved glass surface does to a light source above it. */
+  /* The body tint is .66 rather than the .5-ish a pure glass effect wants.
+     Tested against a full-bleed cover-art band scrolling underneath: below
+     about .6 the bar takes so much colour from the content that the inactive
+     labels stop being readable. A tab bar you cannot read is not a premium
+     one, so refraction gives way to legibility at exactly this point. */
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, .10) 0%,
+      rgba(255, 255, 255, .035) 46%,
+      rgba(255, 255, 255, 0) 100%
+    ),
+    rgba(10, 10, 13, .66);
+
+  /* brightness() is deliberate and does most of the work. Without it the very
+     dark content underneath leaves the bar nearly black, and the blur has
+     nothing visible to do. */
+  -webkit-backdrop-filter: blur(30px) saturate(200%) brightness(118%);
+  backdrop-filter: blur(30px) saturate(200%) brightness(118%);
+
+  border: 1px solid rgba(255, 255, 255, .10);
+  box-shadow:
+    0 14px 44px rgba(0, 0, 0, .58),
+    0 3px 12px rgba(0, 0, 0, .38),
+    inset 0 1px 0 rgba(255, 255, 255, .24),
+    inset 0 -1px 0 rgba(255, 255, 255, .05);
+
+  /* Contains the sliding pill's stacking context so it cannot slip behind the
+     app glow or in front of the icons. */
+  isolation: isolate;
+}
+
+/* The lozenge that follows the active tab.
+   One element that MOVES rather than five that fade in and out: the travel is
+   what tells you the bar is a single surface with something sliding on it,
+   and it is the detail the new iOS bars are built around. `--active` is the
+   index of the current tab and `--count` how many there are, both set by the
+   component, so this arithmetic never has to know that there are five. */
+.tabbar::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / var(--count, 5));
+  transform: translateX(calc(var(--active, 0) * 100%));
+  border-radius: 999px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, .155),
+    rgba(255, 255, 255, .05)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .30),
+    inset 0 -1px 0 rgba(255, 255, 255, .04),
+    0 4px 14px rgba(0, 0, 0, .3);
+  /* The spring curve, not the settle curve. A tab bar indicator that
+     overshoots by a hair is the difference between "animated" and "physical". */
+  transition: transform .44s var(--spring);
 }
 
 .tab {
@@ -270,26 +357,34 @@ a { color: inherit; text-decoration: none; -webkit-touch-callout: none; }
   justify-content: center;
   gap: 3px;
   position: relative;
-  color: var(--dim);
+  border-radius: 999px;
+  /* --muted, not --dim. On a flat black strip --dim was a fine "off" state;
+     on glass the bar itself lightens wherever colourful content passes under
+     it, and #5C5C66 disappeared into a cover-art thumbnail. This still reads
+     as clearly secondary next to the white active label. */
+  color: var(--muted);
   font-family: var(--font-archivo), sans-serif;
   font-size: .58rem;
   font-weight: 600;
   letter-spacing: .03em;
-  transition: color .16s var(--e);
+  transition: color .2s var(--e), transform .16s var(--e);
 }
 .tab svg { width: 22px; height: 22px; flex: none; }
-.tab:active { opacity: .6; }
+
+/* Presses scale rather than fade. Glass has depth, so pushing into it is the
+   gesture that matches; a dimming label would read as the tap not landing. */
+.tab:active { transform: scale(.92); }
 
 .tab[data-on='1'] { color: var(--text); }
-.tab[data-on='1'] svg { color: var(--red-b); filter: drop-shadow(0 0 10px var(--glow)); }
+.tab[data-on='1'] svg { color: var(--red-b); filter: drop-shadow(0 0 9px var(--glow)); }
 
 /* Unread count on Orders. Positioned off the icon, not the label, so it does
    not move when the label wraps on a small phone. */
 .tab-badge {
   position: absolute;
-  top: 4px;
+  top: 5px;
   left: 50%;
-  margin-left: 3px;
+  margin-left: 5px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -301,6 +396,23 @@ a { color: inherit; text-decoration: none; -webkit-touch-callout: none; }
   line-height: 16px;
   text-align: center;
   box-shadow: 0 0 12px var(--glow);
+}
+
+/* No backdrop-filter: there is nothing to refract, so the bar becomes a solid
+   capsule rather than a transparent one. It keeps the floating shape, the rim
+   light and the lozenge — only the glass goes. Placed here, after the rules it
+   overrides, because @supports adds no specificity and source order decides. */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .tabbar { background: rgba(12, 12, 15, .98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The pill still moves — it has to, or the active tab would be unmarked —
+     but it teleports instead of springing, and the press-scale goes entirely.
+     A 0.01ms scale is a flicker, which is worse than no feedback at all for
+     someone who asked for less motion. */
+  .tabbar::before { transition: none; }
+  .tab:active { transform: none; }
 }
 
 /* ============================================================

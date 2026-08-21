@@ -477,6 +477,66 @@ console.log('\n  Face ID is bound to the right domain');
     /userVerification: 'required'/.test(pk));
 }
 
+console.log('\n  The tab bar is a floating glass capsule');
+{
+  const css = read('src/app/app/app.css');
+  const tabbar = css.slice(css.indexOf('\n.tabbar {'), css.indexOf('\n.tab {'));
+
+  ok('    it floats free of the screen edges',
+    /left:\s*max\(var\(--tabbar-inset\)/.test(tabbar) && /right:\s*max\(var\(--tabbar-inset\)/.test(tabbar));
+  ok('    it is lifted clear of the home indicator',
+    /bottom:\s*calc\(var\(--sa-bottom\)\s*\+\s*var\(--tabbar-lift\)\)/.test(tabbar));
+  ok('    it is a capsule, not a strip', /border-radius:\s*calc\(var\(--tabbar\)\s*\/\s*2\)/.test(tabbar));
+
+  /* All three, or it reads as grey plastic: blur without saturation is fog,
+     and without brightness the near-black content leaves nothing to refract. */
+  ok('    the material blurs, saturates and brightens',
+    /backdrop-filter:\s*blur\([^)]+\)\s*saturate\([^)]+\)\s*brightness\(/.test(tabbar));
+  ok('    prefixed for Safari', tabbar.includes('-webkit-backdrop-filter'));
+  ok('    it has a specular top rim', /inset 0 1px 0 rgba\(255, 255, 255, \.2/.test(tabbar));
+  ok('    it casts a shadow, so it reads as lifted', /box-shadow:\s*\n?\s*0 14px 44px/.test(tabbar));
+
+  // Content must clear the bar AND the gap under it, or the last row hides.
+  ok('    content clears the bar and its lift',
+    css.includes('padding-bottom: calc(var(--tabbar) + var(--sa-bottom) + var(--tabbar-lift) + 1.4rem)'));
+
+  const pill = css.slice(css.indexOf('.tabbar::before {'), css.indexOf('\n.tab {'));
+  ok('    the lozenge is sized from the tab count, not a hardcoded five',
+    /width:\s*calc\(\(100% - 8px\) \/ var\(--count/.test(pill));
+  ok('    the lozenge is positioned from the active index',
+    /translateX\(calc\(var\(--active/.test(pill));
+  ok('    it springs rather than eases', /transition:\s*transform [^;]*var\(--spring\)/.test(pill));
+
+  /* On a flat black strip --dim was a fine "off" state. On glass the bar
+     lightens wherever colourful content passes under it, and #5C5C66 vanished
+     into a cover-art thumbnail. */
+  const tab = css.slice(css.indexOf('\n.tab {'), css.indexOf('.tab svg'));
+  ok('    inactive labels stay legible over bright content',
+    tab.includes('color: var(--muted)') && !tab.includes('color: var(--dim)'));
+
+  /**
+   * The fallback has to come AFTER the rules it overrides.
+   *
+   * @supports adds no specificity, so an identical selector earlier in the
+   * file loses on source order and the fallback silently does nothing. That
+   * was already true of the old bar: its no-backdrop-filter rule sat next to
+   * the nav bar's, 90 lines above the .tabbar block that overrode it.
+   */
+  const fallbacks = [...css.matchAll(/@supports not \(\(-webkit-backdrop-filter/g)].map((m) => m.index ?? 0);
+  const tabbarAt = css.indexOf('\n.tabbar {');
+  ok('    the no-backdrop-filter fallback can actually win',
+    fallbacks.some((i) => i > tabbarAt));
+}
+
+console.log('\n  Reduced motion');
+{
+  const css = read('src/app/app/app.css');
+  const block = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce) {', css.indexOf('.tabbar::before')));
+  ok('    the lozenge stops sliding', /\.tabbar::before\s*\{\s*transition:\s*none/.test(block));
+  ok('    the press-scale is removed rather than shortened',
+    /\.tab:active\s*\{\s*transform:\s*none/.test(block));
+}
+
 console.log('\n  Viewport');
 {
   const layout = read('src/app/app/layout.tsx');
