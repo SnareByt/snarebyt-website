@@ -282,7 +282,7 @@ export function CartView({
                 <span>Subtotal</span>
                 <span><Price bdt={total} /></span>
               </div>
-              <div className="sum-row disc">
+              <div className="sum-row cut">
                 <span>{discount.code} · {discount.label}</span>
                 <span>− <Price bdt={discount.amountBdt} /></span>
               </div>

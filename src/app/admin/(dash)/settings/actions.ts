@@ -9,15 +9,48 @@ import { diagnoseYouTube } from '@/lib/youtube';
 import { notifyAdmin, notifyStatus } from '@/lib/notify';
 import { siteUrl } from '@/lib/seo';
 
-export type SettingsState = { ok: boolean; message?: string; errors?: Record<string, string> };
+export type SettingsState = {
+  ok: boolean;
+  message?: string;
+  errors?: Record<string, string>;
+  /** Set when the save was refused because the stored values moved on. */
+  stale?: boolean;
+};
 
 /**
  * The handful of values that change how the public site behaves without a
  * deploy. Secrets are deliberately NOT here — they live in server environment
  * variables and are never rendered, never editable from a browser.
  */
+/** The same fingerprint the page computes, so the two can be compared. */
+async function currentSignature(): Promise<string> {
+  const rows = await prisma.setting.findMany();
+  return rows.map((r) => `${r.key}=${r.value}`).sort().join('|');
+}
+
 export async function saveSettings(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
   const admin = await requireAdmin();
+
+  /* Refuse to overwrite a change made somewhere else.
+   *
+   * This form saves every field at once, so a tab left open on an old state
+   * does not merely look stale — pressing Save on it RESTORES that old state
+   * over whatever was set since. That is how the site went from Coming soon
+   * back to Live twice in one minute: a phone set it, and a desktop tab that
+   * had been open for hours put it back.
+   *
+   * The form submits the fingerprint it was rendered with. If the stored
+   * settings have moved on, nothing is written and the screen reloads showing
+   * what is actually there.
+   */
+  const renderedWith = String(formData.get('_signature') ?? '');
+  if (renderedWith && renderedWith !== (await currentSignature())) {
+    return {
+      ok: false,
+      stale: true,
+      message: 'These settings were changed somewhere else — on your phone, or in another tab. Nothing was overwritten. Reload below to see what is actually saved, then make your change again.',
+    };
+  }
 
   const parsed = settingsSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {

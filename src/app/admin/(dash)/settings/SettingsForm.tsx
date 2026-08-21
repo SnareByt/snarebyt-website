@@ -1,6 +1,7 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { YouTubeCheck } from './YouTubeCheck';
 import { NotifyCheck } from './NotifyCheck';
 import { saveSettings, type SettingsState } from './actions';
@@ -17,7 +18,7 @@ const MODES = [
 export function SettingsForm({
   usdRate, whatsapp, businessEmail, youtubeChannel, beatsComingSoon,
   notifyEmail, notifyOnOrder, notifyOnPaid, notifyOnEnquiry, pointerSheen, siteMode,
-  checkoutFlow, paymentsConfigured,
+  checkoutFlow, paymentsConfigured, signature,
 }: {
   usdRate: string; whatsapp: string; businessEmail: string;
   youtubeChannel: string; beatsComingSoon: boolean;
@@ -25,17 +26,55 @@ export function SettingsForm({
   pointerSheen: boolean;
   siteMode: 'live' | 'soon' | 'maintenance';
   checkoutFlow: CheckoutFlow;
+  /** Fingerprint of the stored values this form was rendered from. */
+  signature: string;
   /** Whether SSLCOMMERZ credentials exist at all. Never the credentials. */
   paymentsConfigured: boolean;
 }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(saveSettings, initial);
   const [mode, setMode] = useState(siteMode);
   const [flow, setFlow] = useState<CheckoutFlow>(checkoutFlow);
+
+  /* Re-sync from the server whenever it sends something different.
+     These start as useState(prop), which captures the value ONCE. A tab left
+     open therefore kept showing whatever was set when it loaded — and because
+     this form saves every field together, pressing Save on that stale tab
+     wrote the old site mode back over a change made somewhere else. That is
+     the "it goes back to the previous selection" bug: the tab was not merely
+     showing a stale picture, it was actively restoring one. */
+  useEffect(() => { setMode(siteMode); }, [siteMode]);
+  useEffect(() => { setFlow(checkoutFlow); }, [checkoutFlow]);
+
+  /* And refetch after a save, so what is on screen is what is stored rather
+     than what was submitted. Keyed on the result object, which is a new object
+     for every run of the action, so this fires once per save and never loops. */
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [state, router]);
   const e = state.errors ?? {};
 
   return (
     <form action={action} className="card" style={{ padding: '1.4rem', maxWidth: 560 }}>
       {state.ok ? <div className="chip ok" style={{ marginBottom: '1rem' }}>{state.message}</div> : null}
+      {/* Not auto-refreshed. Reloading would remount this form and take the
+          explanation with it, leaving the fields silently changing under him.
+          One button keeps the message on screen until it has been read. */}
+      {state.stale ? (
+        <div className="err-box" style={{ margin: '0 0 1rem' }}>
+          {state.message}
+          <div style={{ marginTop: '.7rem' }}>
+            <button type="button" className="btn b-gh b-sm" onClick={() => router.refresh()}>
+              Show what is saved
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* What the stored values looked like when this form was drawn. The
+          server compares it before writing, so a tab left open cannot put an
+          old setting back. */}
+      <input type="hidden" name="_signature" value={signature} />
 
       <div className={`fg ${e.usdRate ? 'bad' : ''}`}>
         <label className="fl" htmlFor="usdRate">USD rate</label>
