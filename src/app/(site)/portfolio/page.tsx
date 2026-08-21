@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { getPage } from '@/lib/content';
 import { prisma } from '@/lib/prisma';
 import { seedFrom } from '@/lib/cover-art';
+import { parseYouTubeId } from '@/lib/spotify';
 import { PageHead } from '@/components/site/PageHead';
 import {
   PortfolioGrid,
@@ -50,6 +51,10 @@ export default async function PortfolioPage() {
     // uploaded there is no key, and the card falls back to generated art
     // rather than a broken image.
     coverUrl: r.thumbKey ? `${process.env.R2_PUBLIC_BASE_URL}/${r.thumbKey}` : null,
+    // A YouTube credit brings its own artwork. videoUrl wins over externalUrl
+    // because a credit can legitimately link somewhere else — a Wikipedia
+    // page, a press piece — while still having a video behind it.
+    youtubeId: parseYouTubeId(r.videoUrl) ?? parseYouTubeId(r.externalUrl),
     seed: seedFrom(r.slug),
   }));
 

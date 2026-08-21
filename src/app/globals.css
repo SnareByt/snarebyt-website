@@ -1505,3 +1505,61 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
 @media(max-width:620px){
   .gate-bar{font-size:.72rem;padding:.6rem .85rem;border-radius:16px}
 }
+
+/* ============================================================
+   PORTFOLIO VIDEO — auto thumbnail + player
+   ============================================================ */
+
+/* The play target is the whole card, not a small button sitting on it: the
+   thumbnail is what people aim at. The visible button is decoration inside a
+   full-bleed control, which also means one focus stop per card rather than
+   two competing ones. */
+.pf-play{position:absolute;inset:0;z-index:3;display:grid;place-items:center;
+  background:none;border:0;padding:0;cursor:pointer}
+.pf-play-btn{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;
+  color:#fff;padding-left:3px;                    /* optical centring of the triangle */
+  background:rgba(10,10,12,.55);border:1px solid rgba(255,255,255,.28);
+  backdrop-filter:blur(8px);
+  box-shadow:0 10px 30px -10px #000;
+  transform:scale(.9);opacity:.9;
+  transition:transform .4s var(--e-out),opacity .3s,background .3s,border-color .3s}
+.pf:hover .pf-play-btn{transform:scale(1);opacity:1;
+  background:var(--grad-red);border-color:transparent;
+  box-shadow:0 12px 34px -8px var(--glow)}
+.pf-play:focus-visible .pf-play-btn{transform:scale(1);opacity:1;
+  outline:2px solid var(--red);outline-offset:4px}
+@media(prefers-reduced-motion:reduce){
+  .pf-play-btn{transition:none}
+}
+/* The overlay text sits above the play target so the link inside it stays
+   clickable — otherwise a full-bleed button would swallow the CTA. */
+.pf .ov{position:relative;z-index:4}
+
+/* ---------- The player ---------- */
+.ytbox{position:fixed;inset:0;z-index:950;display:grid;place-items:center;
+  padding:clamp(1rem,4vw,2.5rem)}
+.ytbox-scrim{position:absolute;inset:0;border:0;padding:0;cursor:pointer;
+  background:rgba(4,4,5,.86);backdrop-filter:blur(14px) saturate(.9)}
+.ytbox-panel{position:relative;width:100%;max-width:1000px;border-radius:20px;
+  border:1px solid var(--line-strong);overflow:hidden;
+  background:linear-gradient(168deg,#121216,#08080a);
+  box-shadow:0 60px 140px -50px #000,inset 0 1px 0 rgba(255,255,255,.06)}
+
+.ytbox-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+  padding:1.1rem 1.3rem}
+.ytbox-role{font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.6rem;
+  letter-spacing:.22em;text-transform:uppercase;color:var(--red)}
+.ytbox-title{font-family:var(--font-syne),sans-serif;font-weight:800;letter-spacing:-.02em;
+  font-size:clamp(1rem,3.2vw,1.35rem);margin-top:.3rem;line-height:1.25}
+.ytbox-x{width:34px;height:34px;flex:none;border-radius:10px;display:grid;place-items:center;
+  border:1px solid var(--line);color:var(--muted);background:rgba(255,255,255,.03);
+  cursor:pointer;transition:.25s}
+.ytbox-x:hover{border-color:var(--red);color:#fff;background:rgba(224,27,54,.12)}
+
+.ytbox-frame{position:relative;aspect-ratio:16/9;background:#000}
+.ytbox-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+
+.ytbox-out{display:block;padding:.95rem 1.3rem;font-family:var(--font-archivo),sans-serif;
+  font-weight:700;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);border-top:1px solid var(--line);transition:.25s}
+.ytbox-out:hover{color:#fff;background:rgba(224,27,54,.08)}
