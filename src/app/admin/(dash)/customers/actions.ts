@@ -339,3 +339,98 @@ export async function confirmDelivery(input: unknown): Promise<Result> {
   revalidatePath(`/account/projects/${project.id}`);
   return { ok: true, message: d.isDeliverable ? 'Final delivery uploaded.' : 'Preview uploaded.' };
 }
+
+/**
+ * What deleting this artist account would take with it.
+ *
+ * Shown BEFORE the button is pressed, because "delete" on a screen full of
+ * someone's order history is not a decision to make blind.
+ */
+export async function artistDeletionImpact(userId: string): Promise<
+  | { ok: true; email: string; paidOrders: number; otherOrders: number; projects: number; licences: number }
+  | { ok: false; error: string }
+> {
+  await requireAdmin();
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, role: true },
+  });
+  if (!user) return { ok: false, error: 'That account no longer exists.' };
+  if (user.role !== 'CUSTOMER') {
+    return { ok: false, error: 'Only artist accounts can be deleted here.' };
+  }
+
+  const [paidOrders, otherOrders, projects, licences] = await Promise.all([
+    prisma.order.count({ where: { userId, status: 'PAID' } }),
+    prisma.order.count({ where: { userId, status: { not: 'PAID' } } }),
+    prisma.project.count({ where: { userId } }),
+    prisma.licenceDocument.count({ where: { order: { userId } } }),
+  ]);
+
+  return { ok: true, email: user.email, paidOrders, otherOrders, projects, licences };
+}
+
+/**
+ * Delete an artist account.
+ *
+ * The account goes; the BUSINESS RECORD stays. Order, Project and DownloadLog
+ * all hold `userId` as an optional column, so deleting the user detaches those
+ * rows rather than destroying them — a paid order keeps its number, its
+ * amount, its billing name and email, and its licence stays provable. That is
+ * the rule this project has held to throughout and it is not relaxed here just
+ * because the deletion is deliberate.
+ *
+ * What genuinely goes is what belongs only to the account: sessions, passkeys,
+ * push devices, tokens and favourites, all of which cascade.
+ *
+ * Guarded to CUSTOMER accounts, so this can never be pointed at the admin
+ * account and lock Samir out of his own site.
+ */
+export async function deleteArtist(userId: string): Promise<Result> {
+  const admin = await requireOwner();
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, name: true, role: true },
+  });
+  if (!user) return { ok: false, error: 'That account no longer exists.' };
+  if (user.role !== 'CUSTOMER') {
+    return { ok: false, error: 'Only artist accounts can be deleted. This is a staff or admin account.' };
+  }
+  if (userId === admin.id) {
+    return { ok: false, error: 'You cannot delete the account you are signed in with.' };
+  }
+
+  const [paidOrders, projects] = await Promise.all([
+    prisma.order.count({ where: { userId, status: 'PAID' } }),
+    prisma.project.count({ where: { userId } }),
+  ]);
+
+  await prisma.user.delete({ where: { id: userId } });
+
+  // Recorded in detail because the account itself is gone: this row is now the
+  // only place the deletion is written down.
+  await audit({
+    actorId: admin.id, action: 'artist.deleted', entity: 'User', entityId: userId,
+    diff: {
+      email: user.email,
+      name: user.name,
+      ordersDetached: paidOrders,
+      projectsDetached: projects,
+    },
+  });
+
+  revalidatePath('/admin/customers');
+
+  const kept: string[] = [];
+  if (paidOrders) kept.push(`${paidOrders} paid order${paidOrders === 1 ? '' : 's'}`);
+  if (projects) kept.push(`${projects} project${projects === 1 ? '' : 's'}`);
+
+  return {
+    ok: true,
+    message: kept.length
+      ? `${user.email} deleted. ${kept.join(' and ')} kept as records, no longer linked to an account.`
+      : `${user.email} deleted.`,
+  };
+}

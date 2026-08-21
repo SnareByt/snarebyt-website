@@ -4,6 +4,7 @@ import { useActionState, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   suspendArtist, restoreArtist, saveAdminNote, resendVerification,
+  artistDeletionImpact, deleteArtist,
   signOutArtistEverywhere, setProjectStatus, replyToProject,
   getDeliveryUploadUrl, confirmDelivery, type Result,
 } from '../actions';
@@ -76,6 +77,8 @@ export function AccountActions({
             Suspend this account
           </button>
         )}
+
+        <DeleteAccount userId={userId} email={email} onDone={(r) => { setRes(r); router.refresh(); }} />
       </div>
 
       <div className="note plain" style={{ marginTop: '1.2rem' }}>
@@ -300,6 +303,113 @@ export function ProjectPanel({ project }: { project: Project }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * Delete an artist account, after showing exactly what that means.
+ *
+ * Two steps, and the middle one is the point: pressing Delete first asks the
+ * server what the account is attached to and prints it. Deleting a test
+ * signup and deleting somebody with four paid orders should not feel like the
+ * same click, and the only way to tell them apart is to look.
+ *
+ * Typing the email to confirm is not theatre either. This screen is reached
+ * from a list, and a list is where you delete the row below the one you meant.
+ */
+function DeleteAccount({
+  userId, email, onDone,
+}: { userId: string; email: string; onDone: (r: Result) => void }) {
+  const [stage, setStage] = useState<'idle' | 'checking' | 'confirm'>('idle');
+  const [impact, setImpact] = useState<Awaited<ReturnType<typeof artistDeletionImpact>> | null>(null);
+  const [typed, setTyped] = useState('');
+  const [busy, start] = useTransition();
+
+  function look() {
+    setStage('checking');
+    start(async () => {
+      const res = await artistDeletionImpact(userId);
+      setImpact(res);
+      setStage(res.ok ? 'confirm' : 'idle');
+      if (!res.ok) onDone(res);
+    });
+  }
+
+  if (stage === 'idle' || stage === 'checking') {
+    return (
+      <button type="button" className="btn b-gh" disabled={busy} onClick={look}>
+        {stage === 'checking' ? 'Checking…' : 'Delete this account'}
+      </button>
+    );
+  }
+
+  if (!impact?.ok) return null;
+
+  const records = impact.paidOrders + impact.projects + impact.licences;
+
+  return (
+    <div className="err-box" style={{ marginTop: 0 }}>
+      <b>Delete {impact.email} permanently?</b>
+
+      <div style={{ marginTop: '.6rem', lineHeight: 1.6 }}>
+        {records ? (
+          <>
+            Their sign-in, devices and saved favourites go. These stay as business records,
+            no longer attached to an account:
+            <ul style={{ margin: '.5rem 0 0 1.1rem' }}>
+              {impact.paidOrders ? <li>{impact.paidOrders} paid order{impact.paidOrders === 1 ? '' : 's'}</li> : null}
+              {impact.licences ? <li>{impact.licences} issued licence{impact.licences === 1 ? '' : 's'}</li> : null}
+              {impact.projects ? <li>{impact.projects} project{impact.projects === 1 ? '' : 's'}</li> : null}
+            </ul>
+            <div className="hint" style={{ marginTop: '.5rem' }}>
+              A licence somebody paid for has to stay provable, so it is kept and detached
+              rather than deleted.
+            </div>
+          </>
+        ) : (
+          <>
+            Nothing is attached to this account — no paid orders, no licences, no projects.
+            This is a clean removal.
+            {impact.otherOrders ? (
+              <div className="hint" style={{ marginTop: '.5rem' }}>
+                {impact.otherOrders} unpaid or cancelled order{impact.otherOrders === 1 ? '' : 's'}{' '}
+                will be kept and detached.
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      <label className="fl" style={{ marginTop: '.9rem' }} htmlFor={`confirm-${userId}`}>
+        Type the email to confirm
+      </label>
+      <input
+        className="in" id={`confirm-${userId}`} value={typed} autoComplete="off"
+        placeholder={impact.email}
+        onChange={(e) => setTyped(e.target.value)}
+      />
+
+      <div style={{ display: 'flex', gap: '.5rem', marginTop: '.8rem' }}>
+        <button
+          type="button" className="btn b-dan"
+          disabled={busy || typed.trim().toLowerCase() !== impact.email.toLowerCase()}
+          onClick={() => start(async () => {
+            const r = await deleteArtist(userId);
+            onDone(r);
+            // Nothing left to show on a detail page for an account that is
+            // gone, so go back to the list rather than 404 on refresh.
+            if (r.ok) window.location.href = '/admin/customers';
+          })}
+        >
+          {busy ? 'Deleting…' : 'Delete permanently'}
+        </button>
+        <button type="button" className="btn b-gh" onClick={() => { setStage('idle'); setTyped(''); }}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

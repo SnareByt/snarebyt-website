@@ -4,6 +4,8 @@ import { PasswordForm, TotpSetup } from './AccountForms';
 import { Devices, type DeviceRow } from './Devices';
 import { signOutDevice, signOutOtherDevices } from './actions';
 import { deviceName, ago, until } from '@/lib/device-name';
+import { Alerts, type PushDeviceRow } from './Alerts';
+import { listDevices, pushConfigured, vapidPublicKey } from '@/lib/push';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +15,17 @@ export default async function AccountPage() {
     where: { id: admin.id },
     select: { email: true, name: true, twoFactorEnabled: true, lastLoginAt: true, lastLoginIp: true },
   });
-  const [live, here] = await Promise.all([listSessions(admin.id), currentSession()]);
+  const [live, here, push] = await Promise.all([
+    listSessions(admin.id), currentSession(), listDevices(admin.id),
+  ]);
+
+  const pushDevices: PushDeviceRow[] = push.map((d) => ({
+    id: d.id,
+    label: d.label ?? 'Unnamed device',
+    added: ago(d.createdAt),
+    lastPush: d.lastPushAt ? ago(d.lastPushAt) : 'never',
+    disabledReason: d.disabledReason,
+  }));
   const sessions = live.length;
 
   const devices: DeviceRow[] = live.map((s) => {
@@ -56,6 +68,10 @@ export default async function AccountPage() {
               is this list: if something here is not yours, sign it out and change the password.
             </span>
           </div>
+        </section>
+
+        <section className="sec" style={{ marginTop: '2rem' }}>
+          <Alerts configured={pushConfigured()} publicKey={vapidPublicKey()} devices={pushDevices} />
         </section>
 
         <section className="sec" style={{ marginTop: '2rem' }}>
