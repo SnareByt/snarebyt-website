@@ -126,3 +126,38 @@ const CODE_RE = /^[A-Z0-9][A-Z0-9-]{2,23}$/;
 export function isValidCodeFormat(code: string): boolean {
   return CODE_RE.test(code);
 }
+
+/**
+ * Why a code would not work right now, in one word.
+ *
+ * Lives here rather than on either screen because BOTH the desktop admin and
+ * the phone show it, and a code labelled "live" on one and "expired" on the
+ * other would be a bug nobody could see until a customer hit it. Same reason
+ * `evaluateDiscount` is shared with the cart: one implementation, or they
+ * eventually disagree about money.
+ *
+ * The order of the checks is the order that answers "why not" most usefully.
+ * A code that is switched off AND expired is reported as off, because that is
+ * the one thing an admin can undo with a tap.
+ */
+export type CodeState = 'live' | 'off' | 'used-up' | 'expired' | 'scheduled';
+
+export function codeState(
+  c: Pick<DiscountRow, 'active' | 'startsAt' | 'endsAt' | 'maxUses' | 'usedCount'>,
+  now: Date = new Date(),
+): CodeState {
+  if (!c.active) return 'off';
+  if (c.maxUses !== null && c.usedCount >= c.maxUses) return 'used-up';
+  if (c.endsAt && now > c.endsAt) return 'expired';
+  if (c.startsAt && now < c.startsAt) return 'scheduled';
+  return 'live';
+}
+
+/** The same five states in words, for a subtitle under the code. */
+export const CODE_STATE_LABEL: Record<CodeState, string> = {
+  live: 'Working now',
+  off: 'Switched off',
+  'used-up': 'All uses spent',
+  expired: 'Past its end date',
+  scheduled: 'Starts later',
+};

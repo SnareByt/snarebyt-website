@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/prisma-safe-auth';
 import { NavBar } from '@/components/app/Ui';
 import {
   IcNext, IcProject, IcCustomer, IcService, IcAnalytics, IcLock, IcBell, IcSettings,
+  IcMoney,
 } from '@/components/app/Icons';
 import { SignOutButton } from './SignOutButton';
 
@@ -38,13 +39,13 @@ export default async function MorePage() {
     prisma.pushDevice.count({ where: { userId: user.id, disabledReason: null } }),
     prisma.webAuthnCredential.count({ where: { userId: user.id } }),
     prisma.session.count({ where: { userId: user.id, expiresAt: { gt: new Date() } } }),
+    prisma.discountCode.count({ where: { active: true } }),
   ]);
 
   /* null, not 0. "0 passkeys" is a claim; a dash admits the number could not
      be fetched, which is the truth and points at the real problem. */
-  const [openProjects, customers, services, devices, passkeys, sessions] = results.map(
-    (r) => (r.status === 'fulfilled' ? r.value : null),
-  );
+  const [openProjects, customers, services, devices, passkeys, sessions, activeCodes] =
+    results.map((r) => (r.status === 'fulfilled' ? r.value : null));
 
   const n = (v: number | null) => (v === null ? '—' : String(v));
 
@@ -67,6 +68,10 @@ export default async function MorePage() {
                  sub={`${n(customers)} account${customers === 1 ? '' : 's'}`} />
             <Row href="/app/services" Icon={IcService} title="Services and pricing"
                  sub={`${n(services)} on the site`} />
+            <Row href="/app/discounts" Icon={IcMoney} title="Discount codes"
+                 sub={activeCodes === null ? 'Could not check'
+                   : activeCodes ? `${activeCodes} switched on`
+                   : 'None switched on'} />
             <Row href="/app/analytics" Icon={IcAnalytics} title="Analytics"
                  sub="Traffic, plays and what sells" />
           </div>
@@ -86,7 +91,7 @@ export default async function MorePage() {
             <Row href="/app/account/security" Icon={IcLock} title="Security"
                  sub={`${n(passkeys)} passkey${passkeys === 1 ? '' : 's'} · ${n(sessions)} signed-in device${sessions === 1 ? '' : 's'}`} />
             <Row href="/app/account/settings" Icon={IcSettings} title="Settings"
-                 sub="Store, currency and where alerts go" />
+                 sub="Website access, checkout, currency and alerts" />
           </div>
         </div>
 

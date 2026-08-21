@@ -10,7 +10,7 @@ import { IcPlus } from '@/components/app/Icons';
 
 type Item = {
   id: string; title: string; clientName: string; category: string; role: string;
-  externalUrl: string; ctaLabel: string; majorCredit: boolean;
+  externalUrl: string; videoUrl: string; ctaLabel: string; majorCredit: boolean;
   summary: string; published: boolean;
 };
 
@@ -156,6 +156,28 @@ export function PortfolioList({ items }: { items: Item[] }) {
             />
             <p className="hint">YouTube, Spotify or the official page. Optional.</p>
             {errors.externalUrl && <p className="err">{errors.externalUrl}</p>}
+          </div>
+
+          {/* This field MUST be here even though it is rarely used.
+              `savePortfolioItem` writes `videoUrl: d.videoUrl || null`, and
+              the schema defaults a missing field to an empty string — so a
+              form that omits it does not leave the value alone, it erases it.
+              Editing a credit's title on a phone would have silently removed
+              the video from its card. */}
+          <div className="field">
+            <label className="fl" htmlFor="p-video">Video</label>
+            <input
+              id="p-video" name="videoUrl" className="in" type="url"
+              inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+              defaultValue={current?.videoUrl ?? ''}
+              placeholder="https://youtube.com/watch?v=…"
+            />
+            <p className="hint">
+              A YouTube link to play on the card. Use this when the button above should
+              lead somewhere else — a press piece, a Wikipedia entry — and the card should
+              still have the video behind it. Optional.
+            </p>
+            {errors.videoUrl && <p className="err">{errors.videoUrl}</p>}
           </div>
 
           <div className="field">
