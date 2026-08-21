@@ -3,6 +3,7 @@ import { Wordmark } from './Wordmark';
 import { getNav } from '@/lib/content';
 import { SocialIcon } from './SocialIcon';
 import { prisma } from '@/lib/prisma';
+import { LegalDialog } from './LegalDialog';
 
 /** Two-letter badge for a social link, matching the prototype's pills. */
 function initials(label: string) {
@@ -14,7 +15,7 @@ const LISTEN = ['Spotify', 'Apple Music', 'SoundCloud', 'TIDAL', 'Deezer'];
 export async function SiteFooter() {
   // getNav already drops any link with an empty href, so an unfinished
   // profile (YouTube, currently) can never render as a dead icon.
-  const [socials, services] = await Promise.all([
+  const [socials, services, legal] = await Promise.all([
     getNav('SOCIAL'),
     prisma.service.findMany({
       where: { active: true },
@@ -22,6 +23,9 @@ export async function SiteFooter() {
       select: { slug: true, title: true },
       take: 5,
     }),
+    // Whatever has actually been written. Nothing is hard-coded here, so a
+    // link can never point at a page that does not exist.
+    prisma.legalPage.findMany({ orderBy: { slug: 'asc' }, select: { slug: true, title: true } }),
   ]);
 
   const byLabel = new Map(socials.map((s) => [s.label, s.href]));
@@ -74,13 +78,12 @@ export async function SiteFooter() {
 
           <div className="f-col">
             <h4>Legal</h4>
-            {/* Legal pages are Phase 7. Until they exist these point at contact
-                rather than at URLs that would 404. */}
-            <Link href="/contact">Beat Licensing Agreement</Link>
-            <Link href="/contact">Terms &amp; Conditions</Link>
-            <Link href="/contact">Privacy Policy</Link>
-            <Link href="/contact">Refund Policy</Link>
-            <Link href="/contact">Cookie Policy</Link>
+            {/* Only pages that exist, and each opens in a panel rather than
+                navigating away — see LegalDialog. A link to a page nobody has
+                written is worse than no link. */}
+            {legal.length
+              ? <LegalDialog links={legal} />
+              : <Link href="/contact">Ask about licensing</Link>}
           </div>
         </div>
 
