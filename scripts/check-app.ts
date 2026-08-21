@@ -164,6 +164,37 @@ for (const s of SCREENS) {
     read(s).includes("dynamic = 'force-dynamic'"));
 }
 
+console.log('\n  Every screen paints instantly on tap');
+{
+  /**
+   * Every screen here is force-dynamic and queries Postgres, so without a
+   * loading.tsx a tap shows nothing at all until the round trip finishes.
+   * That gap is the single clearest tell that an app is a web page — native
+   * apps do not have less latency, they just never show you a blank screen
+   * while they wait.
+   *
+   * Next renders the nearest loading.tsx the moment a navigation starts, so
+   * one has to exist beside every page.
+   */
+  let missing = 0;
+  for (const s of SCREENS) {
+    if (!s.includes('(tabs)') || s.endsWith('layout.tsx')) continue;
+    const loader = s.replace(/page\.tsx$/, 'loading.tsx');
+    if (!has(loader)) { missing += 1; console.log(`        missing: ${loader}`); }
+  }
+  ok(`    all ${SCREENS.filter((s) => s.includes('(tabs)') && s.endsWith('page.tsx')).length} tab screens have a skeleton`,
+    missing === 0);
+}
+
+console.log('\n  The tab bar commits to the press immediately');
+{
+  const tabs = read('src/components/app/TabBar.tsx');
+  ok('    the pressed tab lights up before the navigation lands',
+    /onClick=\{\(\) => setPending\(href\)\}/.test(tabs));
+  ok('    and gives way once the real pathname settles',
+    /useEffect\(\(\) => setPending\(null\), \[path\]\)/.test(tabs));
+}
+
 console.log('\n  Server actions are guarded');
 /**
  * Walks every action file the phone imports from and asserts each exported
