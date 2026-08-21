@@ -647,15 +647,17 @@ select.sel option{background:#111114}
 /* Four stops, not two. A single transparent-to-black ramp starting at 32%
    leaves a visible horizontal edge where it begins; easing it in over the
    whole card reads as light falling off instead of a band laid on top.
-   The faint top stop is what keeps the role label legible over a bright
-   thumbnail without darkening the middle of the image. */
+   It starts fully transparent: the earlier version opened at 50% black,
+   which laid a band across the top of every card. That stop was meant to
+   protect the role label, but the label is bottom-aligned — so it was dimming
+   the artwork and protecting nothing. */
 .pf .ov{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;gap:.35rem;
   padding:1.15rem;
   background:linear-gradient(180deg,
-    rgba(4,4,5,.5) 0%,
-    rgba(4,4,5,.16) 24%,
-    rgba(4,4,5,.52) 58%,
-    rgba(4,4,5,.88) 82%,
+    transparent 0%,
+    rgba(4,4,5,.04) 34%,
+    rgba(4,4,5,.46) 62%,
+    rgba(4,4,5,.86) 82%,
     rgba(4,4,5,.96) 100%);
   transform:translateY(12px);opacity:.96;transition:.5s var(--e-out)}
 .pf:hover .ov{transform:none;opacity:1}
@@ -1584,7 +1586,7 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
    grid of cards reads as one dark surface rather than eight bright rectangles
    competing with each other — and the card you are pointing at is the one
    that lifts. */
-.pf .bgl{filter:brightness(.82) saturate(.95);transition:transform .8s var(--e-out),filter .5s var(--e-out)}
+.pf .bgl{filter:brightness(.9) saturate(.98);transition:transform .8s var(--e-out),filter .5s var(--e-out)}
 .pf:hover .bgl{filter:brightness(1.02) saturate(1.05)}
 @media(prefers-reduced-motion:reduce){
   .pf .bgl,.pf:hover .bgl{transition:filter .5s var(--e-out)}
@@ -1609,3 +1611,32 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
 .ytbox-views{font-family:var(--font-archivo),sans-serif;font-weight:700;font-size:.68rem;
   color:var(--muted);margin-top:.4rem;font-variant-numeric:tabular-nums}
 .ytbox-views b{color:var(--text);font-weight:900}
+
+/* ---------- Card glow ----------
+   A resting halo rather than a hover-only one, for the same reason the footer
+   social pills have one: on a near-black page a grid of unlit rectangles
+   reads as disabled. It sits well under the brand red at rest and only comes
+   up on hover, so red still punctuates rather than decorates.
+
+   Two shadows, not one: a hairline at zero blur draws the edge, and the wide
+   soft one is the halo. A single shadow doing both jobs is either too tight
+   to glow or too diffuse to define the card. */
+.pf{
+  box-shadow:
+    0 0 0 1px rgba(224,27,54,.1),
+    0 12px 40px -20px rgba(224,27,54,.35);
+  transition:box-shadow .45s var(--e-out),border-color .45s var(--e-out),transform .45s var(--e-out)}
+.pf:hover{
+  border-color:rgba(224,27,54,.45);
+  transform:translateY(-3px);
+  box-shadow:
+    0 0 0 1px rgba(224,27,54,.34),
+    0 22px 60px -18px rgba(224,27,54,.6),
+    0 0 90px -30px rgba(224,27,54,.5)}
+.pf:focus-within{border-color:rgba(224,27,54,.45);
+  box-shadow:0 0 0 1px rgba(224,27,54,.34),0 22px 60px -18px rgba(224,27,54,.6)}
+
+@media(prefers-reduced-motion:reduce){
+  .pf{transition:box-shadow .45s var(--e-out),border-color .45s var(--e-out)}
+  .pf:hover{transform:none}
+}
