@@ -142,6 +142,7 @@ const SCREENS = [
   'src/app/app/(tabs)/site/media/page.tsx',
   'src/app/app/(tabs)/more/page.tsx',
   'src/app/app/(tabs)/customers/page.tsx',
+  'src/app/app/(tabs)/customers/[id]/page.tsx',
   'src/app/app/(tabs)/services/page.tsx',
   'src/app/app/(tabs)/analytics/page.tsx',
   'src/app/app/(tabs)/account/security/page.tsx',
@@ -283,6 +284,8 @@ const ACTION_FILES = [
   'src/app/admin/(dash)/site/actions.ts',
   'src/app/admin/(dash)/services/actions.ts',
   'src/app/admin/(dash)/settings/actions.ts',
+  'src/app/admin/(dash)/customers/actions.ts',
+  'src/app/admin/(dash)/discounts/actions.ts',
   'src/app/app/account/actions.ts',
 ];
 
