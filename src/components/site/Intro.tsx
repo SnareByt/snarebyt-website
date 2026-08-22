@@ -6,10 +6,10 @@ import { Wordmark } from './Wordmark';
 /**
  * The entrance.
  *
- * A black curtain with the wordmark, which lifts to reveal the site. It is the
- * first impression of a studio that sells premium work, and it is worth the
- * two seconds — but only if it obeys some rules, because an intro that ignores
- * them is the thing people install ad-blockers over.
+ * The wordmark on black, then it lifts. Nothing else on the screen and about a
+ * second and a half from open to gone — long enough to register as a brand,
+ * short enough that nobody waits for it. An intro anyone has to wait through
+ * is the thing people install ad-blockers over.
  *
  * ONCE PER SESSION, not per page. Held in sessionStorage rather than
  * localStorage: a returning visitor next week should see it again, someone
@@ -19,8 +19,9 @@ import { Wordmark } from './Wordmark';
  * byte — this is an overlay, not a gate. A crawler, a screen reader following
  * the landmark order, and anyone with JavaScript off all get the site itself.
  *
- * ALWAYS SKIPPABLE, by click, key or scroll, and it never lasts longer than
- * 2.2 seconds on its own.
+ * STILL SKIPPABLE by click, key or scroll — there is just no prompt saying so,
+ * because at this length there is no time to read one and a prompt would only
+ * tell people they were being made to wait.
  *
  * OFF ENTIRELY for `prefers-reduced-motion`, and for the site's own motion
  * toggle in the Design screen. Someone who has asked their operating system to
@@ -63,10 +64,10 @@ export function Intro() {
       window.setTimeout(() => {
         root.classList.remove('intro-play', 'intro-lift');
         setGone(true);
-      }, 900);
+      }, 560);
     };
 
-    const timer = window.setTimeout(finish, 2200);
+    const timer = window.setTimeout(finish, 1050);
 
     window.addEventListener('pointerdown', finish, { once: true });
     window.addEventListener('keydown', finish, { once: true });
@@ -92,11 +93,12 @@ export function Intro() {
          decorative curtain before the page is a worse start than no curtain. */
       aria-hidden="true"
     >
+      {/* The mark, and nothing else. No rule under it, no prompt to tap — at
+          this length there is no time to read either, and a prompt on a
+          curtain that lifts by itself only tells people they had to wait. */}
       <div className="intro-mark">
         <Wordmark idPrefix="wmIntro" large />
       </div>
-      <div className="intro-line" />
-      <div className="intro-skip">Tap to enter</div>
     </div>
   );
 }
