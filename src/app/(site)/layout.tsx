@@ -7,6 +7,8 @@ import { CartProvider } from '@/components/site/Cart';
 import { Analytics } from '@/components/site/Analytics';
 import { PointerSheen } from '@/components/site/PointerSheen';
 import { SiteGate, GatePreviewBar } from '@/components/site/SiteGate';
+import { Intro } from '@/components/site/Intro';
+import { IntroScript } from '@/components/site/IntroScript';
 import { pointerSheenOn } from '@/lib/store-state';
 import { siteGate, whatsappNumber } from '@/lib/site-mode';
 import { getNav, getTheme, themeStyle } from '@/lib/content';
@@ -39,6 +41,16 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       {/* No beacon while the site is closed: someone meeting a coming-soon
           panel is not a visit worth counting, and it would distort the
           numbers for the day it actually opens. */}
+      {/* The entrance. Never over the closed-site panel — a curtain lifting
+          to reveal a "coming soon" notice is a joke at the visitor's expense —
+          and never when the Design screen has motion switched off. */}
+      {!gate.gated && theme.motion ? (
+        <>
+          <IntroScript enabled />
+          <Intro />
+        </>
+      ) : null}
+
       {gate.gated ? null : <Analytics />}
       {sheen && !gate.gated ? <PointerSheen /> : null}
 

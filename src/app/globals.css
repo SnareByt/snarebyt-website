@@ -1773,3 +1773,96 @@ a.pt-row:hover{border-color:rgba(224,27,54,.4);background:rgba(224,27,54,.05);tr
    inherit currentColor, but someone's artwork must not be tinted red. */
 .soc-img{width:20px;height:20px;object-fit:contain;display:block}
 .soc:hover .soc-img{filter:drop-shadow(0 0 6px rgba(255,45,74,.45))}
+
+/* ============================================================
+   THE ENTRANCE
+   A black curtain carrying the wordmark, which lifts to reveal
+   the site. Rendered hidden; the pre-paint script in the layout
+   adds .intro-play to <html> only on a visit that should see it,
+   which is what stops either half flashing. See Intro.tsx.
+   ============================================================ */
+.intro{display:none}
+
+/* The scroll lock, declared rather than scripted.
+   Doing it in an effect meant it landed after first paint, and React's
+   development double-invoke could leave it undone entirely — the page stayed
+   scrollable behind the curtain, and the scrollbar it kept made the overlay
+   ten pixels narrower than the window. A class the pre-paint script already
+   sets does it before anything is drawn, and cannot get out of step. */
+html.intro-play:not(.intro-lift),
+html.intro-play:not(.intro-lift) body{overflow:hidden}
+
+html.intro-play .intro{
+  display:grid;
+  position:fixed;inset:0;z-index:9000;
+  place-items:center;align-content:center;gap:0;
+  background:
+    radial-gradient(120% 90% at 50% 42%,rgba(224,27,54,.14),transparent 62%),
+    #050506;
+  /* The curtain owns the pointer only while it is up. */
+  cursor:pointer;
+}
+
+/* The mark arrives from slightly below and slightly small — a lift rather than
+   a fade, which is what makes it feel like a door opening instead of a splash
+   screen loading. */
+html.intro-play .intro-mark{
+  width:min(62vw,520px);
+  opacity:0;
+  transform:translateY(14px) scale(.965);
+  animation:introMark 1.15s var(--e-out) .12s forwards;
+}
+html.intro-play .intro-mark .wm{width:100%;height:auto}
+
+@keyframes introMark{
+  to{opacity:1;transform:none}
+}
+
+/* A hairline that draws outward from the centre under the mark, timed to
+   arrive just after it. One gesture, not two competing ones. */
+html.intro-play .intro-line{
+  width:min(62vw,520px);height:1px;margin-top:1.5rem;
+  background:linear-gradient(90deg,transparent,var(--red-bright),transparent);
+  transform:scaleX(0);
+  animation:introLine .9s var(--e-out) .55s forwards;
+}
+@keyframes introLine{
+  to{transform:scaleX(1)}
+}
+
+html.intro-play .intro-skip{
+  margin-top:1.6rem;
+  font-family:var(--font-archivo),sans-serif;font-weight:600;
+  font-size:.58rem;letter-spacing:.34em;text-transform:uppercase;
+  color:var(--dim);
+  opacity:0;
+  animation:introSkip .7s ease 1.35s forwards;
+}
+@keyframes introSkip{
+  to{opacity:.75}
+}
+
+/* The lift. The curtain rises and dissolves at once, so the site is already
+   readable underneath before it has finished leaving. */
+html.intro-play .intro.intro-out,
+.intro.intro-out{
+  animation:introLift .85s var(--e-out) forwards;
+  pointer-events:none;
+}
+@keyframes introLift{
+  to{opacity:0;transform:translateY(-3%);visibility:hidden}
+}
+
+@media(max-width:560px){
+  html.intro-play .intro-mark,
+  html.intro-play .intro-line{width:78vw}
+  html.intro-play .intro-skip{font-size:.54rem;letter-spacing:.28em}
+}
+
+/* Belt and braces. The pre-paint script already refuses to add the class when
+   reduced motion is asked for, but a preference can change after load, and a
+   curtain that keeps animating after someone has said stop is exactly the
+   thing the preference exists to prevent. */
+@media(prefers-reduced-motion:reduce){
+  html.intro-play .intro{display:none}
+}
