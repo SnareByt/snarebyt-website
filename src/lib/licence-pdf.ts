@@ -525,7 +525,16 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
   });
   tracked(page, 'WHAT THIS DOCUMENT IS NOT',
     { x: M + 16, y: y - 16, size: 6.4, font: f.microBold, color: t.red, spacing: 1.3 });
-  y -= 78;
+  // This panel's body is drawn HERE, while y still points at the panel. It
+  // used to be written further down, after y had already moved on to the seal
+  // — so the paragraph landed inside the seal, printed over the wordmark.
+  wrap(data.isExclusive
+    ? 'It does not transfer the copyright in the composition unless a separate signed exclusive contract says so. It is proof of the rights granted, not a transfer of authorship.'
+    : 'It is not a transfer of ownership and not an exclusive right. Other artists may hold their own licence to the same instrumental, and a claim from one of them is not a dispute with you.',
+    regular, 8.8, W - M * 2 - 32).forEach((v, i) =>
+    page.drawText(v, { x: M + 16, y: y - 33 - i * 12, size: 8.8, font: regular, color: t.muted }));
+
+  y -= 88;
 
   /* The authenticity block.
    *
@@ -557,11 +566,6 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
   });
   tracked(page, `DOCUMENT FINGERPRINT ${fingerprint}`,
     { x: M + 18, y: y - sealH + 26, size: 5.8, font: f.micro, color: t.faint, spacing: 0.9 });
-  wrap(data.isExclusive
-    ? 'It does not transfer the copyright in the composition unless a separate signed exclusive contract says so. It is proof of the rights granted, not a transfer of authorship.'
-    : 'It is not a transfer of ownership and not an exclusive right. Other artists may hold their own licence to the same instrumental, and a claim from one of them is not a dispute with you.',
-    regular, 8.8, W - M * 2 - 32).forEach((v, i) =>
-    page.drawText(v, { x: M + 16, y: y - 33 - i * 12, size: 8.8, font: regular, color: t.muted }));
 
   drawSection('Terms in English', data.termsEnglish, regular);
 

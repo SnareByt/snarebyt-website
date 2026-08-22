@@ -41,6 +41,28 @@ const DARK_GROUND = '0.031 0.031 0.039 rg';
 const DARK_TEXT = '0.949 0.949 0.965 rg';
 const WHITE_GROUND = '1 1 1 rg';
 
+/* The sheet, and the band on it that text is allowed to occupy. The masthead
+   owns the top 74pt and the footer the bottom ~50, so anything drawn outside
+   this has either overflowed the page or collided with furniture. */
+const PAGE_H = 841.89;
+const PAGE_W = 595.28;
+const SAFE_TOP = PAGE_H - 74;   // below the masthead band
+const SAFE_BOTTOM = 20;         // above the footer's lowest line
+
+/**
+ * Where every run of text was placed.
+ *
+ * pdf-lib writes a text matrix per run — "1 0 0 1 <x> <y> Tm" — and those
+ * numbers are plain, unlike the glyphs after them. Reading them back is the
+ * only way to catch a layout fault from the file itself: a paragraph written
+ * after `y` has already moved on lands somewhere it was never meant to, and
+ * nothing about the colours or the page count would notice.
+ */
+function textPositions(ops: string): Array<{ x: number; y: number }> {
+  return [...ops.matchAll(/1 0 0 1 (-?[\d.]+) (-?[\d.]+) Tm/g)]
+    .map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+}
+
 async function main() {
   const base = {
     number: 'SB-LIC-2026-TEST',
@@ -88,6 +110,38 @@ async function main() {
      the hairline every other panel uses, so it reads as a stamp. */
   ok('the proof page carries a red-bordered seal', /1 0\.176 0\.29 RG/.test(darkOps),
     'no red stroke colour was set anywhere');
+
+  console.log('\nNothing is drawn off the page or under the furniture\n');
+
+  const spots = textPositions(darkOps);
+  ok('text was found to check at all', spots.length > 200, `only ${spots.length} runs`);
+
+  const belowPage = spots.filter((p) => p.y < SAFE_BOTTOM);
+  ok('nothing runs off the bottom of a sheet', belowPage.length === 0,
+    `${belowPage.length} runs below y=${SAFE_BOTTOM}, lowest ${Math.min(...belowPage.map((p) => p.y))}`);
+
+  const offRight = spots.filter((p) => p.x > PAGE_W - 30);
+  ok('nothing runs off the right edge', offRight.length === 0,
+    `${offRight.length} runs past x=${PAGE_W - 30}`);
+
+  const negative = spots.filter((p) => p.x < 0 || p.y < 0);
+  ok('nothing is placed at a negative coordinate', negative.length === 0);
+
+  /* The masthead band is 74pt of solid colour, and body text inside it is
+     invisible or half-legible over the rule.
+
+     Counting runs up there is useless — tracked() emits one run PER GLYPH, so
+     the masthead alone is ~72 of them and a stray line would hide in the
+     noise. What IS precise is the baseline: the masthead draws on exactly two,
+     the wordmark line and the label line. Anything else in the band is text
+     that does not belong there. */
+  const MASTHEAD_BASELINES = [PAGE_H - 44, PAGE_H - 60];
+  const strays = spots
+    .filter((p) => p.y > SAFE_TOP)
+    .filter((p) => !MASTHEAD_BASELINES.some((b) => Math.abs(p.y - b) < 0.5));
+  ok('nothing but the masthead is drawn in the masthead band',
+    strays.length === 0,
+    `${strays.length} stray runs at y=${[...new Set(strays.map((p) => p.y))].join(', ')}`);
 
   console.log('\nThe print theme is the same document on white\n');
 
