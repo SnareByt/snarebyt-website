@@ -1,60 +1,102 @@
+/**
+ * Render one sample licence PDF per beat package, for review.
+ *
+ * Reads the REAL tiers from the database rather than restating them here, so
+ * what comes out is exactly what a buyer of that package would receive — same
+ * limits, same terms, same wording. A sample built from invented figures would
+ * review well and ship wrong.
+ *
+ * Writes to the Desktop by default so they can be opened and read without
+ * hunting through the repo.
+ *
+ *   npx tsx --env-file=.env scripts/render-licence-samples.ts
+ *   npx tsx --env-file=.env scripts/render-licence-samples.ts --print   (white)
+ *   npx tsx --env-file=.env scripts/render-licence-samples.ts --out ./output
+ */
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
-import { renderLicencePdf, type LicencePdfData } from '../src/lib/licence-pdf';
+import os from 'os';
+import { PrismaClient } from '@prisma/client';
+import { renderLicencePdf } from '../src/lib/licence-pdf';
 
-async function main() {
-const output = path.join(process.cwd(), 'output', 'pdf');
-await mkdir(output, { recursive: true });
+const prisma = new PrismaClient();
 
-const common: Omit<LicencePdfData, 'number' | 'tierName' | 'priceBdt' | 'isExclusive' |
-  'transfersOwnership' | 'filesLabel' | 'performanceRights' | 'termsEnglish' | 'termsBangla'> = {
-  orderNumber: 'SB-2026-SAMPLE', licenseeName: 'Sample Artist',
-  licenseeEmail: 'artist@example.com', beatTitle: 'Puran Dhaka',
-  purchasedAt: new Date('2026-08-20T10:00:00.000Z'), creditRequired: true,
+/** A believable buyer, so the layout is exercised the way a real one is. */
+const SAMPLE = {
+  orderNumber: 'SB-2026-000000',
+  licenseeName: 'Sample Artist',
+  licenseeArtist: 'SAMPLE',
+  licenseeEmail: 'artist@example.com',
+  licenseeCountry: 'Bangladesh',
+  beatTitle: 'Puran Dhaka',
+  purchasedAt: new Date('2026-08-22T10:00:00.000Z'),
+  basePriceBdt: 1500,
 };
 
-const nonExclusive = await renderLicencePdf({
-  ...common, number: 'SB-LIC-2026-NONEX', tierName: 'WAV Licence', priceBdt: 3600,
-  isExclusive: false, transfersOwnership: false,
-  filesLabel: 'WAV 24-bit + MP3 320kbps', performanceRights: 'Live performances allowed',
-  termsEnglish: [
-    'Non-exclusive - the beat stays on sale for others', 'Up to 150,000 streams total',
-    'Up to 5,000 paid sales', '1 music video', 'Live performances allowed',
-    '2 radio stations', 'Full monetisation allowed', 'Credit required: "Prod. SnareByt"',
-    'SnareByt keeps full ownership',
-  ].join('\n'),
-  termsBangla: [
-    'নন-এক্সক্লুসিভ - বিটটি অন্যদের জন্যও বিক্রিতে থাকবে', 'সর্বমোট ১,৫০,০০০ স্ট্রিম পর্যন্ত',
-    'সর্বোচ্চ ৫,০০০টি পেইড সেল', '১টি মিউজিক ভিডিও', 'লাইভ পারফরম্যান্স করা যাবে',
-    '২টি রেডিও স্টেশন', 'সম্পূর্ণ মনিটাইজেশন করা যাবে', 'ক্রেডিট দিতে হবে: "Prod. SnareByt"',
-    'মালিকানা SnareByt-এর কাছেই থাকবে',
-  ].join('\n'),
-});
+async function main() {
+  const args = process.argv.slice(2);
+  const printTheme = args.includes('--print');
+  const outFlag = args.indexOf('--out');
+  const outDir = outFlag !== -1 && args[outFlag + 1]
+    ? path.resolve(args[outFlag + 1])
+    : path.join(os.homedir(), 'Desktop', 'SnareByt licences');
 
-const exclusive = await renderLicencePdf({
-  ...common, number: 'SB-LIC-2026-EXCL', tierName: 'Exclusive Rights', priceBdt: 39000,
-  isExclusive: true, transfersOwnership: true,
-  filesLabel: 'WAV + MP3 + stems + signed exclusive contract',
-  performanceRights: 'Unlimited live performances',
-  termsEnglish: [
-    'EXCLUSIVE - the beat is removed from the store and nobody else can ever licence it',
-    'Unlimited streams', 'Unlimited paid sales', 'Unlimited music videos',
-    'Unlimited live performances', 'Unlimited radio', 'Full monetisation allowed',
-    'Credit required: "Prod. SnareByt"', 'Master ownership transferred per contract',
-  ].join('\n'),
-  termsBangla: [
-    'এক্সক্লুসিভ - বিটটি স্টোর থেকে সরিয়ে ফেলা হবে, অন্য কেউ আর কখনও এটি লাইসেন্স নিতে পারবে না',
-    'আনলিমিটেড স্ট্রিম', 'আনলিমিটেড পেইড সেল', 'আনলিমিটেড মিউজিক ভিডিও',
-    'আনলিমিটেড লাইভ পারফরম্যান্স', 'আনলিমিটেড রেডিও', 'সম্পূর্ণ মনিটাইজেশন করা যাবে',
-    'ক্রেডিট দিতে হবে: "Prod. SnareByt"', 'চুক্তি অনুযায়ী মাস্টার মালিকানা হস্তান্তর করা হবে',
-  ].join('\n'),
-});
+  await mkdir(outDir, { recursive: true });
 
-await Promise.all([
-  writeFile(path.join(output, 'snarebyt-non-exclusive-licence-sample.pdf'), nonExclusive),
-  writeFile(path.join(output, 'snarebyt-exclusive-licence-sample.pdf'), exclusive),
-]);
-console.log(`Rendered ${nonExclusive.length} and ${exclusive.length} bytes.`);
+  const tiers = await prisma.licenceTier.findMany({ orderBy: { sortOrder: 'asc' } });
+  if (!tiers.length) throw new Error('No licence tiers in the database.');
+
+  console.log(`\nRendering ${tiers.length} sample licences${printTheme ? ' (print theme)' : ''}…\n`);
+
+  for (const tier of tiers) {
+    const SEPARATOR = '\n\n---\n\n';
+    // The live generator splits the stored snapshot the same way. Matching it
+    // here is what makes these samples representative rather than decorative.
+    const combined = `${tier.termsMarkdown}${SEPARATOR}${tier.termsMarkdownBn}`;
+    const at = combined.indexOf(SEPARATOR);
+
+    const bytes = await renderLicencePdf({
+      number: `SB-LIC-2026-${tier.code.toUpperCase()}`,
+      orderNumber: SAMPLE.orderNumber,
+      licenseeName: SAMPLE.licenseeName,
+      licenseeArtist: SAMPLE.licenseeArtist,
+      licenseeEmail: SAMPLE.licenseeEmail,
+      licenseeCountry: SAMPLE.licenseeCountry,
+      beatTitle: SAMPLE.beatTitle,
+      tierName: tier.name,
+      purchasedAt: SAMPLE.purchasedAt,
+      priceBdt: Math.round((SAMPLE.basePriceBdt * tier.multiplier) / 50) * 50,
+      isExclusive: tier.isExclusive,
+      transfersOwnership: tier.transfersOwnership,
+      filesLabel: tier.filesLabel,
+      performanceRights: tier.performanceRights,
+      creditRequired: tier.creditRequired,
+      termsEnglish: combined.slice(0, at),
+      termsBangla: combined.slice(at + SEPARATOR.length),
+      streamLimit: tier.streamLimit,
+      saleLimit: tier.saleLimit,
+      videoLimit: tier.videoLimit,
+      radioStations: tier.radioStations,
+      monetisation: tier.monetisation,
+      theme: printTheme ? 'print' : 'dark',
+    });
+
+    const slug = tier.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const file = path.join(outDir, `snarebyt-${slug}${printTheme ? '-print' : ''}.pdf`);
+    await writeFile(file, bytes);
+
+    const limits = [
+      tier.streamLimit === null ? 'unlimited streams' : `${tier.streamLimit.toLocaleString('en-US')} streams`,
+      tier.saleLimit === null ? 'unlimited sales' : `${tier.saleLimit.toLocaleString('en-US')} sales`,
+      tier.videoLimit === null ? 'unlimited videos' : `${tier.videoLimit} video${tier.videoLimit === 1 ? '' : 's'}`,
+    ].join(' · ');
+
+    console.log(`  ✓ ${tier.name.padEnd(20)} ${(bytes.length / 1024).toFixed(0).padStart(4)}KB   ${limits}`);
+  }
+
+  console.log(`\nWritten to: ${outDir}\n`);
 }
 
-main().catch((error) => { console.error(error); process.exit(1); });
+main()
+  .catch((error) => { console.error(error); process.exit(1); })
+  .finally(() => prisma.$disconnect());

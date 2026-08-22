@@ -41,20 +41,67 @@ export type LicencePdfData = {
   creditRequired: boolean;
   termsEnglish: string;
   termsBangla: string;
+
+  /** Null means unlimited throughout — the same convention as LicenceTier. */
+  streamLimit?: number | null;
+  saleLimit?: number | null;
+  videoLimit?: number | null;
+  radioStations?: number | null;
+  monetisation?: boolean;
+  /** White on black by default; set for a version that prints on paper. */
+  theme?: 'dark' | 'print';
+};
+
+/** How a limit reads on the page. Null is unlimited, 0 is genuinely none. */
+const limitText = (n: number | null | undefined, one: string, many: string) => {
+  if (n === null || n === undefined) return `Unlimited ${many}`;
+  if (n === 0) return `No ${many}`;
+  return `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 };
 
 const W = 595.28;
 const H = 841.89;
 const M = 54;
-// Straight from globals.css: --red #E01B36, --ink #040405. The body stays on
-// white because this is a contract people print and file — a black page is a
-// ruined cartridge and an unreadable photocopy. The brand lives in the
-// masthead, the rules and the accents, which is how a luxury house prints.
-const red = rgb(0.878, 0.106, 0.212);
-const ink = rgb(0.016, 0.016, 0.02);
-const muted = rgb(0.38, 0.4, 0.46);
-const line = rgb(0.86, 0.87, 0.9);
-const paper = rgb(1, 1, 1);
+
+/* The page is black, as the site is.
+ *
+ * The trade-off is real and worth naming: a black contract costs a cartridge
+ * to print and photocopies badly. It is served and read on a screen — from the
+ * download link, attached to an email, opened on a phone — and on a screen it
+ * looks like the brand rather than like a bank statement. If a printable copy
+ * is ever needed, PRINT_THEME below is the same document on white; nothing
+ * about the layout assumes one or the other.
+ *
+ * Every colour is a token from globals.css so the document and the site cannot
+ * drift apart. */
+type Theme = {
+  paper: RGB; text: RGB; muted: RGB; faint: RGB;
+  line: RGB; card: RGB; cardLine: RGB; red: RGB; redSoft: RGB;
+};
+
+const DARK: Theme = {
+  paper: rgb(0.031, 0.031, 0.039),   // #08080A
+  text: rgb(0.949, 0.949, 0.965),    // #F2F2F6
+  muted: rgb(0.62, 0.63, 0.68),
+  faint: rgb(0.42, 0.43, 0.48),
+  line: rgb(0.16, 0.165, 0.19),
+  card: rgb(0.063, 0.063, 0.075),
+  cardLine: rgb(0.20, 0.205, 0.235),
+  red: rgb(1, 0.176, 0.29),          // --red-bright #FF2D4A, legible on black
+  redSoft: rgb(0.878, 0.106, 0.212), // --red #E01B36
+};
+
+const PRINT_THEME: Theme = {
+  paper: rgb(1, 1, 1),
+  text: rgb(0.016, 0.016, 0.02),
+  muted: rgb(0.38, 0.4, 0.46),
+  faint: rgb(0.52, 0.54, 0.58),
+  line: rgb(0.86, 0.87, 0.9),
+  card: rgb(0.975, 0.976, 0.982),
+  cardLine: rgb(0.86, 0.87, 0.9),
+  red: rgb(0.878, 0.106, 0.212),
+  redSoft: rgb(0.878, 0.106, 0.212),
+};
 
 /**
  * Letter-spaced text. pdf-lib has no tracking option, so each glyph is placed
@@ -108,7 +155,7 @@ function wrap(text: string, font: PDFFont, size: number, width: number) {
  * silently losing the Bangla half of a bilingual contract is exactly the
  * failure this document exists to prevent.
  */
-async function renderBanglaTerms(body: string, maxRowsPerPage: number) {
+async function renderBanglaTerms(body: string, maxRowsPerPage: number, ink: string, accent: string) {
   const family = 'SnareByt Noto Bengali';
   GlobalFonts.registerFromPath(BENGALI, family);
   const scale = 2;
@@ -140,14 +187,14 @@ async function renderBanglaTerms(body: string, maxRowsPerPage: number) {
     const draw = canvas.getContext('2d');
     if (isFirst) {
       draw.font = `700 31px "${family}"`;
-      draw.fillStyle = '#040405';
+      draw.fillStyle = ink;
       draw.fillText('বাংলায় শর্তাবলি', 0, 33);
     }
     draw.font = `20px "${family}"`;
     slice.forEach((row, n) => {
       if (!row) return;
       const y = top + n * 35;
-      draw.fillStyle = '#E01B36';
+      draw.fillStyle = accent;
       draw.beginPath(); draw.arc(6, y - 7, 4, 0, Math.PI * 2); draw.fill();
       draw.fillStyle = '#040405';
       draw.fillText(row, 28, y);
@@ -167,34 +214,34 @@ type Fonts = { regular: PDFFont; bold: PDFFont; syne: PDFFont; micro: PDFFont; m
  * The sheet below stays white because this is a contract people print, file
  * and sometimes photocopy.
  */
-function header(page: PDFPage, f: Fonts, data: LicencePdfData, pageNo: number, pageCount?: number) {
+function header(page: PDFPage, f: Fonts, data: LicencePdfData, t: Theme, pageNo: number, pageCount?: number) {
   const bandH = 74;
-  page.drawRectangle({ x: 0, y: H - bandH, width: W, height: bandH, color: ink });
+  page.drawRectangle({ x: 0, y: H - bandH, width: W, height: bandH, color: t.text });
   // The red waveform tick from the wordmark, reduced to its essential mark.
-  page.drawRectangle({ x: 0, y: H - bandH, width: W, height: 2.4, color: red });
+  page.drawRectangle({ x: 0, y: H - bandH, width: W, height: 2.4, color: t.red });
 
   tracked(page, 'SNAREBYT',
-    { x: M, y: H - 44, size: 19, font: f.syne, color: paper, spacing: 0.5 });
+    { x: M, y: H - 44, size: 19, font: f.syne, color: t.text, spacing: 0.5 });
   tracked(page, data.isExclusive ? 'EXCLUSIVE RIGHTS AGREEMENT' : 'BEAT LICENCE AGREEMENT',
-    { x: M, y: H - 60, size: 6.4, font: f.microBold, color: red, spacing: 1.7 });
+    { x: M, y: H - 60, size: 6.4, font: f.microBold, color: t.red, spacing: 1.7 });
 
   const ref = pageCount ? `${data.number}   PAGE ${pageNo} OF ${pageCount}` : data.number;
   tracked(page, ref, {
     x: W - M - trackedWidth(ref, f.micro, 6.6, 0.9), y: H - 44,
-    size: 6.6, font: f.micro, color: rgb(0.65, 0.66, 0.7), spacing: 0.9,
+    size: 6.6, font: f.micro, color: t.faint, spacing: 0.9,
   });
 }
 
-function footer(page: PDFPage, f: Fonts, data: LicencePdfData, fingerprint: string) {
-  page.drawLine({ start: { x: M, y: 46 }, end: { x: W - M, y: 46 }, thickness: 0.5, color: line });
+function footer(page: PDFPage, f: Fonts, data: LicencePdfData, t: Theme, fingerprint: string) {
+  page.drawLine({ start: { x: M, y: 46 }, end: { x: W - M, y: 46 }, thickness: 0.5, color: t.line });
   tracked(page, `ORDER ${data.orderNumber}`,
-    { x: M, y: 31, size: 6.2, font: f.microBold, color: muted, spacing: 1.1 });
+    { x: M, y: 31, size: 6.2, font: f.microBold, color: t.muted, spacing: 1.1 });
   tracked(page, `FINGERPRINT ${fingerprint}`,
-    { x: M, y: 22, size: 6.2, font: f.micro, color: rgb(0.55, 0.57, 0.62), spacing: 0.8 });
+    { x: M, y: 22, size: 6.2, font: f.micro, color: t.faint, spacing: 0.8 });
   const issued = 'ISSUED ELECTRONICALLY BY SNAREBYT';
   tracked(page, issued, {
     x: W - M - trackedWidth(issued, f.micro, 6.2, 1.1), y: 31,
-    size: 6.2, font: f.micro, color: muted, spacing: 1.1,
+    size: 6.2, font: f.micro, color: t.muted, spacing: 1.1,
   });
 }
 
@@ -226,9 +273,15 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
       data.tierName, data.purchasedAt.toISOString(), data.termsEnglish, data.termsBangla].join('|'))
     .digest('hex').slice(0, 20).toUpperCase();
 
+  const t: Theme = data.theme === 'print' ? PRINT_THEME : DARK;
+
   const pages: PDFPage[] = [];
   const addPage = () => {
     const page = pdf.addPage([W, H]);
+    // The ground, painted first. A PDF page has no background colour property —
+    // it is white unless something is drawn over it, so on a dark document this
+    // rectangle IS the page.
+    page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: t.paper });
     pages.push(page);
     return page;
   };
@@ -236,14 +289,14 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
   let y = H - 128;
 
   page.drawText(data.isExclusive ? 'Exclusive ownership transfer' : 'Non-exclusive commercial licence', {
-    x: M, y, size: 18, font: f.syne, color: ink,
+    x: M, y, size: 18, font: f.syne, color: t.text,
   });
   y -= 29;
   const intro = data.isExclusive
     ? 'This document records the exclusive rights purchased for the beat below. The beat is removed from sale when payment is verified.'
     : 'This document records the non-exclusive licence purchased for the beat below. The producer retains ownership and may license the beat to others.';
   for (const row of wrap(intro, regular, 9.5, W - M * 2)) {
-    page.drawText(row, { x: M, y, size: 9.5, font: regular, color: muted }); y -= 14;
+    page.drawText(row, { x: M, y, size: 9.5, font: regular, color: t.muted }); y -= 14;
   }
   y -= 10;
 
@@ -264,35 +317,141 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
       : 'No producer credit required'],
   ];
   for (const [label, value] of facts) {
-    tracked(page, label, { x: M, y, size: 6.4, font: f.microBold, color: red, spacing: 1.3 });
+    tracked(page, label, { x: M, y, size: 6.4, font: f.microBold, color: t.red, spacing: 1.3 });
     const valueLines = wrap(value, regular, 9, 360);
-    valueLines.forEach((v, i) => page.drawText(v, { x: 175, y: y - i * 12, size: 9, font: regular, color: ink }));
+    valueLines.forEach((v, i) => page.drawText(v, { x: 175, y: y - i * 12, size: 9, font: regular, color: t.text }));
     y -= Math.max(24, valueLines.length * 12 + 8);
-    page.drawLine({ start: { x: M, y: y + 9 }, end: { x: W - M, y: y + 9 }, thickness: 0.45, color: line });
+    page.drawLine({ start: { x: M, y: y + 9 }, end: { x: W - M, y: y + 9 }, thickness: 0.45, color: t.line });
   }
 
   y -= 5;
-  page.drawRectangle({ x: M, y: y - 66, width: W - M * 2, height: 72, color: rgb(0.975, 0.976, 0.982), borderColor: line, borderWidth: 0.7 });
+  page.drawRectangle({ x: M, y: y - 66, width: W - M * 2, height: 72, color: t.card, borderColor: t.cardLine, borderWidth: 0.7 });
   tracked(page, data.isExclusive ? 'RIGHTS STATUS' : 'IMPORTANT',
-    { x: M + 16, y: y - 15, size: 6.6, font: f.microBold, color: red, spacing: 1.4 });
+    { x: M + 16, y: y - 15, size: 6.6, font: f.microBold, color: t.red, spacing: 1.4 });
   const status = data.isExclusive
     ? `Exclusive sale. Ownership transfer: ${data.transfersOwnership ? 'YES, as limited by the terms below.' : 'NO.'}`
     : 'This is a lease, not an exclusive sale. The beat remains available to other licensees.';
   wrap(status, regular, 9, W - M * 2 - 32).forEach((v, i) =>
-    page.drawText(v, { x: M + 16, y: y - 34 - i * 13, size: 9, font: regular, color: ink }));
+    page.drawText(v, { x: M + 16, y: y - 34 - i * 13, size: 9, font: regular, color: t.text }));
 
   const drawSection = (title: string, body: string, font: PDFFont) => {
     page = addPage(); y = H - 126;
-    page.drawText(title, { x: M, y, size: 16, font: f.syne, color: ink }); y -= 31;
+    page.drawText(title, { x: M, y, size: 16, font: f.syne, color: t.text }); y -= 31;
     const rows = wrap(body, font, 10, W - M * 2 - 18);
     for (const row of rows) {
       if (y < 78) { page = addPage(); y = H - 118; }
       if (!row) { y -= 8; continue; }
-      page.drawCircle({ x: M + 3, y: y + 3, size: 2.2, color: red });
-      page.drawText(row, { x: M + 16, y, size: 10, font, color: ink });
+      page.drawCircle({ x: M + 3, y: y + 3, size: 2.2, color: t.red });
+      page.drawText(row, { x: M + 16, y, size: 10, font, color: t.text });
       y -= 17;
     }
   };
+  /* ---------------- what this licence allows, in figures ----------------
+     The prose terms say it too, but a number in a table is what somebody
+     checks before they release. Built from the tier's own limits so the
+     document and the store can never state different ceilings. */
+  page = addPage(); y = H - 126;
+  page.drawText('Limits and rules', { x: M, y, size: 16, font: f.syne, color: t.text });
+  y -= 20;
+  wrap('Everything this licence permits, with the ceiling that applies to each. A limit reached is a limit reached — come back for a higher tier rather than exceeding it.',
+    regular, 9, W - M * 2).forEach((row) => {
+    page.drawText(row, { x: M, y, size: 9, font: regular, color: t.muted }); y -= 13;
+  });
+  y -= 16;
+
+  const allowances: Array<[string, string]> = [
+    ['STREAMS', limitText(data.streamLimit, 'stream', 'streams')],
+    ['PAID SALES / DOWNLOADS', limitText(data.saleLimit, 'copy', 'copies')],
+    ['MUSIC VIDEOS', limitText(data.videoLimit, 'video', 'videos')],
+    ['RADIO / BROADCAST', limitText(data.radioStations, 'station', 'stations')],
+    ['LIVE PERFORMANCE', data.performanceRights],
+    ['MONETISATION', data.monetisation === false
+      ? 'Not permitted under this licence'
+      : 'Permitted on all platforms, including YouTube and streaming services'],
+    ['PRODUCER CREDIT', data.creditRequired
+      ? 'Required — "Prod. SnareByt" in the title or description'
+      : 'Not required'],
+    ['DISTRIBUTION', 'One song, released under the licensee named on this document'],
+  ];
+
+  for (const [label, value] of allowances) {
+    const rows = wrap(value, regular, 9.5, W - M - 232);
+    page.drawRectangle({
+      x: M, y: y - (rows.length - 1) * 12 - 7, width: W - M * 2,
+      height: rows.length * 12 + 16, color: t.card,
+    });
+    tracked(page, label, { x: M + 12, y, size: 6.4, font: f.microBold, color: t.red, spacing: 1.2 });
+    rows.forEach((v, i) =>
+      page.drawText(v, { x: 226, y: y - i * 12, size: 9.5, font: regular, color: t.text }));
+    y -= rows.length * 12 + 22;
+  }
+
+  y -= 4;
+  const notPermitted = [
+    'Reselling, re-licensing or giving away the beat as a beat, in any form.',
+    'Registering the beat, or any part of it, with YouTube Content ID or any other content-identification system as your own work.',
+    'Claiming authorship of the underlying composition.',
+    'Using the beat in anything unlawful, or that promotes hatred or violence.',
+    ...(data.isExclusive ? [] : ['Exceeding any figure above. The licence covers up to the limit, not beyond it.']),
+  ];
+  tracked(page, 'NOT PERMITTED UNDER ANY TIER',
+    { x: M, y, size: 6.6, font: f.microBold, color: t.red, spacing: 1.4 });
+  y -= 18;
+  for (const row of notPermitted) {
+    if (y < 92) { page = addPage(); y = H - 118; }
+    const rows = wrap(row, regular, 9.5, W - M * 2 - 18);
+    rows.forEach((v, i) =>
+      page.drawText(v, { x: M + 16, y: y - i * 13, size: 9.5, font: regular, color: t.text }));
+    page.drawText('—', { x: M, y, size: 9.5, font: regular, color: t.faint });
+    y -= rows.length * 13 + 8;
+  }
+
+  /* ---------------- proof of licence, for a platform ----------------
+     The reason this document is worth issuing at all. When a release is
+     claimed on YouTube or flagged by a DSP, the artist needs one page they can
+     attach that says who owns the beat, who was licensed, and how to check.
+     Written to be read by a rights administrator who has never heard of this
+     site — hence the plain restatement of the parties and the verification
+     route, which is nothing a claim reviewer should have to hunt for. */
+  page = addPage(); y = H - 126;
+  page.drawText('Proof of licence', { x: M, y, size: 16, font: f.syne, color: t.text });
+  y -= 20;
+  tracked(page, 'FOR COPYRIGHT CLAIMS ON YOUTUBE, SPOTIFY AND OTHER PLATFORMS',
+    { x: M, y, size: 6.4, font: f.microBold, color: t.red, spacing: 1.3 });
+  y -= 26;
+
+  const proof = [
+    `SnareByt (Samir Islam), Dhaka, Bangladesh, is the sole owner of the musical composition and sound recording of the instrumental "${data.beatTitle}".`,
+    `SnareByt has granted ${data.licenseeArtist ? `${data.licenseeName}, releasing as ${data.licenseeArtist},` : data.licenseeName} a ${data.isExclusive ? 'an exclusive' : 'valid non-exclusive'} licence to use that instrumental in one commercial release, under licence number ${data.number}, issued ${data.purchasedAt.toISOString().slice(0, 10)}.`,
+    data.monetisation === false
+      ? 'This licence does not include monetisation rights.'
+      : 'That licence expressly includes the right to distribute and monetise the resulting song on YouTube, Spotify, Apple Music and other digital service providers, within the limits set out in this document.',
+    'If a claim has been raised against a release covered by this licence, this document is the licensee’s authorisation to use the work. SnareByt will confirm it on request.',
+    `To verify: email snarebyt@gmail.com quoting licence ${data.number} and order ${data.orderNumber}. The document fingerprint below must match our record.`,
+  ];
+
+  for (const row of proof) {
+    if (y < 150) { page = addPage(); y = H - 118; }
+    const rows = wrap(row, regular, 9.5, W - M * 2 - 18);
+    rows.forEach((v, i) =>
+      page.drawText(v, { x: M + 16, y: y - i * 14, size: 9.5, font: regular, color: t.text }));
+    page.drawCircle({ x: M + 3, y: y + 3, size: 2.2, color: t.red });
+    y -= rows.length * 14 + 12;
+  }
+
+  y -= 6;
+  page.drawRectangle({
+    x: M, y: y - 58, width: W - M * 2, height: 62,
+    color: t.card, borderColor: t.cardLine, borderWidth: 0.7,
+  });
+  tracked(page, 'WHAT THIS DOCUMENT IS NOT',
+    { x: M + 16, y: y - 16, size: 6.4, font: f.microBold, color: t.red, spacing: 1.3 });
+  wrap(data.isExclusive
+    ? 'It does not transfer the copyright in the composition unless a separate signed exclusive contract says so. It is proof of the rights granted, not a transfer of authorship.'
+    : 'It is not a transfer of ownership and not an exclusive right. Other artists may hold their own licence to the same instrumental, and a claim from one of them is not a dispute with you.',
+    regular, 8.8, W - M * 2 - 32).forEach((v, i) =>
+    page.drawText(v, { x: M + 16, y: y - 33 - i * 12, size: 8.8, font: regular, color: t.muted }));
+
   drawSection('Terms in English', data.termsEnglish, regular);
 
   // pdf-lib's text layer does not perform Indic shaping reliably. Render the
@@ -301,7 +460,15 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
   // 35pt per row at 2x is 17.5pt on the page; the usable band is header to
   // footer, so this is how many rows genuinely fit before the sheet runs out.
   const usable = H - 118 - 60;
-  const banglaChunks = await renderBanglaTerms(data.termsBangla, Math.floor((usable - 38) / 17.5));
+  // Canvas draws its own pixels, so it has to be told the theme too — the
+  // default near-black text would be invisible on a near-black page, which is
+  // the whole Bangla half of a bilingual contract silently disappearing.
+  const banglaChunks = await renderBanglaTerms(
+    data.termsBangla,
+    Math.floor((usable - 38) / 17.5),
+    data.theme === 'print' ? '#040405' : '#F2F2F6',
+    data.theme === 'print' ? '#E01B36' : '#FF2D4A',
+  );
   for (const chunk of banglaChunks) {
     page = addPage();
     const img = await pdf.embedPng(chunk.png);
@@ -312,7 +479,7 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
   }
 
   page = addPage(); y = H - 126;
-  page.drawText('Electronic execution record', { x: M, y, size: 16, font: f.syne, color: ink }); y -= 32;
+  page.drawText('Electronic execution record', { x: M, y, size: 16, font: f.syne, color: t.text }); y -= 32;
   const execution = [
     'The customer accepted the licence terms during checkout before the order was submitted.',
     'The payment gateway confirmed the exact order amount to SnareByt server-to-server before this document was issued.',
@@ -321,25 +488,25 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
   ];
   execution.forEach((row) => {
     wrap(row, regular, 9.5, W - M * 2 - 18).forEach((v, i) =>
-      page.drawText(v, { x: M + 16, y: y - i * 14, size: 9.5, font: regular, color: ink }));
-    page.drawCircle({ x: M + 3, y: y + 3, size: 2.2, color: red });
+      page.drawText(v, { x: M + 16, y: y - i * 14, size: 9.5, font: regular, color: t.text }));
+    page.drawCircle({ x: M + 3, y: y + 3, size: 2.2, color: t.red });
     y -= Math.max(31, wrap(row, regular, 9.5, W - M * 2 - 18).length * 14 + 11);
   });
   y -= 14;
-  page.drawLine({ start: { x: M, y }, end: { x: 260, y }, thickness: 0.8, color: ink });
+  page.drawLine({ start: { x: M, y }, end: { x: 260, y }, thickness: 0.8, color: t.text });
   tracked(page, 'SNAREBYT / LICENSOR',
-    { x: M, y: y - 17, size: 6.4, font: f.microBold, color: muted, spacing: 1.3 });
-  page.drawLine({ start: { x: 320, y }, end: { x: W - M, y }, thickness: 0.8, color: ink });
+    { x: M, y: y - 17, size: 6.4, font: f.microBold, color: t.muted, spacing: 1.3 });
+  page.drawLine({ start: { x: 320, y }, end: { x: W - M, y }, thickness: 0.8, color: t.text });
   tracked(page, data.licenseeName.toUpperCase().slice(0, 30),
-    { x: 320, y: y - 17, size: 6.4, font: f.microBold, color: muted, spacing: 1.3 });
-  page.drawText('Electronically issued and accepted', { x: M, y: y - 48, size: 8.5, font: regular, color: muted });
+    { x: 320, y: y - 17, size: 6.4, font: f.microBold, color: t.muted, spacing: 1.3 });
+  page.drawText('Electronically issued and accepted', { x: M, y: y - 48, size: 8.5, font: regular, color: t.muted });
 
   // Drawn last, because "PAGE 2 OF 5" cannot be written before the fifth page
   // exists — and a legal document that does not say how many pages it has is
   // a document nobody can tell is complete.
   pages.forEach((p, i) => {
-    header(p, f, data, i + 1, pages.length);
-    footer(p, f, data, fingerprint);
+    header(p, f, data, t, i + 1, pages.length);
+    footer(p, f, data, t, fingerprint);
   });
   return pdf.save({ useObjectStreams: false });
 }
@@ -373,6 +540,12 @@ export async function generateLicenceDocument(licenceId: string) {
     isExclusive: tier.isExclusive, transfersOwnership: tier.transfersOwnership,
     filesLabel: tier.filesLabel, performanceRights: tier.performanceRights,
     creditRequired: tier.creditRequired, termsEnglish, termsBangla,
+    // The figures the Limits page prints. Read from the tier rather than
+    // restated here, so the document and the store can never disagree about
+    // what somebody bought.
+    streamLimit: tier.streamLimit, saleLimit: tier.saleLimit,
+    videoLimit: tier.videoLimit, radioStations: tier.radioStations,
+    monetisation: tier.monetisation,
   });
   const signatureHash = createHash('sha256').update(bytes).digest('hex');
   await putPrivateObject({
