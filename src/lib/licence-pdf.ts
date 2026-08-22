@@ -196,7 +196,11 @@ async function renderBanglaTerms(body: string, maxRowsPerPage: number, ink: stri
       const y = top + n * 35;
       draw.fillStyle = accent;
       draw.beginPath(); draw.arc(6, y - 7, 4, 0, Math.PI * 2); draw.fill();
-      draw.fillStyle = '#040405';
+      // The body rows, in the theme's ink. These were hard-coded near-black,
+      // which on a near-black page rendered the entire Bangla half of a
+      // bilingual contract as invisible text — present in the file, unreadable
+      // on the screen.
+      draw.fillStyle = ink;
       draw.fillText(row, 28, y);
     });
     chunks.push({ png: canvas.toBuffer('image/png'), width, height });
@@ -214,21 +218,75 @@ type Fonts = { regular: PDFFont; bold: PDFFont; syne: PDFFont; micro: PDFFont; m
  * The sheet below stays white because this is a contract people print, file
  * and sometimes photocopy.
  */
+/**
+ * The wordmark, drawn rather than embedded.
+ *
+ * The same construction as the SVG on the site: SNAREBYT set as one locked
+ * unit in Syne, followed by the three red waveform bars — 292/298/304 at
+ * heights 10/20/5 in a 306-wide viewBox, scaled here. Vector, so it stays
+ * sharp at any zoom and adds no image asset to a document that has to render
+ * identically for years.
+ *
+ * The chrome gradient the site uses is not reproducible in a PDF content
+ * stream without embedding a raster, and a slightly blurry logo on a contract
+ * looks cheaper than a clean solid one. The mark is drawn in the paper's ink
+ * instead, which is what the gradient resolves to at this size anyway.
+ */
+function wordmark(page: PDFPage, f: Fonts, t: Theme, o: { x: number; y: number; size: number }) {
+  const letters = 'SNAREBYT';
+  const spacing = o.size * 0.026;
+  tracked(page, letters, {
+    x: o.x, y: o.y, size: o.size, font: f.syne, color: t.text, spacing,
+  });
+
+  // The tick sits just past the final T, proportioned from the type size so
+  // the lockup holds together at any scale.
+  const after = o.x + trackedWidth(letters, f.syne, o.size, spacing) + o.size * 0.16;
+  const unit = o.size / 46;
+  const bars: Array<[number, number, number]> = [
+    [0, 10, 6],   // x offset, height, y offset — from the SVG
+    [6, 20, 1],
+    [12, 5, 9],
+  ];
+  for (const [dx, h, dy] of bars) {
+    page.drawRectangle({
+      x: after + dx * unit,
+      y: o.y + (21 - dy - h) * unit,
+      width: 3 * unit,
+      height: h * unit,
+      color: t.red,
+    });
+  }
+}
+
 function header(page: PDFPage, f: Fonts, data: LicencePdfData, t: Theme, pageNo: number, pageCount?: number) {
   const bandH = 74;
-  page.drawRectangle({ x: 0, y: H - bandH, width: W, height: bandH, color: t.text });
-  // The red waveform tick from the wordmark, reduced to its essential mark.
-  page.drawRectangle({ x: 0, y: H - bandH, width: W, height: 2.4, color: t.red });
+  // The band is a shade off the page, not a block of the opposite colour. The
+  // previous version filled it with the TEXT colour, which on a dark document
+  // put a white stripe across the top of every page and hid the logo inside
+  // it — the masthead was drawn in the same colour as its own background.
+  page.drawRectangle({ x: 0, y: H - bandH, width: W, height: bandH, color: t.card });
+  page.drawLine({
+    start: { x: 0, y: H - bandH }, end: { x: W, y: H - bandH },
+    thickness: 0.6, color: t.line,
+  });
+  // The red rule, the one piece of the identity that punctuates rather than
+  // carries — same role it has at the top of the site.
+  page.drawRectangle({ x: 0, y: H - 2.4, width: W, height: 2.4, color: t.red });
 
-  tracked(page, 'SNAREBYT',
-    { x: M, y: H - 44, size: 19, font: f.syne, color: t.text, spacing: 0.5 });
+  wordmark(page, f, t, { x: M, y: H - 44, size: 17 });
+
   tracked(page, data.isExclusive ? 'EXCLUSIVE RIGHTS AGREEMENT' : 'BEAT LICENCE AGREEMENT',
-    { x: M, y: H - 60, size: 6.4, font: f.microBold, color: t.red, spacing: 1.7 });
+    { x: M, y: H - 60, size: 6.2, font: f.microBold, color: t.red, spacing: 1.7 });
 
   const ref = pageCount ? `${data.number}   PAGE ${pageNo} OF ${pageCount}` : data.number;
   tracked(page, ref, {
     x: W - M - trackedWidth(ref, f.micro, 6.6, 0.9), y: H - 44,
-    size: 6.6, font: f.micro, color: t.faint, spacing: 0.9,
+    size: 6.6, font: f.micro, color: t.muted, spacing: 0.9,
+  });
+  tracked(page, 'SNAREBYT.COM', {
+    x: W - M - trackedWidth('SNAREBYT.COM', f.micro, 6.2, 1.2), y: H - 60,
+    size: 6.2, font: f.micro, color: t.faint, spacing: 1.2,
   });
 }
 
@@ -288,10 +346,24 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
   let page = addPage();
   let y = H - 128;
 
+  // The document's own reference, set as the first thing on the page. On a
+  // contract the number is what gets quoted in an email, typed into a claim
+  // form and searched for later — it earns the top of the sheet more than a
+  // restatement of the title already in the masthead.
+  tracked(page, 'LICENCE NUMBER',
+    { x: M, y: y + 6, size: 6.2, font: f.microBold, color: t.red, spacing: 1.4 });
+  y -= 16;
+  tracked(page, data.number,
+    { x: M, y, size: 15, font: f.microBold, color: t.text, spacing: 1.1 });
+  y -= 30;
+
   page.drawText(data.isExclusive ? 'Exclusive ownership transfer' : 'Non-exclusive commercial licence', {
     x: M, y, size: 18, font: f.syne, color: t.text,
   });
-  y -= 29;
+  y -= 12;
+  // A short red rule under the title, the way the site marks a section.
+  page.drawRectangle({ x: M, y, width: 46, height: 2, color: t.red });
+  y -= 19;
   const intro = data.isExclusive
     ? 'This document records the exclusive rights purchased for the beat below. The beat is removed from sale when payment is verified.'
     : 'This document records the non-exclusive licence purchased for the beat below. The producer retains ownership and may license the beat to others.';
@@ -336,7 +408,10 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
 
   const drawSection = (title: string, body: string, font: PDFFont) => {
     page = addPage(); y = H - 126;
-    page.drawText(title, { x: M, y, size: 16, font: f.syne, color: t.text }); y -= 31;
+    page.drawText(title, { x: M, y, size: 16, font: f.syne, color: t.text });
+    y -= 11;
+    page.drawRectangle({ x: M, y, width: 40, height: 1.8, color: t.red });
+    y -= 21;
     const rows = wrap(body, font, 10, W - M * 2 - 18);
     for (const row of rows) {
       if (y < 78) { page = addPage(); y = H - 118; }
@@ -352,6 +427,8 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
      document and the store can never state different ceilings. */
   page = addPage(); y = H - 126;
   page.drawText('Limits and rules', { x: M, y, size: 16, font: f.syne, color: t.text });
+  y -= 11;
+  page.drawRectangle({ x: M, y, width: 40, height: 1.8, color: t.red });
   y -= 20;
   wrap('Everything this licence permits, with the ceiling that applies to each. A limit reached is a limit reached — come back for a higher tier rather than exceeding it.',
     regular, 9, W - M * 2).forEach((row) => {
@@ -415,6 +492,8 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
      route, which is nothing a claim reviewer should have to hunt for. */
   page = addPage(); y = H - 126;
   page.drawText('Proof of licence', { x: M, y, size: 16, font: f.syne, color: t.text });
+  y -= 11;
+  page.drawRectangle({ x: M, y, width: 40, height: 1.8, color: t.red });
   y -= 20;
   tracked(page, 'FOR COPYRIGHT CLAIMS ON YOUTUBE, SPOTIFY AND OTHER PLATFORMS',
     { x: M, y, size: 6.4, font: f.microBold, color: t.red, spacing: 1.3 });
@@ -446,6 +525,38 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
   });
   tracked(page, 'WHAT THIS DOCUMENT IS NOT',
     { x: M + 16, y: y - 16, size: 6.4, font: f.microBold, color: t.red, spacing: 1.3 });
+  y -= 78;
+
+  /* The authenticity block.
+   *
+   * A claim reviewer scanning a PDF is looking for one thing: is this a real
+   * document from a real rights holder, or something somebody typed. So the
+   * licensor is named in full, with a contact and the fingerprint, inside a
+   * ruled panel that reads as a seal rather than as more prose. */
+  const sealH = 96;
+  page.drawRectangle({
+    x: M, y: y - sealH + 14, width: W - M * 2, height: sealH,
+    color: t.card, borderColor: t.red, borderWidth: 1.1,
+  });
+  page.drawRectangle({ x: M, y: y + 12, width: W - M * 2, height: 2, color: t.red });
+
+  wordmark(page, f, t, { x: M + 18, y: y - 14, size: 13 });
+  tracked(page, 'LICENSOR AND RIGHTS HOLDER',
+    { x: M + 18, y: y - 28, size: 5.8, font: f.microBold, color: t.red, spacing: 1.4 });
+
+  const sealRows: Array<[string, string]> = [
+    ['Samir Islam, trading as SnareByt', 'Dhaka, Bangladesh'],
+    ['snarebyt@gmail.com', 'snarebyt.com'],
+  ];
+  sealRows.forEach(([left, right], i) => {
+    page.drawText(left, { x: M + 18, y: y - 46 - i * 13, size: 8.6, font: regular, color: t.text });
+    page.drawText(right, {
+      x: W - M - 18 - regular.widthOfTextAtSize(right, 8.6),
+      y: y - 46 - i * 13, size: 8.6, font: regular, color: t.muted,
+    });
+  });
+  tracked(page, `DOCUMENT FINGERPRINT ${fingerprint}`,
+    { x: M + 18, y: y - sealH + 26, size: 5.8, font: f.micro, color: t.faint, spacing: 0.9 });
   wrap(data.isExclusive
     ? 'It does not transfer the copyright in the composition unless a separate signed exclusive contract says so. It is proof of the rights granted, not a transfer of authorship.'
     : 'It is not a transfer of ownership and not an exclusive right. Other artists may hold their own licence to the same instrumental, and a claim from one of them is not a dispute with you.',
@@ -479,7 +590,10 @@ export async function renderLicencePdf(data: LicencePdfData): Promise<Uint8Array
   }
 
   page = addPage(); y = H - 126;
-  page.drawText('Electronic execution record', { x: M, y, size: 16, font: f.syne, color: t.text }); y -= 32;
+  page.drawText('Electronic execution record', { x: M, y, size: 16, font: f.syne, color: t.text });
+  y -= 11;
+  page.drawRectangle({ x: M, y, width: 40, height: 1.8, color: t.red });
+  y -= 22;
   const execution = [
     'The customer accepted the licence terms during checkout before the order was submitted.',
     'The payment gateway confirmed the exact order amount to SnareByt server-to-server before this document was issued.',

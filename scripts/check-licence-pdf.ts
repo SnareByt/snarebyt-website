@@ -71,6 +71,24 @@ async function main() {
     'the full-page path was not found');
   ok('nothing is left on a white ground', !darkOps.includes(WHITE_GROUND));
 
+  /* The masthead band. It used to be filled with the TEXT colour, which put a
+     white stripe across the top of every page and hid the wordmark inside it —
+     the exact opposite of a black document. */
+  ok('the masthead band is a shade of the page, not the text colour',
+    darkOps.includes('0.063 0.063 0.075 rg'),
+    'the header band was not drawn in the card colour');
+  /* The wordmark: SNAREBYT in Syne followed by the three red waveform bars.
+     Counting the red fills is what would notice the lockup silently vanishing
+     — the mark is the only thing on the page drawn in that colour repeatedly. */
+  const redFills = (darkOps.match(/1 0\.176 0\.29 rg/g) ?? []).length;
+  ok('the red mark is drawn throughout the document', redFills > 10,
+    `only ${redFills} red fills found — the wordmark bars or section rules are missing`);
+
+  /* The authenticity seal on the proof page is bordered in red rather than
+     the hairline every other panel uses, so it reads as a stamp. */
+  ok('the proof page carries a red-bordered seal', /1 0\.176 0\.29 RG/.test(darkOps),
+    'no red stroke colour was set anywhere');
+
   console.log('\nThe print theme is the same document on white\n');
 
   const light = Buffer.from(await renderLicencePdf({
